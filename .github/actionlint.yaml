@@ -1,0 +1,10 @@
+# actionlint config: declare custom self-hosted runner labels so the
+# linter doesn't flag them as "unknown".
+#
+# We pair `self-hosted` with `tart` to identify the macOS-arm64 runner
+# that has Tart + Virtualization.framework available. See
+# .github/workflows/build.yml (ADR-008 + ADR-015).
+
+self-hosted-runner:
+  labels:
+    - tart

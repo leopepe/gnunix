@@ -1,0 +1,31 @@
+#!/bin/sh
+# /etc/rc.d/rc.greetd — login manager.
+# greetd reads /etc/greetd/config.toml and presents tuigreet on a TTY; on
+# successful login it execs /usr/local/bin/start-wayland-session.sh, which
+# starts the Wayland compositor.
+
+GREETD=/nix/var/nix/profiles/system/bin/greetd
+PIDFILE=/run/greetd.pid
+
+case "${1:-start}" in
+  start)
+    if [ ! -x "$GREETD" ]; then
+      echo "[rc.greetd] $GREETD not found; skipping"
+      exit 0
+    fi
+    if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+      echo "[rc.greetd] already running"
+      exit 0
+    fi
+    mkdir -p /var/log
+    # Detach stdio (long-running daemon; supervises sessions across TTY swaps).
+    nohup "$GREETD" --config /etc/greetd/config.toml </dev/null \
+      >>/var/log/greetd.log 2>&1 &
+    echo $! > "$PIDFILE"
+    ;;
+  stop)
+    [ -f "$PIDFILE" ] && kill "$(cat "$PIDFILE")" 2>/dev/null
+    rm -f "$PIDFILE"
+    ;;
+  *) echo "usage: $0 {start|stop}"; exit 1 ;;
+esac

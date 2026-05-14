@@ -1,0 +1,13 @@
+# /etc/profile — system-wide login defaults
+
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+export LANG=C.UTF-8
+export EDITOR=vim
+export PAGER=less
+export PS1='\u@\h:\w\$ '
+umask 022
+
+# Nix daemon environment, if Nix is installed.
+if [ -e /etc/profile.d/nix-daemon.sh ]; then
+  . /etc/profile.d/nix-daemon.sh
+fi

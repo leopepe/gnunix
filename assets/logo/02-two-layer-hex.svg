@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" color="#1b1f24" role="img" aria-label="GNUnix — two-layer hex">
+  <title>GNUnix — Two-Layer Hex</title>
+  <desc>A hexagonal badge that visualises the two-layer architecture
+        from docs/architecture.md: a stepped solid base (GNU/LFS, static)
+        with three lambdas (Nix userland, dynamic) growing out of it.
+        Reads as both an architecture diagram and a sigil.</desc>
+
+  <!-- Hexagon outline (pointy-top), radius 96 around (128,128).
+       Vertices: (128,32) (211,80) (211,176) (128,224) (45,176) (45,80) -->
+  <polygon points="128,32 211,80 211,176 128,224 45,176 45,80"
+           fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="miter"/>
+
+  <!-- Bottom (base) layer: a stepped trapezoid sitting in the lower half.
+       Steps evoke GNUstep's staircase / Slackware-flavored ordered base. -->
+  <path d="
+    M 45 176
+    L 70 156  L 95 156
+    L 95 140  L 115 140
+    L 115 156 L 141 156
+    L 141 140 L 161 140
+    L 161 156 L 186 156
+    L 211 176
+    L 128 224 Z" />
+
+  <!-- Top (Nix) layer: three lambdas rising from the base.
+       Each lambda is a long-leg / short-leg pair (apex top, splaying). -->
+  <g>
+    <!-- center lambda -->
+    <polygon points="124,60 132,60 154,140 144,140 130,86 116,140 106,140"/>
+    <polygon points="129,86 136,86 154,140 146,140"/>
+
+    <!-- left lambda (smaller) -->
+    <polygon points="72,86 78,86 94,144 86,144 76,108 66,144 56,144"/>
+    <polygon points="76,108 81,108 94,144 88,144"/>
+
+    <!-- right lambda (smaller) -->
+    <polygon points="178,86 184,86 200,144 192,144 182,108 172,144 162,144"/>
+    <polygon points="182,108 187,108 200,144 194,144"/>
+  </g>
+</svg>

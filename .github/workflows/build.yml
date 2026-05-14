@@ -1,0 +1,491 @@
+# Build + smoke-test gnunix-{base,nix,desktop} and per-platform packages on a
+# macOS arm64 runner with Tart.
+#
+# Trigger model (ADR-008):
+#   * push to main      — build + smoke-test. Disk artifacts uploaded for
+#                         retention=30d (consumable by hotfix branches).
+#   * pull_request      — build + smoke-test (when changes warrant it).
+#                         Artifacts kept for 3d so PR reviewers can pull
+#                         and try them.
+#   * workflow_dispatch — manual rerun knob (with image-selection input).
+#   * push tag v*       — same as main, but artifacts retained 90d so
+#                         release.yml can attach them to the GH Release.
+#
+# Release publishing moved out of this workflow:
+#   This workflow no longer creates GitHub Releases. That's release.yml's
+#   job — it triggers on tag push, waits for THIS workflow's run on the
+#   same SHA to finish, downloads its artifacts, and drafts a release.
+#   See .github/workflows/release.yml and docs/runbooks/release.md.
+#
+# Scaffolded platforms (ADR-010 / platforms.md):
+#   rpi-native (Phase 6) and nuc-installer (Phase 5) are present in the
+#   `package` matrix but their packagers intentionally exit rc=2 until
+#   their prerequisites land. The step wrapper handles rc=2/rc=3 as
+#   expected outcomes rather than failures.
+#
+# Runner requirement:
+#   Self-hosted macOS arm64 with tart + jq + rsync + ssh + expect + zstd
+#   preinstalled. GitHub-hosted macOS runners don't expose
+#   Virtualization.framework, so Tart can't run there.
+#
+# Runner labels: `self-hosted`, `macOS`, `arm64`, `tart`.
+# Runner setup also needs: `~/.ssh/id_ed25519.pub` (generated on first run).
+
+name: Build images
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      images:
+        description: "Comma-separated list (gnunix-base, gnunix-nix, gnunix-desktop, gnunix-installer)"
+        required: false
+        default: "gnunix-base,gnunix-nix,gnunix-desktop,gnunix-installer"
+      installer_tests:
+        description: "Profiles to test (comma-separated subset of: minimal,desktop-sway,desktop-hyprland,desktop-labwc)"
+        required: false
+        default: "minimal,desktop-sway"
+
+concurrency:
+  # Tags get their own group so a tag build doesn't cancel an in-flight
+  # main-branch build (and vice versa). PRs each get their own slot.
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Artifact retention by event:
+#   pull_request → 3 days  (short feedback loop)
+#   tag v*       → 90 days (release.yml needs to download)
+#   everything else (main push, workflow_dispatch) → 30 days
+#
+# Repeated literally in every upload step because GitHub Actions doesn't
+# support workflow-level defaults for `with:` inputs. See discussion in
+# actions/upload-artifact#258.
+
+jobs:
+  # Phase 2: build gnunix-base from scratch (cross-toolchain through final image).
+  # ~6–10h on M-series; majority of the wall clock budget.
+  gnunix-base:
+    runs-on: [self-hosted, macOS, arm64, tart]
+    timeout-minutes: 720
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify host prerequisites
+        run: |
+          set -eu
+          for t in tart jq rsync ssh ssh-keygen expect zstd; do
+            command -v "$t" >/dev/null || { echo "missing: $t"; exit 1; }
+          done
+          tart --version
+
+      - name: Ensure host has an SSH key
+        run: |
+          set -eu
+          if [ ! -f "$HOME/.ssh/id_ed25519.pub" ]; then
+            mkdir -p "$HOME/.ssh"
+            ssh-keygen -t ed25519 -N '' -f "$HOME/.ssh/id_ed25519"
+          fi
+
+      - name: Resolve image version
+        id: version
+        run: |
+          v=$(jq -r .lfs_image_version tools/manifest.json)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pre-fetched source tarballs
+        uses: actions/cache@v4
+        with:
+          path: cache/sources
+          key: lfs-sources-${{ hashFiles('tools/manifest.json') }}
+          restore-keys: |
+            lfs-sources-
+
+      - name: Pre-fetch sources (Stage 0)
+        run: tools/fetch-sources.sh
+
+      - name: Bootstrap gnunix-builder (idempotent, ~once per runner)
+        run: tools/bootstrap-builder.sh
+
+      - name: Build gnunix-base
+        run: tools/build-all.sh gnunix-base
+
+      - name: Smoke test gnunix-base
+        run: tests/boot-smoke.sh gnunix-base-${{ steps.version.outputs.version }}
+
+      - name: Collect build metadata
+        if: always()
+        run: |
+          set -eu
+          mkdir -p meta
+          cp tools/manifest.json meta/
+          [ -f /tmp/lfs-build-logs/build.log ] && cp /tmp/lfs-build-logs/build.log meta/gnunix-base-build.log || true
+
+      - name: Upload gnunix-base metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnunix-base-meta-${{ github.run_id }}
+          path: meta/
+          retention-days: 14
+
+      - name: Upload gnunix-base raw disk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnunix-base-disk-${{ steps.version.outputs.version }}
+          path: cache/artifacts/gnunix-base-disk-${{ steps.version.outputs.version }}.img.zst
+          if-no-files-found: error
+          retention-days: ${{ github.event_name == 'pull_request' && 3 || (startsWith(github.ref, 'refs/tags/v') && 90 || 30) }}
+
+      - name: Stop VMs (so the runner is reusable)
+        if: always()
+        run: |
+          for vm in gnunix-base-${{ steps.version.outputs.version }} gnunix-builder-build gnunix-builder; do
+            tart stop "$vm" 2>/dev/null || true
+          done
+
+  # Phase 3: layer Nix on gnunix-base → gnunix-nix. ~5–15 min; depends on gnunix-base.
+  gnunix-nix:
+    needs: gnunix-base
+    runs-on: [self-hosted, macOS, arm64, tart]
+    timeout-minutes: 60
+    # Skip Phase 3 when caller explicitly limits to gnunix-base only.
+    if: |
+      github.event_name != 'workflow_dispatch' ||
+      contains(github.event.inputs.images, 'gnunix-nix')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify host prerequisites
+        run: |
+          set -eu
+          for t in tart jq rsync ssh zstd; do
+            command -v "$t" >/dev/null || { echo "missing: $t"; exit 1; }
+          done
+
+      - name: Cache pre-fetched source tarballs
+        uses: actions/cache@v4
+        with:
+          path: cache/sources
+          key: lfs-sources-${{ hashFiles('tools/manifest.json') }}
+          restore-keys: |
+            lfs-sources-
+
+      - name: Fetch Nix binary tarball if not cached
+        run: tools/fetch-sources.sh # idempotent; only downloads what's missing
+
+      - name: Build gnunix-nix (layered on gnunix-base-${{ needs.gnunix-base.outputs.version }})
+        run: tools/build-all.sh gnunix-nix
+
+      - name: Smoke test gnunix-nix
+        run: tests/nix-smoke.sh gnunix-nix-${{ needs.gnunix-base.outputs.version }}
+
+      - name: Collect build metadata
+        if: always()
+        run: |
+          set -eu
+          mkdir -p meta
+          [ -f /tmp/lfs-build-logs/gnunix-nix-build.log ] && cp /tmp/lfs-build-logs/gnunix-nix-build.log meta/ || true
+
+      - name: Upload gnunix-nix metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnunix-nix-meta-${{ github.run_id }}
+          path: meta/
+          retention-days: 14
+
+      - name: Upload gnunix-nix raw disk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnunix-nix-disk-${{ needs.gnunix-base.outputs.version }}
+          path: cache/artifacts/gnunix-nix-disk-${{ needs.gnunix-base.outputs.version }}.img.zst
+          if-no-files-found: error
+          retention-days: ${{ github.event_name == 'pull_request' && 3 || (startsWith(github.ref, 'refs/tags/v') && 90 || 30) }}
+
+      - name: Stop VMs
+        if: always()
+        run: |
+          for vm in gnunix-nix-${{ needs.gnunix-base.outputs.version }} gnunix-nix-build; do
+            tart stop "$vm" 2>/dev/null || true
+          done
+
+  # Phase 4: layer Wayland stack (dbus, elogind, greetd, sway) on gnunix-nix →
+  # gnunix-desktop. ~10-25 min; depends on gnunix-nix.
+  gnunix-desktop:
+    needs: [gnunix-base, gnunix-nix]
+    runs-on: [self-hosted, macOS, arm64, tart]
+    timeout-minutes: 60
+    # Skip when caller explicitly limits to upstream phases.
+    if: |
+      github.event_name != 'workflow_dispatch' ||
+      contains(github.event.inputs.images, 'gnunix-desktop')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify host prerequisites
+        run: |
+          set -eu
+          for t in tart jq rsync ssh zstd; do
+            command -v "$t" >/dev/null || { echo "missing: $t"; exit 1; }
+          done
+
+      - name: Build gnunix-desktop (layered on gnunix-nix-${{ needs.gnunix-base.outputs.version }})
+        run: tools/build-all.sh gnunix-desktop
+
+      - name: Smoke test gnunix-desktop
+        run: tests/wayland-session.sh gnunix-desktop-${{ needs.gnunix-base.outputs.version }}
+
+      - name: Collect build metadata
+        if: always()
+        run: |
+          set -eu
+          mkdir -p meta
+          [ -f /tmp/lfs-build-logs/gnunix-desktop-build.log ] && cp /tmp/lfs-build-logs/gnunix-desktop-build.log meta/ || true
+
+      - name: Upload gnunix-desktop metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnunix-desktop-meta-${{ github.run_id }}
+          path: meta/
+          retention-days: 14
+
+      - name: Upload gnunix-desktop raw disk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnunix-desktop-disk-${{ needs.gnunix-base.outputs.version }}
+          path: cache/artifacts/gnunix-desktop-disk-${{ needs.gnunix-base.outputs.version }}.img.zst
+          if-no-files-found: error
+          retention-days: ${{ github.event_name == 'pull_request' && 3 || (startsWith(github.ref, 'refs/tags/v') && 90 || 30) }}
+
+      - name: Stop VMs
+        if: always()
+        run: |
+          for vm in gnunix-desktop-${{ needs.gnunix-base.outputs.version }} gnunix-desktop-build; do
+            tart stop "$vm" 2>/dev/null || true
+          done
+
+  # Phase 5 (ADR-010): per-platform packaging matrix. For every
+  # (image, arch, platform) triple where the platform supports the arch,
+  # run tools/package-platform.sh.
+  #
+  # Scaffolded platforms (rpi-native, nuc-installer) intentionally exit
+  # rc=2; the step wrapper maps that to a workflow warning instead of a
+  # job failure, so PRs don't go red on "scaffolded, not yet building".
+  # Upload only happens when rc=0.
+  package:
+    needs: [gnunix-base, gnunix-nix, gnunix-desktop]
+    runs-on: [self-hosted, macOS, arm64, tart]
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [gnunix-nix, gnunix-desktop]
+        arch: [aarch64] # x86_64 added once a Linux runner exists
+        platform: [generic-uefi, rpi-native]
+        # No exclude — the rc=2/rc=3 handling below makes "scaffolded" /
+        # "arch unsupported" non-fatal. nuc-installer is absent from the
+        # matrix because it's x86_64-only and we don't have that runner yet.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: echo "version=$(jq -r .lfs_image_version tools/manifest.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Package ${{ matrix.image }} for ${{ matrix.arch }} / ${{ matrix.platform }}
+        id: pkg
+        env:
+          IMAGE: ${{ matrix.image }}
+          ARCH: ${{ matrix.arch }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set +e
+          tools/package-platform.sh "$IMAGE" "$ARCH" "$PLATFORM"
+          rc=$?
+          set -e
+          # Exit codes per docs/runbooks/platforms.md § "Dispatcher exit codes":
+          #   0  artifact produced
+          #   1  bad usage / unknown image / unknown arch        → fail
+          #   2  platform scaffolded; prereqs not met            → warn, continue
+          #   3  platform doesn't support this arch              → notice, continue
+          #   4  no source base image                            → fail (upstream job didn't produce it)
+          #   5  arch != manifest.active_arch                    → fail
+          case "$rc" in
+            0)
+              echo "status=produced" >> "$GITHUB_OUTPUT"
+              echo "[package] $IMAGE/$ARCH/$PLATFORM produced"
+              ;;
+            2)
+              echo "status=scaffolded" >> "$GITHUB_OUTPUT"
+              echo "::warning title=Platform scaffolded::$PLATFORM/$ARCH prereqs not met (rc=2); see docs/TODO.md"
+              ;;
+            3)
+              echo "status=unsupported" >> "$GITHUB_OUTPUT"
+              echo "::notice title=Arch unsupported::$PLATFORM does not support $ARCH (rc=3) — expected"
+              ;;
+            *)
+              echo "::error title=Packager failed::$IMAGE/$ARCH/$PLATFORM exited with rc=$rc (see platforms.md for the meaning)"
+              exit "$rc"
+              ;;
+          esac
+
+      - name: Upload platform artifact
+        if: steps.pkg.outputs.status == 'produced'
+        uses: actions/upload-artifact@v4
+        with:
+          # Per docs/runbooks/platforms.md, artifacts are named
+          # <image>-<platform>-<arch>-<ver>.{img.zst,iso}. The image
+          # extension depends on the platform's output_format in
+          # manifest.json (generic-uefi/rpi-native → raw-img; nuc-installer
+          # → hybrid-iso). We list both globs and let if-no-files-found:warn
+          # pick whichever exists.
+          name: ${{ matrix.image }}-${{ matrix.platform }}-${{ matrix.arch }}-${{ steps.version.outputs.version }}
+          path: |
+            cache/artifacts/${{ matrix.image }}-${{ matrix.platform }}-${{ matrix.arch }}-${{ steps.version.outputs.version }}.img.zst
+            cache/artifacts/${{ matrix.image }}-${{ matrix.platform }}-${{ matrix.arch }}-${{ steps.version.outputs.version }}.iso
+          if-no-files-found: warn
+          retention-days: ${{ github.event_name == 'pull_request' && 3 || (startsWith(github.ref, 'refs/tags/v') && 90 || 30) }}
+
+  # ADR-015: live installer image layered on gnunix-desktop. ~10-15 min.
+  # End-user artifact: dd-to-USB and boot for a TUI installer that lets
+  # the user pick { minimal | desktop-sway | desktop-hyprland | desktop-labwc }.
+  gnunix-installer:
+    needs: [gnunix-base, gnunix-nix, gnunix-desktop]
+    runs-on: [self-hosted, macOS, arm64, tart]
+    timeout-minutes: 45
+    if: |
+      github.event_name != 'workflow_dispatch' ||
+      contains(github.event.inputs.images, 'gnunix-installer')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify host prerequisites
+        run: |
+          set -eu
+          for t in tart jq rsync ssh zstd; do
+            command -v "$t" >/dev/null || { echo "missing: $t"; exit 1; }
+          done
+
+      - name: Build gnunix-installer (layered on gnunix-desktop-${{ needs.gnunix-base.outputs.version }})
+        run: tools/build-all.sh gnunix-installer
+
+      - name: Collect build metadata
+        if: always()
+        run: |
+          set -eu
+          mkdir -p meta
+          [ -f /tmp/lfs-build-logs/gnunix-installer-build.log ] && cp /tmp/lfs-build-logs/gnunix-installer-build.log meta/ || true
+
+      - name: Upload gnunix-installer metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnunix-installer-meta-${{ github.run_id }}
+          path: meta/
+          retention-days: 14
+
+      - name: Upload gnunix-installer raw disk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnunix-installer-disk-${{ needs.gnunix-base.outputs.version }}
+          # build.sh emits the raw .img and zstd-compressed sibling.
+          path: cache/artifacts/gnunix-installer-aarch64-${{ needs.gnunix-base.outputs.version }}.img.zst
+          if-no-files-found: error
+          retention-days: ${{ github.event_name == 'pull_request' && 3 || (startsWith(github.ref, 'refs/tags/v') && 90 || 30) }}
+
+      - name: Stop VMs
+        if: always()
+        run: |
+          for vm in gnunix-installer-${{ needs.gnunix-base.outputs.version }} gnunix-installer-build; do
+            tart stop "$vm" 2>/dev/null || true
+          done
+
+  # ADR-015 acceptance: drive gnunix-installer unattended against an
+  # empty target disk, then boot the installed system and run the
+  # universal + per-profile assertions in tests/installer/.
+  #
+  # Per profile budget: ~10–20 min wall clock (install + reboot + asserts).
+  # Network-dependent profiles (desktop-hyprland, desktop-labwc) pull the
+  # compositor closure from cache.nixos.org during install — flakier;
+  # default subset for PR runs is minimal + desktop-sway.
+  installer-test:
+    needs: [gnunix-base, gnunix-installer]
+    runs-on: [self-hosted, macOS, arm64, tart]
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [minimal, desktop-sway, desktop-hyprland, desktop-labwc]
+    steps:
+      - name: Should this profile run?
+        id: gate
+        run: |
+          # PR / push  → only minimal + desktop-sway (offline, fast).
+          # tag / workflow_dispatch → run whatever the user asked for.
+          run=false
+          case "${{ github.event_name }}" in
+            pull_request|push)
+              case "${{ matrix.profile }}" in
+                minimal|desktop-sway) run=true ;;
+              esac
+              ;;
+            workflow_dispatch)
+              if echo '${{ github.event.inputs.installer_tests }}' | tr ',' '\n' | grep -qx '${{ matrix.profile }}'; then
+                run=true
+              fi
+              ;;
+            *)
+              # tags / scheduled / anything else: run everything.
+              run=true
+              ;;
+          esac
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          [ "$run" = "true" ] || echo "::notice title=Profile skipped::${{ matrix.profile }} not in this event's profile set"
+
+      - name: Checkout
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Verify host prerequisites
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          set -eu
+          for t in tart jq rsync ssh dd; do
+            command -v "$t" >/dev/null || { echo "missing: $t"; exit 1; }
+          done
+
+      - name: Run installer + boot installed + assert (${{ matrix.profile }})
+        if: steps.gate.outputs.run == 'true'
+        run: tests/installer/profile-${{ matrix.profile == 'minimal' && 'minimal' || matrix.profile == 'desktop-sway' && 'sway' || matrix.profile == 'desktop-hyprland' && 'hyprland' || 'labwc' }}.sh
+
+      - name: Upload failure artifact (target image)
+        if: failure() && steps.gate.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-test-fail-${{ matrix.profile }}-${{ github.run_id }}
+          path: cache/installer-test/${{ matrix.profile }}-target.img
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Stop VMs and clean leftovers
+        if: always() && steps.gate.outputs.run == 'true'
+        run: |
+          for vm in gnunix-installer-test gnunix-installed-${{ matrix.profile }}; do
+            tart stop "$vm" 2>/dev/null || true
+            # Only auto-delete on success; preserve on failure for debugging.
+            if [ "${{ job.status }}" = "success" ]; then
+              tart delete "$vm" 2>/dev/null || true
+            fi
+          done

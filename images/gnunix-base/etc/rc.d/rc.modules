@@ -1,0 +1,33 @@
+#!/bin/sh
+# /etc/rc.d/rc.modules — explicit module loader.
+#
+# Reads /etc/modules-load.d/*.conf and modprobes each module listed.
+# Called from rc.S after `udevadm trigger`, so eudev's MODALIAS
+# autoloading wins for hardware-detected modules; this script is for the
+# small set of modules without a MODALIAS or needed before a device exists
+# (network tunnels, dummy interfaces, per-platform overlays).
+#
+# Format of *.conf: one module name per line. Lines starting with '#'
+# and blank lines are ignored. Module names may include modprobe options,
+# but the common case is a bare name.
+
+set -u
+
+DIR=/etc/modules-load.d
+[ -d "$DIR" ] || exit 0
+
+echo "[rc.modules] loading from $DIR/*.conf"
+for f in "$DIR"/*.conf; do
+  [ -e "$f" ] || continue   # glob expanded to literal when no matches
+  while IFS= read -r line || [ -n "$line" ]; do
+    # strip comments and trim
+    line=${line%%#*}
+    line=$(printf '%s' "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    [ -z "$line" ] && continue
+    echo "[rc.modules]   modprobe $line"
+    # `modprobe -ab` for the bare-name case keeps going on per-module errors
+    # (-a = all listed names, -b = obey blacklist).
+    modprobe -ab $line 2>&1 || true
+  done < "$f"
+done
+echo "[rc.modules] done"

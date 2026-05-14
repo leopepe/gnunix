@@ -1,0 +1,48 @@
+# Reconcile GitHub repo labels with .github/labels.yml.
+#
+# Runs on:
+#   - push to main that touches the labels file
+#   - workflow_dispatch (manual rerun)
+#
+# Idempotent: re-running with no changes is a no-op. Labels not in the YAML
+# file are NOT deleted by default (delete-other-labels: false); flip that to
+# true once you're confident the YAML covers everything.
+
+name: Labels sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/labels.yml'
+      - '.github/workflows/labels-sync.yml'
+  workflow_dispatch:
+    inputs:
+      delete-others:
+        description: "Delete labels not in labels.yml (destructive)"
+        required: false
+        default: "false"
+
+permissions:
+  issues: write   # required to create/update/delete labels
+
+concurrency:
+  group: labels-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync labels
+        uses: EndBug/label-sync@v2
+        with:
+          config-file: .github/labels.yml
+          # Default is non-destructive — labels in GitHub that aren't in the
+          # YAML are left alone. Flip via workflow_dispatch input when you
+          # explicitly want to prune.
+          delete-other-labels: ${{ inputs.delete-others == 'true' }}
+          token: ${{ secrets.GITHUB_TOKEN }}

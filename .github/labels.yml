@@ -1,0 +1,132 @@
+# GNUnix label palette — single source of truth.
+#
+# Synced to GitHub by .github/workflows/labels-sync.yml on push to main.
+# Edit this file, not the GitHub UI; the workflow will reconcile.
+#
+# Three families:
+#
+#   type/   — what kind of issue/PR (bug, enhancement, adr, ...)
+#   area/   — which part of the codebase it touches
+#   status/ — workflow state (needs-triage, needs-info, blocked, ...)
+#
+# Plus a few loose labels that don't fit a family: breaking-change,
+# claude-review, dependencies, renovate.
+#
+# Colors are hex without the leading '#'. Pick from existing palettes
+# rather than inventing new ones — visual density matters at 25+ labels.
+
+# ─── type/ ─────────────────────────────────────────────────────────────
+
+- name: bug
+  color: d73a4a
+  description: Something doesn't work as documented.
+
+- name: enhancement
+  color: a2eeef
+  description: A non-architectural improvement to existing code.
+
+- name: documentation
+  color: 0075ca
+  description: Docs are wrong, missing, or outdated.
+
+- name: question
+  color: d876e3
+  description: A question about how to use or understand GNUnix.
+
+- name: adr
+  color: 7057ff
+  description: Proposes a new load-bearing decision; needs an ADR.
+
+- name: security
+  color: b60205
+  description: Security-sensitive — handle via security advisory if exploitable.
+
+- name: good-first-issue
+  color: 008672
+  description: A productive starting point for new contributors.
+
+- name: help-wanted
+  color: 008672
+  description: Maintainer would welcome a PR for this.
+
+# ─── area/ ──────────────────────────────────────────────────────────────
+
+- name: area/base
+  color: fbca04
+  description: gnunix-base — LFS base image, Phase 2.
+
+- name: area/nix
+  color: fef2c0
+  description: gnunix-nix — multi-user Nix layer, Phase 3.
+
+- name: area/desktop
+  color: f9d0c4
+  description: gnunix-desktop — Wayland session layer, Phase 4.
+
+- name: area/builder
+  color: fcb1c2
+  description: gnunix-builder — the Tart VM that runs LFS builds.
+
+- name: area/platforms
+  color: c2e0c6
+  description: Per-platform packaging (generic-uefi, rpi-native, nuc-installer).
+
+- name: area/ci
+  color: bfdadc
+  description: .github/workflows, CI pipelines, Renovate.
+
+- name: area/docs
+  color: c5def5
+  description: docs/, runbooks, ADRs.
+
+- name: area/tools
+  color: d4c5f9
+  description: tools/ and scripts/ — pipeline and helpers.
+
+- name: area/tests
+  color: e99695
+  description: tests/ — smoke tests and validation.
+
+# ─── status/ ────────────────────────────────────────────────────────────
+
+- name: needs-triage
+  color: ededed
+  description: Default for new issues; not yet reviewed by a maintainer.
+
+- name: needs-info
+  color: fbca04
+  description: Waiting on the reporter for more information.
+
+- name: blocked
+  color: b60205
+  description: Cannot proceed — waiting on upstream / a prior issue / external.
+
+- name: wontfix
+  color: ffffff
+  description: Deliberately out of scope (per ADR or current phase).
+
+- name: duplicate
+  color: cfd3d7
+  description: Already reported elsewhere.
+
+# ─── loose ─────────────────────────────────────────────────────────────
+
+- name: breaking-change
+  color: b60205
+  description: Will require a coordinated bump or manual migration.
+
+- name: ai-review
+  color: 7057ff
+  description: Triggers the advisory AI PR review (ADR-014).
+
+- name: claude-review
+  color: 7057ff
+  description: Alias for ai-review (legacy; kept for back-compat with ADR-014's first draft).
+
+- name: dependencies
+  color: 0366d6
+  description: Pinned-version bumps; usually Renovate-authored (ADR-008).
+
+- name: renovate
+  color: 168700
+  description: Authored by Renovate (ADR-008).

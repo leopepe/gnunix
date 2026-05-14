@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" color="#1b1f24" role="img" aria-label="GNUnix — stepped G monogram">
+  <title>GNUnix — Stepped G Monogram</title>
+  <desc>A blocky G letterform with a pixel-art / stepped outer contour
+        (GNUstep), nested with a lambda inside the counter (NixOS).
+        Reads as the wordmark initial.</desc>
+
+  <!-- Stepped G outline. Designed on an 8-unit grid; pixel = 16 SVG units.
+       Outer staircase silhouette + inner counter, drawn with even-odd fill. -->
+  <path fill-rule="evenodd" d="
+    M 64 32
+    L 192 32
+    L 192 48
+    L 208 48
+    L 208 64
+    L 224 64
+    L 224 80
+    L 192 80
+    L 192 64
+    L 80 64
+    L 80 80
+    L 64 80
+    L 64 176
+    L 80 176
+    L 80 192
+    L 192 192
+    L 192 144
+    L 144 144
+    L 144 128
+    L 224 128
+    L 224 208
+    L 208 208
+    L 208 224
+    L 192 224
+    L 192 240
+    L 64 240
+    L 64 224
+    L 48 224
+    L 48 208
+    L 32 208
+    L 32 64
+    L 48 64
+    L 48 48
+    L 64 48
+    Z
+
+    M 104 96
+    L 168 96
+    L 168 112
+    L 104 112
+    Z
+  "/>
+
+  <!-- Lambda nested inside the G's counter (right side of G's opening). -->
+  <g>
+    <!-- Long leg of lambda -->
+    <polygon points="148,128 156,128 132,200 122,200"/>
+    <!-- Short leg of lambda, branches lower from long leg -->
+    <polygon points="151,160 158,160 176,200 168,200"/>
+  </g>
+</svg>

@@ -1,0 +1,69 @@
+GNUnix
+======
+
+This LICENSE applies to the build scripts, configuration, documentation,
+and other infrastructure in this repository — the files that make up the
+GNUnix distribution itself.
+
+It does NOT apply to the upstream software that GNUnix builds and packages
+(the Linux kernel, glibc, gcc, binutils, sysvinit, eudev, dbus, elogind,
+GRUB, Nix, nixpkgs, sway, foot, and the rest of the userland). Each of
+those retains its own upstream license (GPL, LGPL, BSD, MIT, MPL, Apache,
+etc.) and is distributed under those terms.
+
+The license below is the one used by Slackware Linux's build scripts. We
+adopt it because the project philosophy is Slackware-adjacent (boring base,
+no policy in PID 1, hand-curated `/etc/rc.d/`) and because it's the most
+permissive form a copyright notice can take while still being a recognised
+open-source license.
+
+----------------------------------------------------------------------
+
+Copyright (c) 2026 The GNUnix contributors
+All rights reserved.
+
+Redistribution and use of this script, with or without modification, is
+permitted provided that the following conditions are met:
+
+1. Redistributions of this script must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+
+THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+AUTHORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+
+----------------------------------------------------------------------
+
+A note on lineage
+-----------------
+
+The wording above is the canonical license header carried by every
+SlackBuild script in the Slackware project. It is a one-clause BSD-style
+permissive license — sometimes called the "Slackware build script license"
+or "BSD-1-Clause" (SPDX: `BSD-1-Clause`). It is compatible with the GPL
+and with the licenses of every package GNUnix builds.
+
+A note on the produced images
+-----------------------------
+
+When GNUnix produces a Tart VM image, raw `.img.zst`, or hybrid `.iso`, the
+resulting artifact is a *collection* of separately-licensed software, just
+like any Linux distribution. Each binary in `/usr`, `/bin`, `/lib`, and
+under `/nix/store` retains its upstream license. The license terms above
+cover only the GNUnix-authored glue (rc.d scripts, build pipeline, Nix
+expressions under `bundles/`, manifest, runbooks, ADRs, etc.) — not the
+software the pipeline builds.
+
+A note on contributions
+-----------------------
+
+By submitting a contribution (pull request, patch, issue, etc.) to this
+repository, you agree that your contribution may be distributed under the
+terms of this license. See `CONTRIBUTING.md` for the contribution process.

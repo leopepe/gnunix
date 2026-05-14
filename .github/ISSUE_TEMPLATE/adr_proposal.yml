@@ -1,0 +1,100 @@
+name: 📐 ADR proposal
+description: Propose a new load-bearing decision that needs an Architecture Decision Record.
+title: "[adr] "
+labels: ["adr", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Per `CLAUDE.md`, **load-bearing decisions get an ADR.** Examples of
+        load-bearing decisions:
+
+        - Adding or replacing a system-level dependency (a new init system,
+          a new bootloader, a new compositor, an MAC framework).
+        - Changing the build pipeline shape (a new build phase, a new
+          image lineage step).
+        - Setting a precedent other contributors will follow ("we use X
+          for all Y").
+
+        If your change doesn't set a precedent and doesn't conflict with an
+        existing locked decision, the **Feature request** template is the
+        right one.
+
+        The discussion in this issue produces a PR that *adds* a new
+        `docs/adrs/ADR-NNN-short-name.md` file. The format is short and
+        templated — see any existing ADR (ADR-001 through ADR-014).
+
+  - type: input
+    id: title
+    attributes:
+      label: Proposed ADR title
+      placeholder: "Use Wayland portal X for screen sharing"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: |
+        What's the problem? What constraint or new requirement is forcing a
+        decision? Reference existing ADRs that are relevant.
+      placeholder: |
+        Today gnunix-desktop ships sway but no xdg-desktop-portal backend, so
+        screen-sharing, file-pickers, and global shortcuts from sandboxed
+        apps don't work. Phase 4 follow-up in docs/TODO.md flags this; we
+        need to pick a backend.
+    validations:
+      required: true
+
+  - type: textarea
+    id: options
+    attributes:
+      label: Options considered
+      description: |
+        List the alternatives you considered (including "do nothing"). For
+        each, note the tradeoff in one or two lines.
+      placeholder: |
+        1. xdg-desktop-portal-wlr — designed for wlroots compositors; lightweight.
+        2. xdg-desktop-portal-gtk — full-featured but pulls in GTK.
+        3. Do nothing — accept that some apps won't work.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed decision
+      description: Which option you're recommending, and why.
+    validations:
+      required: true
+
+  - type: textarea
+    id: consequences
+    attributes:
+      label: Consequences
+      description: |
+        What changes if we adopt this? New files, new dependencies, new
+        maintenance burden, new tests. Be honest about the costs.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: conflicts
+    attributes:
+      label: Conflicts with locked decisions?
+      description: Check the table in `CLAUDE.md § Locked decisions`.
+      options:
+        - "No — this is a new area not covered by any existing ADR."
+        - "Yes — it amends an existing ADR (note which one below)."
+        - "Yes — it replaces an existing ADR's decision."
+    validations:
+      required: true
+
+  - type: textarea
+    id: amends
+    attributes:
+      label: If it amends/replaces existing ADRs, which ones?
+      placeholder: "Amends ADR-009 § scope; supersedes nothing."
+    validations:
+      required: false

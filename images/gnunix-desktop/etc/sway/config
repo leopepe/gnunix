@@ -1,0 +1,51 @@
+# Default sway config.
+#
+# Minimal starter so a fresh image has a usable session out of the box.
+# User-level overrides go in ~/.config/sway/config (or home-manager).
+
+### Keys
+set $mod Mod4
+set $term /nix/var/nix/profiles/system/bin/foot
+
+# Launch terminal
+bindsym $mod+Return exec $term
+
+# Kill focused window
+bindsym $mod+Shift+q kill
+
+# Reload config
+bindsym $mod+Shift+c reload
+
+# Exit sway
+bindsym $mod+Shift+e exec swaynag -t warning -m 'Exit sway?' -B 'Yes' 'swaymsg exit'
+
+# Tile / float / focus
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
+bindsym $mod+Shift+space floating toggle
+
+# Workspaces 1-9
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+
+### Appearance
+font pango:monospace 10
+default_border pixel 2
+
+### Output
+output * bg #1d2021 solid_color
+
+### Input
+input "type:keyboard" {
+    xkb_layout us
+}
+
+### Status bar — waybar (wayland-native layer-shell bar).
+# `sh -c` wrap is required: sway's config parser splits on `;` and would
+# misinterpret a bare `waybar &` as a sway directive.
+exec_always sh -c 'pkill -x waybar; waybar >/tmp/waybar.log 2>&1 &'

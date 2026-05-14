@@ -1,0 +1,54 @@
+name: 📝 Documentation issue
+description: Something in the docs is wrong, missing, or outdated.
+title: "[docs] "
+labels: ["documentation", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for: factual errors in runbooks, ADRs that don't match the
+        code, missing rationale, broken cross-references, stale commands.
+
+        Per CLAUDE.md: "If a doc is factually wrong, fix the fact; don't
+        restructure for style." Restructure-only PRs are not in scope.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of doc issue?
+      options:
+        - Factual error (the doc says X, but the code does Y)
+        - Outdated (the command/flag/path no longer exists)
+        - Missing rationale (the code does X but no ADR/comment says why)
+        - Broken cross-reference (link to an ADR or runbook that doesn't exist)
+        - Missing runbook (a procedure that should be documented isn't)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: file
+    attributes:
+      label: Which file?
+      description: Path from the repo root.
+      placeholder: "docs/runbooks/build.md § Persistence gotcha"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's wrong?
+      description: Quote the offending text if possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested
+    attributes:
+      label: Suggested fix (optional)
+      description: |
+        If you already know what it should say, paste the replacement here.
+        A doc PR is often quicker than a doc issue.
+    validations:
+      required: false

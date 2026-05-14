@@ -1,0 +1,95 @@
+// Renovate config for lfs-nix-distro (ADR-008).
+//
+// We pin everything in tools/manifest.json (sha256 + url + version). Most
+// pins aren't expressible in a standard Renovate package manager — they're
+// named tarballs from upstream FTP/HTTPS sources. So we lean on custom
+// regex managers to detect bumps, and gate auto-merge by package class.
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+  ],
+  timezone: "Europe/Madrid",
+  schedule: ["before 6am on monday"],
+  prHourlyLimit: 4,
+  prConcurrentLimit: 8,
+  // Group nixpkgs bumps so they don't flood (ADR-008).
+  packageRules: [
+    {
+      // Auto-merge userland bumps that pass CI: shells, editors, network
+      // tools, ncurses/readline/expat, openssl, etc.
+      matchPackageNames: [
+        "bash", "coreutils", "diffutils", "file", "findutils", "gawk",
+        "grep", "gzip", "m4", "make", "patch", "sed", "tar", "xz",
+        "less", "vim", "ncurses", "readline", "expat", "zlib",
+        "iproute2", "iputils", "dhcpcd", "e2fsprogs", "shadow", "pam",
+        "openssh", "openssl", "libxcrypt",
+        "bison", "flex", "gperf", "pkgconf",
+        "util-linux",
+      ],
+      automerge: true,
+      automergeType: "branch",
+    },
+    {
+      // Human review required for anything that affects boot or the
+      // toolchain (ADR-008: base bumps gated on human review).
+      matchPackageNames: [
+        "binutils", "gcc", "glibc", "linux-headers", "linux",
+        "gmp", "mpfr", "mpc", "isl",
+        "sysvinit", "eudev", "dbus", "elogind",
+        "grub",
+        "perl", "python",   // toolchain-adjacent: bumps have caught us before
+      ],
+      automerge: false,
+      labels: ["base-bump", "needs-human-review"],
+    },
+  ],
+  customManagers: [
+    // Detect bumps in tools/manifest.json — a JSON file with version/url/sha256
+    // tuples. Renovate's standard JSON manager doesn't understand our shape,
+    // so we use a regex manager: match the version line and let Renovate
+    // resolve current upstream via the named datasource.
+    {
+      customType: "regex",
+      fileMatch: ["^tools/manifest\\.json$"],
+      matchStrings: [
+        // GNU FTP tarballs: ftp.gnu.org/gnu/<pkg>/<pkg>-X.Y.Z.tar.*
+        "\"(?<depName>[a-z0-9_-]+)\":\\s*\\{\\s*\"version\":\\s*\"(?<currentValue>[0-9.]+(?:p[0-9]+)?)\",\\s*\"url\":\\s*\"https://ftp\\.gnu\\.org/gnu/[^/]+/",
+      ],
+      datasourceTemplate: "git-tags",
+      registryUrlTemplate: "https://git.savannah.gnu.org/cgit/{{depName}}.git",
+    },
+    {
+      // GitHub release tarballs.
+      customType: "regex",
+      fileMatch: ["^tools/manifest\\.json$"],
+      matchStrings: [
+        "\"(?<depName>[a-z0-9_-]+)\":\\s*\\{\\s*\"version\":\\s*\"(?<currentValue>[0-9.]+(?:p[0-9]+)?)\",\\s*\"url\":\\s*\"https://github\\.com/(?<lookupName>[^/]+/[^/]+)/",
+      ],
+      datasourceTemplate: "github-releases",
+    },
+    {
+      // Linux kernel from cdn.kernel.org.
+      customType: "regex",
+      fileMatch: ["^tools/manifest\\.json$"],
+      matchStrings: [
+        "\"(?<depName>kernel|linux_headers)\":\\s*\\{\\s*\"version\":\\s*\"(?<currentValue>[0-9.]+)\"",
+      ],
+      datasourceTemplate: "custom.linux-kernel",
+      depNameTemplate: "linux",
+    },
+  ],
+  customDatasources: {
+    "linux-kernel": {
+      defaultRegistryUrlTemplate: "https://www.kernel.org/releases.json",
+      format: "json",
+      transformTemplates: [
+        '{"releases":[{"version":$.latest_stable.version}]}',
+      ],
+    },
+  },
+  // Don't update lock files (we have none yet; Phase 3 may add flake.lock).
+  rangeStrategy: "pin",
+}

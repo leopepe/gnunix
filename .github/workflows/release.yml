@@ -1,0 +1,253 @@
+# Publish a GitHub Release when a v<X.Y.Z> tag is pushed (ADR-008).
+#
+# Trigger order:
+#   1. tag-on-version-bump.yml pushes vX.Y.Z (or a human runs `git tag`)
+#   2. build.yml runs on the tag SHA, produces and uploads disk + platform
+#      artifacts (always uploads — see build.yml retention-days expression)
+#   3. This workflow waits for that build run to finish, downloads its
+#      artifacts, assembles SHA256SUMS, and creates a *draft* GitHub Release.
+#
+# Why a draft: per ADR-005 (this Mac first / single-maintainer) we want a
+# human to click "Publish" after spot-checking the artifact list and release
+# notes. Auto-publish is one Renovate misfire away from shipping broken bits.
+#
+# Why ubuntu-latest: this workflow only does artifact assembly + `gh release
+# create`. None of that needs Tart or the macOS arm64 runner; running on
+# GitHub-hosted ubuntu is faster and frees the macOS box for builds.
+#
+# Platform-matrix awareness (docs/runbooks/platforms.md): the release body
+# advertises every row of the platform matrix, but artifact upload globs only
+# what exists. Scaffolded platforms (rpi-native, nuc-installer) are listed
+# as "not yet shipping" until their packagers come online.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to (re)publish (must already exist)"
+        required: true
+
+permissions:
+  contents: write    # gh release create
+  actions: read      # gh run download from another workflow
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout (at the tag)
+        uses: actions/checkout@v4
+        with:
+          # On workflow_dispatch, github.ref is `refs/heads/main`; check out the
+          # requested tag explicitly so manifest.json matches the artifacts.
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Resolve tag and version
+        id: meta
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -eu
+          if [ -n "${INPUT_TAG}" ]; then
+            tag="${INPUT_TAG}"
+          else
+            tag="${GITHUB_REF#refs/tags/}"
+          fi
+          case "$tag" in v*) ;; *) echo "[release] not a v* tag: $tag" >&2; exit 1 ;; esac
+          version="${tag#v}"
+          manifest_version=$(jq -r .lfs_image_version tools/manifest.json)
+          if [ "$version" != "$manifest_version" ]; then
+            echo "[release] tag $tag does not match manifest.lfs_image_version=$manifest_version" >&2
+            echo "         refusing to publish — bump the manifest or retag" >&2
+            exit 1
+          fi
+          echo "tag=$tag"          >> "$GITHUB_OUTPUT"
+          echo "version=$version"  >> "$GITHUB_OUTPUT"
+
+      - name: Wait for build workflow on this SHA
+        id: buildrun
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          # Poll for up to 8h (build.yml's gnunix-base alone is ~6-10h on
+          # M-series). If no build run exists yet, wait for it to appear too.
+          deadline=$(( $(date +%s) + 8*60*60 ))
+          run_id=""
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            run_id=$(gh run list \
+              --workflow=build.yml \
+              --commit "$SHA" \
+              --json databaseId,status,conclusion \
+              --limit 1 \
+              --jq '.[0].databaseId // empty')
+            if [ -n "$run_id" ]; then
+              status=$(gh run view "$run_id" --json status,conclusion --jq '.status')
+              conclusion=$(gh run view "$run_id" --json status,conclusion --jq '.conclusion')
+              echo "[release] build.yml run $run_id status=$status conclusion=$conclusion"
+              if [ "$status" = "completed" ]; then
+                if [ "$conclusion" = "success" ]; then
+                  echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+                  exit 0
+                fi
+                # Tolerate failure of scaffolded `package` matrix slots: if at
+                # least the base disk images uploaded, we proceed and let the
+                # download step decide what's present.
+                echo "[release] build run did not fully succeed; will still try to assemble what artifacts exist"
+                echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            else
+              echo "[release] no build.yml run for $SHA yet — waiting"
+            fi
+            sleep 60
+          done
+          echo "[release] timed out waiting for build.yml on $SHA" >&2
+          exit 1
+
+      - name: Download artifacts from build run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          mkdir -p release/
+          # `gh run download` writes one subdir per artifact; flatten after.
+          gh run download "${{ steps.buildrun.outputs.run_id }}" --dir release/raw || true
+          # Flatten: move every regular file under release/raw/**/* to release/
+          # (artifact names already encode image/platform/arch/version, so
+          # filenames are globally unique).
+          find release/raw -type f -print0 | xargs -0 -I{} mv {} release/ 2>/dev/null || true
+          rm -rf release/raw
+          echo "[release] artifacts collected:"
+          ls -lh release/ || true
+
+      - name: Sanity-check that at least the base aarch64 images exist
+        run: |
+          set -eu
+          v=${{ steps.meta.outputs.version }}
+          missing=0
+          for f in \
+              "gnunix-base-disk-$v.img.zst" \
+              "gnunix-nix-disk-$v.img.zst" \
+              "gnunix-desktop-disk-$v.img.zst"; do
+            if [ ! -f "release/$f" ]; then
+              echo "[release] MISSING: $f"
+              missing=$((missing + 1))
+            fi
+          done
+          if [ "$missing" -gt 0 ]; then
+            echo "[release] $missing required base artifact(s) missing — refusing to publish" >&2
+            exit 1
+          fi
+          echo "[release] base artifacts present"
+
+      - name: Generate SHA256SUMS over what we actually have
+        run: |
+          set -eu
+          cd release
+          # Cover both .img.zst (raw) and .iso (nuc-installer, when present).
+          shasum -a 256 *.img.zst *.iso 2>/dev/null | sort > SHA256SUMS || true
+          cat SHA256SUMS
+          cd ..
+
+      - name: Attach manifest.json (pinned versions for reproducibility)
+        run: cp tools/manifest.json release/manifest.json
+
+      - name: Compose release notes
+        id: notes
+        run: |
+          set -eu
+          v=${{ steps.meta.outputs.version }}
+          tag=${{ steps.meta.outputs.tag }}
+
+          have() { [ -f "release/$1" ] && echo "✓" || echo "—"; }
+
+          # Per platforms.md: shipping vs scaffolded vs out-of-scope. The
+          # checkmark column reflects what's *in this release*, not the
+          # platform's overall status (scaffolded platforms may appear with
+          # "—" until their packager comes online).
+          {
+            echo "Phase 2 + 3 + 4 + 5 images for **gnunix $tag**."
+            echo
+            echo "Artifacts are raw GPT/UEFI/ext4 disk images compressed with"
+            echo "zstd (or hybrid ISO for the nuc-installer platform). They boot in:"
+            echo
+            echo "- Tart on macOS arm64 (\`tart import\` after \`zstd -d\`)"
+            echo "- QEMU/KVM on Linux"
+            echo "- libvirt, UTM, Proxmox (\`qemu-img convert\` to qcow2)"
+            echo "- Apple Silicon hardware via UEFI"
+            echo
+            echo "See \`docs/runbooks/build-nix.md\` § Consumers and"
+            echo "\`docs/runbooks/platforms.md\` for the per-platform image map."
+            echo
+            echo "### Base images"
+            echo
+            echo "| In this release | Artifact | Content |"
+            echo "|---|---|---|"
+            echo "| $(have gnunix-base-disk-$v.img.zst)    | \`gnunix-base-disk-$v.img.zst\`    | Minimal LFS base (sshd + DHCP) |"
+            echo "| $(have gnunix-nix-disk-$v.img.zst)     | \`gnunix-nix-disk-$v.img.zst\`     | Base + multi-user Nix daemon |"
+            echo "| $(have gnunix-desktop-disk-$v.img.zst) | \`gnunix-desktop-disk-$v.img.zst\` | Base + Nix + dbus/elogind/greetd/sway |"
+            echo "| $(have gnunix-installer-aarch64-$v.img.zst) | \`gnunix-installer-aarch64-$v.img.zst\` | Live installer (ADR-015): picks minimal / desktop-sway / desktop-hyprland / desktop-labwc at install time |"
+            echo
+            echo "### Platform-packaged images (ADR-010)"
+            echo
+            echo "| In this release | Platform | Arch | Artifact | Status |"
+            echo "|---|---|---|---|---|"
+            for img in gnunix-nix gnunix-desktop; do
+              echo "| $(have ${img}-generic-uefi-aarch64-$v.img.zst) | \`generic-uefi\`   | aarch64 | \`${img}-generic-uefi-aarch64-$v.img.zst\` | Shipping |"
+            done
+            for img in gnunix-nix gnunix-desktop; do
+              echo "| $(have ${img}-rpi-native-aarch64-$v.img.zst) | \`rpi-native\`     | aarch64 | \`${img}-rpi-native-aarch64-$v.img.zst\` | Scaffolded (Phase 6) |"
+            done
+            for img in gnunix-nix gnunix-desktop; do
+              echo "| $(have ${img}-nuc-installer-x86_64-$v.iso) | \`nuc-installer\`  | x86_64  | \`${img}-nuc-installer-x86_64-$v.iso\` | Scaffolded (Phase 5) |"
+            done
+            echo
+            echo "### Verification"
+            echo
+            echo "- \`SHA256SUMS\` — sha256 over every disk image in this release."
+            echo "- \`manifest.json\` — pinned versions of every component (kernel,"
+            echo "  glibc, gcc, base packages, Nix, etc.). Reproduce a build by"
+            echo "  checking out \`$tag\` and running \`tools/build-all.sh\`."
+            echo
+            echo "_Auto-drafted by \`.github/workflows/release.yml\`. Review the"
+            echo "asset list above before clicking **Publish**._"
+          } > release-notes.md
+          echo "[release-notes] ↓"
+          cat release-notes.md
+
+      - name: Create / update DRAFT GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          tag=${{ steps.meta.outputs.tag }}
+          # Idempotent: if a draft already exists for this tag (e.g., a re-run
+          # of workflow_dispatch), delete it before re-creating.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "[release] existing release for $tag — deleting (draft re-publish)"
+            gh release delete "$tag" --yes
+          fi
+          # Collect everything we want to attach. Globs tolerate absent
+          # scaffolded artifacts.
+          assets=$(ls release/*.img.zst release/*.iso release/SHA256SUMS release/manifest.json 2>/dev/null || true)
+          echo "[release] attaching:"
+          printf '  %s\n' $assets
+          gh release create "$tag" \
+            --draft \
+            --title "gnunix $tag" \
+            --notes-file release-notes.md \
+            $assets
+          echo
+          echo "[release] DRAFT created. Review at:"
+          echo "  $(gh release view "$tag" --json url --jq .url)"

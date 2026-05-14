@@ -1,0 +1,38 @@
+# Apply area/* labels (and the dependencies label) to PRs based on which
+# files they touch, using .github/labeler.yml.
+#
+# Why a separate workflow: keeps the labeling logic distinct from the
+# blocking PR-lint workflow. If actions/labeler@v5 ever has a hiccup, it
+# can't take down the lint gate.
+
+name: PR labeler
+
+on:
+  pull_request_target:
+    # pull_request_target (not pull_request) so the workflow has write
+    # access to PR labels. The labeler reads the diff via the API; no PR
+    # code is executed in this job, so the elevated permissions are safe.
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-labeler-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
+          # sync-labels: true means a label whose criteria no longer match
+          # (because the PR's file list changed) gets removed. Off by
+          # default; we want it on so a force-push that removes a file also
+          # removes the no-longer-applicable label.
+          sync-labels: true

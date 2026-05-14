@@ -1,0 +1,27 @@
+#!/bin/sh
+# /etc/rc.d/rc.6 — shutdown / reboot (called for runlevels 0 and 6).
+
+set -u
+echo "[rc.6] shutting down"
+
+# Save random seed
+( umask 077; dd if=/dev/urandom of=/var/lib/random-seed bs=512 count=1 2>/dev/null ) || true
+
+# Stop services in reverse order
+for s in rc.nix-daemon rc.sshd rc.network rc.elogind rc.dbus; do
+  [ -x "/etc/rc.d/$s" ] && "/etc/rc.d/$s" stop 2>/dev/null || true
+done
+
+# Stop udev
+command -v udevadm >/dev/null && udevadm control --exit 2>/dev/null || true
+killall udevd 2>/dev/null || true
+
+# Sync clock to hardware
+hwclock --systohc --utc 2>/dev/null || true
+
+# Unmount everything we can
+sync
+swapoff -a 2>/dev/null || true
+umount -a -r 2>/dev/null || true
+
+echo "[rc.6] system halted"

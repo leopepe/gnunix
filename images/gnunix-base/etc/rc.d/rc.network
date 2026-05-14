@@ -1,0 +1,35 @@
+#!/bin/sh
+# /etc/rc.d/rc.network — bring up loopback + run dhcpcd on the virtio NIC.
+
+DHCPCD=/usr/sbin/dhcpcd
+
+case "${1:-start}" in
+  start)
+    ip link set lo up
+    ip addr add 127.0.0.1/8 dev lo 2>/dev/null || true
+    # Pick the first non-loopback interface (in Tart, this is enp0s1 or eth0)
+    iface=$(ip -o link show | awk -F': ' '$2 != "lo" {print $2; exit}')
+    echo "[rc.network] iface=$iface dhcpcd=$DHCPCD"
+    if [ -n "$iface" ] && [ -x "$DHCPCD" ]; then
+      ip link set "$iface" up
+      # Log dhcpcd's startup to /var/log/dhcpcd.log so we can inspect after
+      # boot. -b daemonizes after the first lease attempt.
+      mkdir -p /var/log
+      "$DHCPCD" -b -j /var/log/dhcpcd.log "$iface"
+      echo "[rc.network] dhcpcd started; waiting briefly for lease"
+      i=0
+      while [ $i -lt 15 ]; do
+        if ip -o -4 addr show "$iface" 2>/dev/null | grep -q 'inet '; then
+          echo "[rc.network] lease acquired: $(ip -o -4 addr show "$iface" | awk '{print $4}')"
+          break
+        fi
+        sleep 1; i=$((i+1))
+      done
+      [ $i -ge 15 ] && echo "[rc.network] WARN: no lease after 15s — check /var/log/dhcpcd.log"
+    fi
+    ;;
+  stop)
+    pidof dhcpcd 2>/dev/null | xargs kill 2>/dev/null || true
+    ;;
+  *) echo "usage: $0 {start|stop}"; exit 1 ;;
+esac

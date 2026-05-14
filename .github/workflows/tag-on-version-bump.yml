@@ -1,0 +1,117 @@
+# Auto-tag a release when tools/manifest.json:lfs_image_version is bumped on main.
+#
+# Implements the trigger half of ADR-008's release flow:
+#   Renovate (or human) bumps lfs_image_version in tools/manifest.json
+#     → merge to main
+#       → this workflow notices the version field changed since the previous
+#         commit and creates+pushes a v<version> annotated tag
+#         → that tag triggers .github/workflows/release.yml
+#
+# Why "version in manifest is source of truth": every artifact name, every
+# build step, and the package dispatcher already read lfs_image_version from
+# tools/manifest.json. Letting the tag follow the manifest (rather than the
+# inverse) keeps the bump atomic — one PR changes one number, everything else
+# is automatic.
+#
+# Manual override: run this workflow via workflow_dispatch with a `version`
+# input to tag without bumping the manifest (e.g., re-tagging an existing
+# version after fixing release notes).
+
+name: Tag on version bump
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/manifest.json'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Override version to tag (default: read from manifest)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write   # required to push the tag
+
+concurrency:
+  group: tag-on-version-bump
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout (with history so we can diff manifest.json)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          # We need a token that can push; the default GITHUB_TOKEN is fine
+          # because `permissions.contents: write` is set above. If branch
+          # protection blocks bot pushes to tags, switch to a PAT secret.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve version to tag
+        id: version
+        run: |
+          set -eu
+          override='${{ inputs.version }}'
+          if [ -n "$override" ]; then
+            v="$override"
+            echo "[tag] manual override: $v"
+          else
+            v=$(jq -r .lfs_image_version tools/manifest.json)
+            echo "[tag] manifest.lfs_image_version=$v"
+            # Only proceed if the field actually changed in this push.
+            # HEAD~1 may not exist for the very first commit on main; fall
+            # back to "tag it" in that edge case.
+            if git rev-parse HEAD~1 >/dev/null 2>&1; then
+              prev=$(git show HEAD~1:tools/manifest.json 2>/dev/null \
+                       | jq -r .lfs_image_version 2>/dev/null || echo "")
+              echo "[tag] previous lfs_image_version=$prev"
+              if [ "$v" = "$prev" ]; then
+                echo "[tag] version unchanged — nothing to do"
+                echo "skip=true" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            fi
+          fi
+          # Sanity check the format.
+          case "$v" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "[tag] refusing to tag non-semver value: '$v'" >&2; exit 1 ;;
+          esac
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Check tag does not already exist
+        if: steps.version.outputs.skip != 'true'
+        run: |
+          set -eu
+          tag="v${{ steps.version.outputs.version }}"
+          if git ls-remote --tags --exit-code origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "[tag] $tag already exists on origin — refusing to overwrite" >&2
+            echo "      bump tools/manifest.json:lfs_image_version to a new value" >&2
+            exit 1
+          fi
+          echo "[tag] $tag is unused — proceeding"
+
+      - name: Create and push annotated tag
+        if: steps.version.outputs.skip != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -eu
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          tag="v$VERSION"
+          # Annotated tag so `git describe` and GH Release notes work nicely.
+          git tag -a "$tag" -m "gnunix $tag
+
+          Auto-tagged by .github/workflows/tag-on-version-bump.yml on bump
+          of tools/manifest.json:lfs_image_version to $VERSION.
+
+          See release.yml for the artifact publishing flow (ADR-008)."
+          git push origin "$tag"
+          echo "[tag] pushed $tag"

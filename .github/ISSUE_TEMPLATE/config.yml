@@ -1,0 +1,18 @@
+# Disable blank issues so contributors pick one of the structured templates.
+# (Per CONTRIBUTING.md: "Open one describing what you want to do before
+# writing the code. A 5-minute conversation can save a rewrite.")
+blank_issues_enabled: false
+
+contact_links:
+  - name: Architecture / philosophy question
+    url: https://github.com/JoseHKFA/gnunix/discussions
+    about: |
+      For open-ended discussion of design choices, prefer Discussions over
+      Issues. Read CLAUDE.md and the relevant ADR first — most "should we
+      do X?" questions already have a written answer.
+  - name: Security concern
+    url: https://github.com/JoseHKFA/gnunix/security/advisories/new
+    about: |
+      For security-sensitive findings (credential exposure, sandbox escape,
+      privilege escalation in the base image), open a private security
+      advisory instead of a public issue.

@@ -1,0 +1,32 @@
+#!/bin/sh
+# /etc/rc.d/rc.dbus — system D-Bus daemon.
+# Uses the dbus binary from the Nix system profile.
+
+SP=/nix/var/nix/profiles/system
+DBUSD=$SP/bin/dbus-daemon
+DBUS_UUIDGEN=$SP/bin/dbus-uuidgen
+DBUS_CONF=$SP/share/dbus-1/system.conf
+DBUS_PID=/run/dbus/pid
+
+case "${1:-start}" in
+  start)
+    if [ ! -x "$DBUSD" ]; then
+      echo "[rc.dbus] $DBUSD not found; skipping"
+      exit 0
+    fi
+    [ -e /run/dbus ] || mkdir -p /run/dbus
+    [ -e /var/lib/dbus/machine-id ] || { mkdir -p /var/lib/dbus; "$DBUS_UUIDGEN" --ensure; }
+    if [ -f "$DBUS_PID" ] && kill -0 "$(cat "$DBUS_PID")" 2>/dev/null; then
+      echo "[rc.dbus] already running"
+    else
+      # --system reads /etc/dbus-1/system.conf (shipped as a copy of the
+      # nixpkgs config with the recursive self-include line stripped).
+      "$DBUSD" --system
+    fi
+    ;;
+  stop)
+    [ -f "$DBUS_PID" ] && kill "$(cat "$DBUS_PID")" 2>/dev/null
+    rm -f "$DBUS_PID"
+    ;;
+  *) echo "usage: $0 {start|stop}"; exit 1 ;;
+esac

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" color="#1b1f24" role="img" aria-label="GNUnix — lambda snowflake">
+  <title>GNUnix — Lambda Snowflake</title>
+  <desc>Six lambdas in 60-degree rotational symmetry (NixOS hexagonal fractal),
+        with stair-step accents at the outer tips (GNUstep). A small stepped
+        hex at the center reads as the static GNU base; the lambdas radiating
+        outward read as the dynamic Nix userland.</desc>
+
+  <g transform="translate(128 128)">
+    <!-- One petal: an asymmetric lambda pointing outward (up, -Y) -->
+    <g id="petal-1">
+      <!-- Long leg (left stroke of lambda) -->
+      <polygon points="-6,-100 2,-100 -16,-22 -26,-22"/>
+      <!-- Short leg (right stroke, branches from the long leg) -->
+      <polygon points="-1,-66 6,-66 24,-22 14,-22"/>
+      <!-- Stepped accents at apex (GNUstep flavor) -->
+      <rect x="-4" y="-108" width="4" height="4"/>
+      <rect x="0"  y="-104" width="4" height="4"/>
+      <!-- Stepped accents at long-leg tip -->
+      <rect x="-30" y="-18" width="4" height="4"/>
+      <rect x="-22" y="-14" width="4" height="4"/>
+      <!-- Stepped accents at short-leg tip -->
+      <rect x="22" y="-18" width="4" height="4"/>
+      <rect x="14" y="-14" width="4" height="4"/>
+    </g>
+
+    <use href="#petal-1"/>
+    <use href="#petal-1" transform="rotate(60)"/>
+    <use href="#petal-1" transform="rotate(120)"/>
+    <use href="#petal-1" transform="rotate(180)"/>
+    <use href="#petal-1" transform="rotate(240)"/>
+    <use href="#petal-1" transform="rotate(300)"/>
+
+    <!-- Central stepped hex: the static GNU base, viewed top-down as a step pyramid -->
+    <polygon points="-16,-9 -16,9 0,18 16,9 16,-9 0,-18" opacity="0.18"/>
+    <polygon points="-11,-6 -11,6 0,12 11,6 11,-6 0,-12" opacity="0.45"/>
+    <polygon points="-6,-3 -6,3 0,7 6,3 6,-3 0,-7"/>
+  </g>
+</svg>

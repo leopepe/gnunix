@@ -1,0 +1,13 @@
+# greetd configuration.
+#
+# `terminal` selects the TTY greetd takes over (vt 1 = the initial console).
+# `default_session.command` is what greetd execs after a successful login;
+# tuigreet handles the prompt and then chains into the Wayland session
+# wrapper, which in turn starts the compositor.
+
+[terminal]
+vt = 1
+
+[default_session]
+command = "/nix/var/nix/profiles/system/bin/tuigreet --cmd /usr/local/bin/start-wayland-session.sh --remember --time --asterisks"
+user = "greeter"

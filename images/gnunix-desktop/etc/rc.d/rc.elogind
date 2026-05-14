@@ -1,0 +1,43 @@
+#!/bin/sh
+# /etc/rc.d/rc.elogind — seat/session manager.
+# Uses elogind from the Nix system profile; provides the
+# org.freedesktop.login1 D-Bus API required by Wayland compositors.
+
+ELOGIND=/nix/var/nix/profiles/system/libexec/elogind
+# Older builds shipped it under bin/ instead of libexec/.
+[ -x "$ELOGIND" ] || ELOGIND=/nix/var/nix/profiles/system/bin/elogind
+
+PIDFILE=/run/elogind.pid
+
+case "${1:-start}" in
+  start)
+    if [ ! -x "$ELOGIND" ]; then
+      echo "[rc.elogind] elogind binary not found in system profile; skipping"
+      exit 0
+    fi
+    # /run is tmpfs (re-created each boot). Pre-create /run/user so
+    # pam_elogind can mkdir /run/user/<uid> on each user login.
+    install -d -m 0755 -o root -g root /run/user
+
+    # Mesa's DRI driver search path is /run/opengl-driver/lib/dri (compile-
+    # time default). Point it at the Nix system profile so libGL / libEGL
+    # find the driver shared objects without falling back to kms_swrast.
+    ln -sfn /nix/var/nix/profiles/system /run/opengl-driver
+    if [ -f "$PIDFILE" ] && [ -s "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+      echo "[rc.elogind] already running"
+    else
+      "$ELOGIND" --daemon
+      # elogind --daemon double-forks AND renames its /proc/<pid>/comm to
+      # "elogind-daemon"; `pidof elogind` returns empty post-fork. Match
+      # the post-fork name first, with the bare name as a fallback.
+      pid=$(pidof elogind-daemon 2>/dev/null | awk '{print $1}')
+      [ -z "$pid" ] && pid=$(pidof elogind 2>/dev/null | awk '{print $1}')
+      printf '%s\n' "$pid" > "$PIDFILE"
+    fi
+    ;;
+  stop)
+    [ -f "$PIDFILE" ] && [ -s "$PIDFILE" ] && kill "$(cat "$PIDFILE")" 2>/dev/null
+    rm -f "$PIDFILE"
+    ;;
+  *) echo "usage: $0 {start|stop}"; exit 1 ;;
+esac

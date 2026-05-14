@@ -1,0 +1,108 @@
+# Fast, objective PR checks. Runs on every PR; blocks merge on findings.
+#
+# Scope: deterministic tools only — shellcheck, actionlint, gitleaks, jq.
+# Subjective / architectural review lives in the claude-review workflow
+# (advisory). Split per ADR-014.
+#
+# Runs on ubuntu-latest because none of these tools need Tart or arm64.
+
+name: PR lint
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends shellcheck
+
+      - name: Run shellcheck on all tracked shell scripts
+        run: |
+          set -eu
+          # Find files by shebang (covers .sh and shebangless executables).
+          # External="error" lets shellcheck complain about unsourced files;
+          # we set it to "warn" because some scripts source helpers via
+          # variable paths that shellcheck can't follow statically.
+          files=$(git ls-files \
+            | xargs -I{} sh -c 'head -1 "{}" 2>/dev/null | grep -lE "^#!.*(sh|bash)" >/dev/null && echo "{}"' \
+            | sort -u)
+          echo "[shellcheck] $(echo "$files" | wc -l) file(s):"
+          echo "$files"
+          # SC1091: don't fail on un-followable sources.
+          # SC2155: declare-and-assign is idiomatic in this codebase.
+          # Severity: warning and above (skip "info" / "style" noise).
+          # shellcheck disable=SC2086
+          shellcheck -x -e SC1091,SC2155 -S warning $files
+
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install actionlint
+        run: |
+          set -eu
+          # actionlint ships a stable installer script; pin the release.
+          # Renovate manages this version pin via the regex manager in
+          # .github/renovate.json5.
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.1/scripts/download-actionlint.bash) 1.7.1
+          ./actionlint -version
+
+      - name: Lint .github/workflows/*.yml
+        run: ./actionlint -color
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # gitleaks scans history
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
+          GITLEAKS_ENABLE_SUMMARY: true
+
+  manifest-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tools/manifest.json structure
+        run: |
+          set -eu
+          jq -e '
+            .lfs_image_version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")
+          ' tools/manifest.json >/dev/null \
+            || { echo "[manifest] lfs_image_version is not semver" >&2; exit 1; }
+
+          jq -e '
+            .active_arch as $a
+            | (.archs[$a] | type) == "object"
+            and (.platforms | type) == "object"
+            and ([.platforms[] | .archs | length] | add) > 0
+          ' tools/manifest.json >/dev/null \
+            || { echo "[manifest] active_arch / archs / platforms structure invalid" >&2; exit 1; }
+
+          echo "[manifest] OK ($(jq -r .lfs_image_version tools/manifest.json))"

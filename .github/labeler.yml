@@ -1,0 +1,75 @@
+# Path-based PR labels — applied by .github/workflows/pr-labeler.yml on PR
+# open and on every push to the PR branch.
+#
+# Format: actions/labeler@v5 schema. Only the area/* family is auto-applied;
+# the type/* and status/* families are the maintainer's call.
+#
+# Rule of thumb when adding: a PR should usually get exactly one or two
+# area/* labels. If a PR is touching everything, it's probably too big and
+# should be split.
+
+area/base:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'images/gnunix-base/**'
+
+area/nix:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'images/gnunix-nix/**'
+          - 'bundles/**'
+
+area/desktop:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'images/gnunix-desktop/**'
+
+area/builder:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'images/gnunix-builder/**'
+
+area/platforms:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'images/variants/**'
+          - 'tools/package-platform.sh'
+
+area/ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.github/renovate.json5'
+          - '.github/labels.yml'
+          - '.github/labeler.yml'
+
+area/docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'docs/**'
+          - 'README.md'
+          - 'CONTRIBUTING.md'
+          - 'runbook.md'
+          - 'LICENSE'
+
+area/tools:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'tools/**'
+          - 'scripts/**'
+      - all-globs-to-all-files:
+          # Don't double-label PRs that ONLY touch package-platform.sh
+          # (already labelled area/platforms above).
+          - '!tools/package-platform.sh'
+
+area/tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'tests/**'
+
+# Loose: heuristic — a PR that touches tools/manifest.json is almost always
+# a Renovate-style version bump.
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'tools/manifest.json'

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>GNUnix logo prototypes</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+      margin: 32px; background: #f7f7f4; color: #1b1f24;
+    }
+    h1 { font-size: 16px; font-weight: 600; margin: 0 0 24px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
+    .card {
+      background: #fff; border: 1px solid #e3e1da; border-radius: 6px;
+      padding: 20px; display: flex; flex-direction: column; gap: 14px;
+    }
+    .card h2 { font-size: 13px; font-weight: 600; margin: 0; }
+    .card p  { font-size: 12px; margin: 0; color: #585450; }
+    .stage {
+      aspect-ratio: 1 / 1; display: grid; place-items: center;
+      border-radius: 4px; background: #f0ede5;
+    }
+    .stage.dark { background: #1b1f24; color: #f0ede5; }
+    .stage img { width: 78%; height: 78%; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .scale { display: flex; gap: 12px; align-items: center; padding: 6px 8px; background: #f0ede5; border-radius: 4px; }
+    .scale img { display: block; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #14171a; color: #e3e1da; }
+      .card { background: #1f2429; border-color: #2c3239; }
+      .card p { color: #98928a; }
+      .stage { background: #2c3239; color: #e3e1da; }
+      .stage.dark { background: #050708; }
+      .scale { background: #2c3239; }
+    }
+  </style>
+</head>
+<body>
+  <h1>GNUnix logo prototypes — 5 concepts</h1>
+  <div class="grid">
+
+    <div class="card">
+      <h2>01 — Lambda Snowflake</h2>
+      <p>NixOS-style 6-fold rotational hex of lambdas, with stair-step accents
+         at the outer tips and a stepped hex at the core (GNUstep).</p>
+      <div class="row">
+        <div class="stage"><img src="01-lambda-snowflake.svg" alt=""/></div>
+        <div class="stage dark"><img src="01-lambda-snowflake.svg" alt="" style="filter:invert(1)"/></div>
+      </div>
+      <div class="scale">
+        <img src="01-lambda-snowflake.svg" width="16" height="16" alt=""/>
+        <img src="01-lambda-snowflake.svg" width="32" height="32" alt=""/>
+        <img src="01-lambda-snowflake.svg" width="64" height="64" alt=""/>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>02 — Two-Layer Hex</h2>
+      <p>A hex badge that draws the architecture: a stepped GNU/LFS base
+         with three Nix lambdas rising out of it.</p>
+      <div class="row">
+        <div class="stage"><img src="02-two-layer-hex.svg" alt=""/></div>
+        <div class="stage dark"><img src="02-two-layer-hex.svg" alt="" style="filter:invert(1)"/></div>
+      </div>
+      <div class="scale">
+        <img src="02-two-layer-hex.svg" width="16" height="16" alt=""/>
+        <img src="02-two-layer-hex.svg" width="32" height="32" alt=""/>
+        <img src="02-two-layer-hex.svg" width="64" height="64" alt=""/>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>03 — Stepped G Monogram</h2>
+      <p>A blocky pixel-art G (GNUstep) with a lambda tucked into its
+         counter. Reads as the wordmark initial.</p>
+      <div class="row">
+        <div class="stage"><img src="03-stepped-g-monogram.svg" alt=""/></div>
+        <div class="stage dark"><img src="03-stepped-g-monogram.svg" alt="" style="filter:invert(1)"/></div>
+      </div>
+      <div class="scale">
+        <img src="03-stepped-g-monogram.svg" width="16" height="16" alt=""/>
+        <img src="03-stepped-g-monogram.svg" width="32" height="32" alt=""/>
+        <img src="03-stepped-g-monogram.svg" width="64" height="64" alt=""/>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>04 — Isometric Lambda Cube</h2>
+      <p>Direct GNUstep callback: an iso cube with a lambda etched into
+         each visible face — top, left, and a cut-out on the right.</p>
+      <div class="row">
+        <div class="stage"><img src="04-iso-lambda-cube.svg" alt=""/></div>
+        <div class="stage dark"><img src="04-iso-lambda-cube.svg" alt="" style="filter:invert(1)"/></div>
+      </div>
+      <div class="scale">
+        <img src="04-iso-lambda-cube.svg" width="16" height="16" alt=""/>
+        <img src="04-iso-lambda-cube.svg" width="32" height="32" alt=""/>
+        <img src="04-iso-lambda-cube.svg" width="64" height="64" alt=""/>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>05 — Hex Step Pyramid</h2>
+      <p>Top-down view of a hex step pyramid (GNUstep), with six lambdas
+         radiating between the steps (NixOS). Fuses both motifs.</p>
+      <div class="row">
+        <div class="stage"><img src="05-step-pyramid-hex.svg" alt=""/></div>
+        <div class="stage dark"><img src="05-step-pyramid-hex.svg" alt="" style="filter:invert(1)"/></div>
+      </div>
+      <div class="scale">
+        <img src="05-step-pyramid-hex.svg" width="16" height="16" alt=""/>
+        <img src="05-step-pyramid-hex.svg" width="32" height="32" alt=""/>
+        <img src="05-step-pyramid-hex.svg" width="64" height="64" alt=""/>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

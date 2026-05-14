@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" color="#1b1f24" role="img" aria-label="GNUnix — isometric lambda cube">
+  <title>GNUnix — Isometric Lambda Cube</title>
+  <desc>An isometric cube — a direct GNUstep callback — with a lambda
+        carved into each of its three visible faces. Reads as a 3D
+        artifact built from Nix derivations stacked on a GNU foundation.</desc>
+
+  <!-- Isometric cube. Center at (128,128). Edge length = 96.
+       Top face   (rhombus pointing up)
+       Left face  (parallelogram, dimmer)
+       Right face (parallelogram, dimmest) -->
+
+  <!-- TOP face (lightest tone) -->
+  <g>
+    <polygon points="128,40 211,88 128,136 45,88" opacity="0.25"/>
+    <!-- Lambda on top face, foreshortened to lie in the top plane -->
+    <!-- Long leg: apex near back (rear vertex), down-front-left -->
+    <polygon points="124,52 131,52 90,106 82,102" opacity="0.95"/>
+    <polygon points="126,80 132,84 158,118 150,118" opacity="0.95"/>
+  </g>
+
+  <!-- LEFT face (mid tone) -->
+  <g>
+    <polygon points="45,88 128,136 128,232 45,184" opacity="0.55"/>
+    <!-- Lambda on left face, drawn upright but skewed -->
+    <polygon points="68,108 76,108 96,196 86,193"/>
+    <polygon points="74,140 81,142 108,196 100,196"/>
+  </g>
+
+  <!-- RIGHT face (darkest tone — base, suggests static GNU layer) -->
+  <g>
+    <polygon points="211,88 211,184 128,232 128,136"/>
+    <!-- Lambda on right face, in negative space (cut out via lighter fill) -->
+    <g fill="#ffffff" opacity="0.92">
+      <polygon points="156,118 164,121 184,205 174,201"/>
+      <polygon points="162,150 169,153 196,205 188,203"/>
+    </g>
+  </g>
+
+  <!-- Cube edges (crisp linework) -->
+  <g fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="miter">
+    <polygon points="128,40 211,88 211,184 128,232 45,184 45,88"/>
+    <path d="M 128 40 L 128 136 M 45 88 L 128 136 M 211 88 L 128 136"/>
+  </g>
+</svg>

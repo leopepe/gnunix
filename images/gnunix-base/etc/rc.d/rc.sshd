@@ -1,0 +1,29 @@
+#!/bin/sh
+# /etc/rc.d/rc.sshd — OpenSSH server.
+
+SSHD=/usr/sbin/sshd
+PIDFILE=/run/sshd.pid
+[ -d /var/lib/sshd ] || install -d -m 0700 -o root -g sys /var/lib/sshd
+
+# Generate host keys on first start
+gen_keys() {
+  for t in rsa ecdsa ed25519; do
+    f=/etc/ssh/ssh_host_${t}_key
+    [ -f "$f" ] || ssh-keygen -t "$t" -f "$f" -N "" -q
+  done
+}
+
+case "${1:-start}" in
+  start)
+    gen_keys
+    [ -d /run/sshd ] || install -d -m 0755 /run/sshd
+    "$SSHD"
+    # pidof ships with sysvinit; procps-ng (pgrep) isn't in the base.
+    pidof sshd 2>/dev/null | awk '{print $1}' > "$PIDFILE" || true
+    ;;
+  stop)
+    [ -f "$PIDFILE" ] && kill "$(cat "$PIDFILE")" 2>/dev/null
+    rm -f "$PIDFILE"
+    ;;
+  *) echo "usage: $0 {start|stop}"; exit 1 ;;
+esac

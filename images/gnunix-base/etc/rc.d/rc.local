@@ -1,0 +1,5 @@
+#!/bin/sh
+# /etc/rc.d/rc.local — site-local customizations.
+# Runs at the end of rc.M. Add per-machine boot tweaks here.
+# By default: no-op.
+exit 0

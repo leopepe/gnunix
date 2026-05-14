@@ -1,0 +1,87 @@
+name: ✨ Feature request
+description: Propose an enhancement to GNUnix that doesn't require a new ADR.
+title: "[feature] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for incremental enhancements: a new flag on an
+        existing tool, an additional smoke-test, a missing convenience
+        script, etc.
+
+        **If your proposal would set a new precedent** (a new dependency,
+        replacing a component, a new layer in the build), use the
+        **ADR proposal** template instead — those need an ADR before code.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: |
+        State the problem before the solution. "I want to be able to X" is
+        better than "Please add Y".
+      placeholder: |
+        When I run `tools/build-all.sh gnunix-nix` twice in a row, it re-runs
+        the Nix installer even though it succeeded the first time.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you'd like to see. Code sketches welcome.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the codebase does this touch?
+      multiple: true
+      options:
+        - images/gnunix-base
+        - images/gnunix-nix
+        - images/gnunix-desktop
+        - images/gnunix-builder
+        - images/variants (platforms)
+        - tools/
+        - scripts/
+        - tests/
+        - bundles/ (Nix)
+        - docs/ (runbooks / ADRs)
+        - .github/workflows (CI)
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else did you think about, and why isn't it the right answer?
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: adr-check
+    attributes:
+      label: Locked-decisions check
+      description: |
+        Does this proposal touch any of the 13 locked decisions in
+        [`CLAUDE.md`](../blob/main/CLAUDE.md)?
+      options:
+        - label: No — this is a non-architectural enhancement.
+        - label: Yes — and I think the existing ADR covers it.
+        - label: Yes — and I think the ADR needs updating (use the ADR proposal template instead).
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Are you offering to contribute this?
+      options:
+        - label: Yes, I'd like to take this on.
+        - label: No, just proposing.

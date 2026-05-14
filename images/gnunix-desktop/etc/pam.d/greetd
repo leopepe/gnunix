@@ -1,0 +1,15 @@
+# PAM stack for greetd.
+#
+# auth/account/password use pam_permit so the unattended login path works
+# out of the box. The session phase registers the user with elogind, which
+# creates /run/user/<uid> and a primary seat session — required for the
+# Wayland compositor's libseat→logind backend to claim seat0.
+
+auth      sufficient  pam_permit.so
+account   required    pam_permit.so
+password  required    pam_permit.so
+
+session   required    pam_permit.so
+# pam_elogind.so is referenced by absolute path because greetd's libpam
+# search path doesn't include elogind's module directory.
+session   required    /nix/var/nix/profiles/system/lib/security/pam_elogind.so

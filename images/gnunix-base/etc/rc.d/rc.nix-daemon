@@ -1,0 +1,25 @@
+#!/bin/sh
+# /etc/rc.d/rc.nix-daemon — multi-user Nix daemon supervisor.
+# Disabled (chmod -x) until Nix is installed; the installer flips it on.
+
+NIXD=/nix/var/nix/profiles/default/bin/nix-daemon
+PIDFILE=/run/nix-daemon.pid
+
+case "${1:-start}" in
+  start)
+    if [ ! -x "$NIXD" ]; then
+      echo "[rc.nix-daemon] Nix not installed; skipping"
+      exit 0
+    fi
+    # Detach stdio so SSH sessions invoking this script don't hang on the
+    # daemon's still-open file descriptors. Log goes to /var/log/nix-daemon.log.
+    mkdir -p /var/log
+    nohup "$NIXD" --daemon </dev/null >>/var/log/nix-daemon.log 2>&1 &
+    echo $! > "$PIDFILE"
+    ;;
+  stop)
+    [ -f "$PIDFILE" ] && kill "$(cat "$PIDFILE")" 2>/dev/null
+    rm -f "$PIDFILE"
+    ;;
+  *) echo "usage: $0 {start|stop}"; exit 1 ;;
+esac

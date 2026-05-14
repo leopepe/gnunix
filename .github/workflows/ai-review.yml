@@ -1,0 +1,291 @@
+# Advisory PR review by an LLM, following the pr-review skill in
+# .claude/skills/pr-review/. Decision: ADR-014.
+#
+# Provider-agnostic: speaks the OpenAI-compatible chat completions API, so
+# it works with OpenRouter (free tier or paid), DeepSeek, Together, Groq,
+# Fireworks, OpenAI, Ollama, or any other OpenAI-API-compatible endpoint.
+#
+# Trigger model: opt-in only. Two ways to invoke:
+#   1. Comment `@ai review` (or `@claude review` for back-compat) on a PR.
+#   2. Apply the label `ai-review` (or `claude-review`) to a PR.
+#
+# Findings are advisory — this workflow never blocks merge. Objective issues
+# (shellcheck, actionlint, gitleaks) are handled by pr-lint.yml, which DOES
+# block.
+#
+# Configuration (repo settings → secrets and variables → actions):
+#   SECRETS (required):
+#     AI_REVIEW_API_KEY     API key for the chosen provider.
+#   VARIABLES (optional, with defaults):
+#     AI_REVIEW_API_URL     Chat-completions endpoint URL.
+#                           Default: https://openrouter.ai/api/v1/chat/completions
+#     AI_REVIEW_MODEL       Model identifier.
+#                           Default: deepseek/deepseek-chat-v3:free
+#
+# Provider quick-pick:
+#   OpenRouter free tier (recommended default — no payment needed):
+#     URL:   https://openrouter.ai/api/v1/chat/completions
+#     MODEL: deepseek/deepseek-chat-v3:free
+#            deepseek/deepseek-r1:free                  (slower, stronger reasoning)
+#            qwen/qwen-2.5-coder-32b-instruct:free      (code specialist)
+#            meta-llama/llama-3.3-70b-instruct:free     (general-purpose)
+#   DeepSeek direct (cheapest paid option):
+#     URL:   https://api.deepseek.com/v1/chat/completions
+#     MODEL: deepseek-chat   (V3)
+#            deepseek-reasoner (R1)
+#   Groq:
+#     URL:   https://api.groq.com/openai/v1/chat/completions
+#     MODEL: llama-3.3-70b-versatile, qwen-2.5-coder-32b
+#   Ollama (self-hosted, e.g. on the gnunix-builder Mac):
+#     URL:   http://<host>:11434/v1/chat/completions
+#     MODEL: qwen2.5-coder:32b  (or whatever you have pulled)
+
+name: AI review
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+  pull-requests: write   # post the review comment
+  issues: write          # acknowledge the trigger comment
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  trigger-check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.gate.outputs.should_run }}
+      pr_number:  ${{ steps.gate.outputs.pr_number }}
+    steps:
+      - id: gate
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          IS_PR_COMMENT: ${{ github.event.issue.pull_request != null }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          ISSUE_PR_NUM: ${{ github.event.issue.number }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          set -eu
+          should_run=false
+          pr_number=""
+          case "$EVENT_NAME" in
+            issue_comment)
+              # Accept both `@ai review` and `@claude review` (legacy alias).
+              if [ "$IS_PR_COMMENT" = "true" ] && \
+                 echo "$COMMENT_BODY" | grep -qiE '@(ai|claude)\s+review'; then
+                should_run=true
+                pr_number="$ISSUE_PR_NUM"
+              fi
+              ;;
+            pull_request)
+              case "$LABEL_NAME" in
+                ai-review|claude-review)
+                  should_run=true
+                  pr_number="$PR_NUM"
+                  ;;
+              esac
+              ;;
+          esac
+          echo "should_run=$should_run" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$pr_number"   >> "$GITHUB_OUTPUT"
+          echo "[gate] event=$EVENT_NAME should_run=$should_run pr=$pr_number"
+
+  review:
+    needs: trigger-check
+    if: needs.trigger-check.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ needs.trigger-check.outputs.pr_number }}
+      AI_REVIEW_API_KEY: ${{ secrets.AI_REVIEW_API_KEY }}
+      AI_REVIEW_API_URL: ${{ vars.AI_REVIEW_API_URL || 'https://openrouter.ai/api/v1/chat/completions' }}
+      AI_REVIEW_MODEL:   ${{ vars.AI_REVIEW_MODEL   || 'deepseek/deepseek-chat-v3:free' }}
+    steps:
+      - name: Sanity check — API key is configured
+        run: |
+          set -eu
+          if [ -z "${AI_REVIEW_API_KEY:-}" ]; then
+            echo "::error title=AI_REVIEW_API_KEY missing::Set the AI_REVIEW_API_KEY secret in repo settings. See ai-review.yml header for provider options."
+            exit 1
+          fi
+          echo "[ai-review] using model=$AI_REVIEW_MODEL via $AI_REVIEW_API_URL"
+
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: refs/pull/${{ env.PR }}/head
+
+      - name: Acknowledge the trigger
+        run: |
+          gh pr comment "$PR" \
+            --body "🤖 AI review started (\`$AI_REVIEW_MODEL\`) — see [run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)."
+
+      - name: Assemble prompt
+        id: prompt
+        run: |
+          set -eu
+          mkdir -p /tmp/ai-review
+
+          # ── System prompt: the skill describes the procedure + checklist.
+          {
+            cat .claude/skills/pr-review/SKILL.md
+            echo
+            echo "---"
+            echo
+            cat .claude/skills/pr-review/checklist.md
+            echo
+            echo "---"
+            echo
+            cat <<'EOF'
+          ## Single-turn invocation mode
+
+          You are being called via the GitHub Actions workflow ai-review.yml,
+          NOT via the agentic claude CLI. That means:
+
+          - You CANNOT run gh / git / rg / read additional files. The
+            workflow pre-loaded everything you need in the user message
+            below: the diff, the PR metadata, CLAUDE.md, and the ADRs.
+          - You CANNOT post comments yourself. The workflow will take your
+            Markdown output verbatim and post it as the review comment via
+            `gh pr review --comment`.
+          - Skip "Step 6 — Post the comment" from the procedure; the
+            workflow handles that step.
+          - Output the review Markdown only, with NO preamble, NO meta-
+            commentary, and NO code fences around the entire response. The
+            first character of your response should be `#` (the H2 heading
+            "## 🤖 AI review for #<N>"), or, if you found nothing material,
+            the verbatim line specified in Step 6.
+          EOF
+          } > /tmp/ai-review/system.md
+
+          # ── User message: pre-loaded context. Cap diff to keep prompt
+          #    within ~100K chars (well under any modern model's context).
+          PR_JSON=$(gh pr view "$PR" --json title,body,author,headRefName,baseRefName,files)
+          gh pr diff "$PR" > /tmp/ai-review/diff.patch
+          diff_size=$(wc -c < /tmp/ai-review/diff.patch | tr -d ' ')
+
+          {
+            echo "# Pull request #$PR context"
+            echo
+            echo "## Metadata"
+            echo
+            echo '```json'
+            echo "$PR_JSON" | jq .
+            echo '```'
+            echo
+            echo "## Repository CLAUDE.md (project conventions, locked decisions)"
+            echo
+            echo '```markdown'
+            cat CLAUDE.md
+            echo '```'
+            echo
+            echo "## Architecture Decision Records (ADRs)"
+            echo
+            for adr in docs/adrs/ADR-*.md; do
+              echo "### \`$adr\`"
+              echo
+              echo '```markdown'
+              cat "$adr"
+              echo '```'
+              echo
+            done
+            echo "## Diff"
+            echo
+            if [ "$diff_size" -gt 200000 ]; then
+              echo "_NOTE: full diff is $diff_size bytes — truncated to first 200,000 bytes._"
+              echo
+              echo '```diff'
+              head -c 200000 /tmp/ai-review/diff.patch
+              echo
+              echo "... [truncated]"
+              echo '```'
+            else
+              echo '```diff'
+              cat /tmp/ai-review/diff.patch
+              echo '```'
+            fi
+            echo
+            echo "Now apply the procedure and produce the review."
+          } > /tmp/ai-review/user.md
+
+          echo "[prompt] system=$(wc -c < /tmp/ai-review/system.md) user=$(wc -c < /tmp/ai-review/user.md) diff=$diff_size"
+
+      - name: Call the AI API
+        id: call
+        run: |
+          set -eu
+
+          # Build the request body. jq -Rs slurps each file into a string.
+          jq -n \
+            --arg model "$AI_REVIEW_MODEL" \
+            --rawfile sys  /tmp/ai-review/system.md \
+            --rawfile usr  /tmp/ai-review/user.md \
+            '{
+              model: $model,
+              temperature: 0.2,
+              max_tokens: 4096,
+              messages: [
+                { role: "system", content: $sys },
+                { role: "user",   content: $usr }
+              ]
+            }' > /tmp/ai-review/req.json
+
+          # OpenRouter recommends (but doesn't require) these headers for
+          # attribution. Other providers ignore them harmlessly.
+          http_code=$(curl -sS \
+            -o /tmp/ai-review/resp.json \
+            -w '%{http_code}' \
+            "$AI_REVIEW_API_URL" \
+            -H "Authorization: Bearer $AI_REVIEW_API_KEY" \
+            -H "Content-Type: application/json" \
+            -H "HTTP-Referer: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            -H "X-Title: GNUnix PR review" \
+            -d @/tmp/ai-review/req.json)
+
+          echo "[ai-review] HTTP $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error title=AI API returned $http_code::See response body below."
+            echo "--- response ---"
+            cat /tmp/ai-review/resp.json || true
+            echo
+            echo "----------------"
+            exit 1
+          fi
+
+          # Extract the assistant's content. Both the streamed and
+          # non-streamed shapes use .choices[0].message.content.
+          jq -er '.choices[0].message.content' /tmp/ai-review/resp.json \
+            > /tmp/ai-review/review.md \
+            || { echo "::error title=Malformed response::no choices[0].message.content"; cat /tmp/ai-review/resp.json; exit 1; }
+
+          # Some providers wrap the whole response in a single ```markdown
+          # code block. Strip an outer wrapper if present.
+          if head -1 /tmp/ai-review/review.md | grep -qE '^```'; then
+            sed -i '1d;$d' /tmp/ai-review/review.md
+          fi
+
+          echo "[ai-review] response size: $(wc -c < /tmp/ai-review/review.md) bytes"
+          echo "----- first 20 lines -----"
+          head -20 /tmp/ai-review/review.md
+          echo "--------------------------"
+
+      - name: Post the review comment
+        run: |
+          set -eu
+          if [ ! -s /tmp/ai-review/review.md ]; then
+            echo "::warning title=Empty review::AI returned empty content; posting placeholder."
+            echo "🤖 AI review: model returned an empty response. Workflow logs have details." > /tmp/ai-review/review.md
+          fi
+          gh pr review "$PR" --comment --body-file /tmp/ai-review/review.md
+          echo "[ai-review] comment posted on PR #$PR"

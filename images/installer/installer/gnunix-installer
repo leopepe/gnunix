@@ -1,0 +1,285 @@
+#!/bin/bash
+# gnunix-installer — TUI installer for GNUnix.
+#
+# Runs from the live image after the user picks "Install GNUnix" at
+# greetd. Asks for target disk, installation profile, user identity,
+# then partitions + rsyncs + runs the per-profile post-install hook +
+# installs GRUB.
+#
+# Per ADR-015. Plain bash + whiptail; no GUI deps.
+#
+# Unattended mode (for CI): set GNUNIX_INSTALL_UNATTENDED=1 plus
+#   GNUNIX_TARGET_DISK=/dev/vdb GNUNIX_PROFILE=minimal
+#   GNUNIX_USER=user GNUNIX_HOSTNAME=gnunix GNUNIX_PASSWORD='hunter2'
+# and the TUI is skipped.
+
+set -euo pipefail
+
+# Paths the live image lays out (install-installer.sh ships these).
+PAYLOAD_DIR=${PAYLOAD_DIR:-/usr/local/share/gnunix-installer}
+PROFILES_DIR="$PAYLOAD_DIR/profiles"
+THEMES_DIR="$PAYLOAD_DIR/themes"
+TARGET_MOUNT=${TARGET_MOUNT:-/mnt/gnunix-target}
+
+require_root() {
+  [ "$(id -u)" = 0 ] || { echo "[installer] needs root" >&2; exit 1; }
+}
+require_tool() {
+  command -v "$1" >/dev/null || { echo "[installer] missing tool: $1" >&2; exit 1; }
+}
+
+# ----------------------------------------------------------------------------
+# TUI helpers — whiptail with sane defaults.
+# ----------------------------------------------------------------------------
+TITLE="GNUnix Installer"
+
+ui_msg() { whiptail --title "$TITLE" --msgbox "$1" 12 70; }
+ui_yesno() { whiptail --title "$TITLE" --yesno "$1" 12 70; }
+ui_input() { whiptail --title "$TITLE" --inputbox "$1" 10 70 "${2:-}" 3>&1 1>&2 2>&3; }
+ui_password() { whiptail --title "$TITLE" --passwordbox "$1" 10 70 3>&1 1>&2 2>&3; }
+ui_menu() {
+  # $1 prompt, then alternating tag/description pairs
+  local prompt=$1; shift
+  whiptail --title "$TITLE" --menu "$prompt" 20 78 10 "$@" 3>&1 1>&2 2>&3
+}
+ui_radiolist() {
+  local prompt=$1; shift
+  whiptail --title "$TITLE" --radiolist "$prompt" 20 78 10 "$@" 3>&1 1>&2 2>&3
+}
+
+# ----------------------------------------------------------------------------
+# Step 1: gather inputs
+# ----------------------------------------------------------------------------
+gather_inputs_interactive() {
+  ui_msg "Welcome to the GNUnix installer.
+
+This will:
+  • partition the target disk (existing data will be erased),
+  • copy a fresh GNUnix rootfs onto it,
+  • install GRUB,
+  • create your user.
+
+You'll choose the installation profile (minimal / desktop) on the next screen."
+
+  # Disk selection — only block devices, with their size
+  local disks=()
+  while IFS=$'\t' read -r name size type; do
+    [ "$type" = disk ] || continue
+    disks+=("/dev/$name" "$size")
+  done < <(lsblk -dno NAME,SIZE,TYPE)
+  [ ${#disks[@]} -eq 0 ] && { ui_msg "No disks found. Aborting."; exit 1; }
+  TARGET_DISK=$(ui_menu "Target disk (will be ERASED):" "${disks[@]}") \
+    || { echo "cancelled"; exit 1; }
+
+  # Profile selection (Wayland-only; see ADR-015 § "Why no X11")
+  PROFILE=$(ui_radiolist "Installation profile:" \
+    "minimal"            "CLI base + Nix package manager"                 "ON" \
+    "desktop-sway"       "Desktop: Sway (Wayland tiling, i3-style)"        "OFF" \
+    "desktop-hyprland"   "Desktop: Hyprland (Wayland dynamic tiling)"      "OFF" \
+    "desktop-labwc"      "Desktop: labwc (Wayland stacking, Openbox-style)" "OFF") \
+    || { echo "cancelled"; exit 1; }
+
+  # Identity
+  HOSTNAME=$(ui_input "Hostname:" "gnunix") || exit 1
+  USERNAME=$(ui_input "Your username (lowercase, no spaces):" "user") || exit 1
+  while :; do
+    PASSWORD=$(ui_password "Set password for $USERNAME:") || exit 1
+    PASSWORD2=$(ui_password "Re-enter password:") || exit 1
+    [ "$PASSWORD" = "$PASSWORD2" ] && break
+    ui_msg "Passwords do not match. Try again."
+  done
+
+  # Confirm
+  ui_yesno "Ready to install:
+  Disk:      $TARGET_DISK  (will be ERASED)
+  Profile:   $PROFILE
+  Hostname:  $HOSTNAME
+  User:      $USERNAME
+
+Proceed?" || { echo "cancelled"; exit 1; }
+}
+
+gather_inputs_unattended() {
+  TARGET_DISK=${GNUNIX_TARGET_DISK:?GNUNIX_TARGET_DISK not set}
+  PROFILE=${GNUNIX_PROFILE:?GNUNIX_PROFILE not set}
+  HOSTNAME=${GNUNIX_HOSTNAME:?GNUNIX_HOSTNAME not set}
+  USERNAME=${GNUNIX_USER:?GNUNIX_USER not set}
+  PASSWORD=${GNUNIX_PASSWORD:?GNUNIX_PASSWORD not set}
+}
+
+# ----------------------------------------------------------------------------
+# Step 2: partition + format + mount the target
+# ----------------------------------------------------------------------------
+do_partitioning() {
+  local d=$TARGET_DISK
+  echo "[installer] wiping $d and creating GPT (ESP + ext4)"
+  sgdisk --zap-all "$d"
+  sgdisk -n 1:0:+512M -t 1:ef00 -c 1:"EFI System" "$d"
+  sgdisk -n 2:0:0    -t 2:8300 -c 2:"GNUnix root" "$d"
+  partprobe "$d" || true
+  sleep 1
+
+  # Partition device names: /dev/sda → /dev/sda1 ; /dev/nvme0n1 → /dev/nvme0n1p1
+  local p1 p2
+  if [[ "$d" =~ [0-9]$ ]]; then p1="${d}p1"; p2="${d}p2"; else p1="${d}1"; p2="${d}2"; fi
+
+  mkfs.vfat -F32 -n GNUNIX_EFI "$p1"
+  mkfs.ext4 -F -L gnunix-root "$p2"
+
+  mkdir -p "$TARGET_MOUNT"
+  mount "$p2" "$TARGET_MOUNT"
+  mkdir -p "$TARGET_MOUNT/boot/efi"
+  mount "$p1" "$TARGET_MOUNT/boot/efi"
+  export TARGET_P1=$p1 TARGET_P2=$p2
+}
+
+# ----------------------------------------------------------------------------
+# Step 3: rsync the live rootfs onto the target
+# ----------------------------------------------------------------------------
+do_rsync_rootfs() {
+  echo "[installer] copying live rootfs → $TARGET_MOUNT"
+  rsync -aAX --info=progress2 \
+    --exclude=/proc/ --exclude=/sys/ --exclude=/dev/ --exclude=/run/ \
+    --exclude=/tmp/ --exclude=/mnt/ --exclude=/media/ \
+    --exclude="$TARGET_MOUNT" \
+    --exclude=/var/log/ \
+    --exclude="$PAYLOAD_DIR" \
+    / "$TARGET_MOUNT/"
+  # Re-create the empty mount points
+  mkdir -p "$TARGET_MOUNT"/{proc,sys,dev,run,tmp,mnt,media,var/log}
+  chmod 1777 "$TARGET_MOUNT/tmp"
+}
+
+# ----------------------------------------------------------------------------
+# Step 4: chroot in and run the per-profile hook
+# ----------------------------------------------------------------------------
+do_chroot_postinstall() {
+  echo "[installer] chrooting + running profile $PROFILE"
+  mount --bind /proc "$TARGET_MOUNT/proc"
+  mount --bind /sys  "$TARGET_MOUNT/sys"
+  mount --bind /dev  "$TARGET_MOUNT/dev"
+  mount -t tmpfs tmpfs "$TARGET_MOUNT/run"
+
+  # Stage the profile script + theme assets into the chroot
+  install -d -m 0755 "$TARGET_MOUNT/usr/local/share/gnunix-installer"
+  cp -a "$PAYLOAD_DIR/profiles" "$TARGET_MOUNT/usr/local/share/gnunix-installer/"
+  cp -a "$PAYLOAD_DIR/themes"   "$TARGET_MOUNT/usr/local/share/gnunix-installer/"
+
+  # Write identity files BEFORE invoking the profile script — profiles
+  # may read them.
+  echo "$HOSTNAME" > "$TARGET_MOUNT/etc/hostname"
+  cat > "$TARGET_MOUNT/etc/os-release" <<EOF
+NAME="GNUnix"
+PRETTY_NAME="GNUnix $(cat /etc/os-release 2>/dev/null | sed -n 's/^VERSION_ID="\?\([^"]*\)"\?$/\1/p' || echo 0.1.0) ($PROFILE)"
+ID=gnunix
+VERSION_ID="0.1.0"
+VARIANT_ID="$PROFILE"
+HOME_URL="https://gnunix.invalid/"
+EOF
+
+  # Run the profile-specific post-install
+  chroot "$TARGET_MOUNT" /bin/bash \
+    /usr/local/share/gnunix-installer/profiles/"$PROFILE".sh \
+    "$USERNAME" "$PASSWORD"
+
+  # Drop the staged installer payload from the target (we don't need it
+  # to ship on the installed system).
+  rm -rf "$TARGET_MOUNT/usr/local/share/gnunix-installer"
+
+  umount "$TARGET_MOUNT/run"
+  umount "$TARGET_MOUNT/dev"
+  umount "$TARGET_MOUNT/sys"
+  umount "$TARGET_MOUNT/proc"
+}
+
+# ----------------------------------------------------------------------------
+# Step 5: GRUB on the target's ESP
+# ----------------------------------------------------------------------------
+do_grub_install() {
+  echo "[installer] installing GRUB → $TARGET_MOUNT/boot/efi"
+  mount --bind /proc "$TARGET_MOUNT/proc"
+  mount --bind /sys  "$TARGET_MOUNT/sys"
+  mount --bind /dev  "$TARGET_MOUNT/dev"
+  chroot "$TARGET_MOUNT" /bin/bash <<'EOF'
+set -eu
+grub-install --target=aarch64-efi --efi-directory=/boot/efi \
+             --bootloader-id=gnunix --removable
+# Generate a simple grub.cfg from the existing kernel files.
+KV=$(ls /boot/vmlinuz-* 2>/dev/null | sed -n 's|.*/vmlinuz-||p' | head -1)
+ROOT_UUID=$(findmnt -no UUID /)
+cat > /boot/grub/grub.cfg <<GRUB
+set default=0
+set timeout=2
+menuentry "GNUnix" {
+    linux  /boot/vmlinuz-$KV root=UUID=$ROOT_UUID rootfstype=ext4 rootwait rw console=tty1 console=hvc0
+}
+menuentry "GNUnix (single-user)" {
+    linux  /boot/vmlinuz-$KV root=UUID=$ROOT_UUID rootfstype=ext4 rootwait rw console=tty1 console=hvc0 single
+}
+menuentry "GNUnix (emergency shell)" {
+    linux  /boot/vmlinuz-$KV root=UUID=$ROOT_UUID rootfstype=ext4 rootwait rw console=tty1 console=hvc0 init=/bin/bash
+}
+GRUB
+EOF
+  umount "$TARGET_MOUNT/dev"
+  umount "$TARGET_MOUNT/sys"
+  umount "$TARGET_MOUNT/proc"
+}
+
+# ----------------------------------------------------------------------------
+# Step 6: fstab
+# ----------------------------------------------------------------------------
+do_write_fstab() {
+  local root_uuid esp_uuid
+  root_uuid=$(blkid -s UUID -o value "$TARGET_P2")
+  esp_uuid=$(blkid -s UUID -o value "$TARGET_P1")
+  cat > "$TARGET_MOUNT/etc/fstab" <<EOF
+# <device>                <mount>     <type>  <options>          <dump> <fsck>
+UUID=$root_uuid           /           ext4    defaults,noatime   0 1
+UUID=$esp_uuid            /boot/efi   vfat    umask=0077,fmask=0177,dmask=0077  0 2
+tmpfs                     /tmp        tmpfs   defaults,nosuid,nodev  0 0
+EOF
+}
+
+# ----------------------------------------------------------------------------
+# Step 7: finish
+# ----------------------------------------------------------------------------
+do_finish() {
+  sync
+  echo "[installer] unmounting target"
+  umount "$TARGET_MOUNT/boot/efi"
+  umount "$TARGET_MOUNT"
+  if [ -z "${GNUNIX_INSTALL_UNATTENDED:-}" ]; then
+    ui_msg "Installation complete.
+
+Remove the install medium and select Reboot from the next screen."
+  else
+    echo "[installer] DONE (unattended)"
+  fi
+}
+
+# ----------------------------------------------------------------------------
+# Main
+# ----------------------------------------------------------------------------
+main() {
+  require_root
+  for t in whiptail lsblk sgdisk partprobe mkfs.vfat mkfs.ext4 rsync \
+           blkid findmnt mount umount chroot grub-install; do
+    require_tool "$t"
+  done
+
+  if [ -n "${GNUNIX_INSTALL_UNATTENDED:-}" ]; then
+    gather_inputs_unattended
+  else
+    gather_inputs_interactive
+  fi
+
+  do_partitioning
+  do_rsync_rootfs
+  do_chroot_postinstall
+  do_grub_install
+  do_write_fstab
+  do_finish
+}
+
+main "$@"

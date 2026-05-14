@@ -1,0 +1,27 @@
+# /etc/inittab — sysvinit configuration.
+# BSD-style: rc.S, rc.M, rc.K, rc.6 dispatchers.
+
+# Default runlevel: 3 (multi-user, no graphical login).
+id:3:initdefault:
+
+# System initialization (always runs, regardless of runlevel)
+si:S:sysinit:/etc/rc.d/rc.S
+
+# Single-user (maintenance)
+su:1S:wait:/etc/rc.d/rc.K
+
+# Multi-user
+rc:23456:wait:/etc/rc.d/rc.M
+
+# Shutdown / reboot
+s0:0:wait:/etc/rc.d/rc.6
+s6:6:wait:/etc/rc.d/rc.6
+
+# Trap CTRL-ALT-DEL
+ca::ctrlaltdel:/sbin/shutdown -t1 -a -r now
+
+# Getty on the virtio console (visible to `tart console`)
+1:2345:respawn:/sbin/agetty --noclear hvc0 115200 vt100
+2:2345:respawn:/sbin/agetty --noclear tty1 38400 linux
+
+# Power events handled by powerd / acpid if installed; otherwise no-op.

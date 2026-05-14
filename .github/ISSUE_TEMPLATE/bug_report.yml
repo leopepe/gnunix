@@ -1,0 +1,115 @@
+name: 🐛 Bug report
+description: Something in the build pipeline, an image, or a script doesn't work as documented.
+title: "[bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please fill in what you can — partial reports
+        are still useful, and a one-line "smoke test fails on step X" with a
+        log is better than nothing.
+
+        Before you file, check:
+        - [`docs/runbooks/`](../tree/main/docs/runbooks) — your symptom may
+          already be a documented "gotcha".
+        - The [open issues](../issues) — someone may have already reported it.
+
+  - type: input
+    id: gnunix-version
+    attributes:
+      label: GNUnix version
+      description: From `tools/manifest.json:lfs_image_version`, or the tag you built from.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Which layer is affected?
+      multiple: true
+      options:
+        - gnunix-builder (the build VM)
+        - gnunix-base (LFS, Phase 2)
+        - gnunix-nix (multi-user Nix, Phase 3)
+        - gnunix-desktop (Wayland session, Phase 4)
+        - Platform packaging (generic-uefi / rpi-native / nuc-installer)
+        - CI workflows (.github/workflows/)
+        - Documentation / runbook
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: |
+        The exact commands you ran. Include any env-vars (`REUSE_BUILDER=1`,
+        `AUTO=1`, etc.). Copy-paste, don't paraphrase.
+      placeholder: |
+        1. `tools/fetch-sources.sh`
+        2. `tools/build-all.sh gnunix-base`
+        3. Build fails in stage 03b-chroot-inner.sh at the gcc pass-2 link step.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: gnunix-base-0.1.0 builds and passes `tests/boot-smoke.sh`.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happened?
+      description: Error message, exit code, where the script bailed. Paste relevant log lines verbatim.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: |
+        Build logs live in `/tmp/lfs-build-logs/` inside `gnunix-builder-build`
+        and in `cache/artifacts/` on the host. Trim to the relevant window —
+        we don't need the full 3-hour log.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: host-os
+    attributes:
+      label: Host OS / Tart version
+      description: Output of `sw_vers -productVersion && tart --version`.
+      placeholder: "macOS 14.5 / tart 2.10.0"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: Is this reproducible?
+      options:
+        - Always
+        - Sometimes
+        - Once so far
+        - Haven't tried again
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else that might be relevant — recent changes, custom env, modified scripts.
+    validations:
+      required: false

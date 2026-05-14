@@ -1,0 +1,37 @@
+name: ❓ Question
+description: Ask a question about how to use, build, or understand GNUnix.
+title: "[question] "
+labels: ["question", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a question, please check:
+
+        - [`README.md`](../blob/main/README.md), [`runbook.md`](../blob/main/runbook.md),
+          and the relevant file under [`docs/runbooks/`](../tree/main/docs/runbooks).
+        - The [`docs/adrs/`](../tree/main/docs/adrs) directory — most
+          "why does GNUnix do X?" questions are answered there.
+        - The [Discussions](../discussions) tab — open-ended questions are
+          often a better fit there.
+
+        Issues are best for questions that are likely to need a doc update
+        or that uncover a missing piece of the runbook.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: Be specific. "Why does X happen?" is better than "X is confusing".
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you already tried or read?
+      description: |
+        Pointer to runbooks/ADRs you've already checked. Helps us know
+        whether the answer needs to land somewhere documented.
+    validations:
+      required: false

@@ -1,0 +1,22 @@
+#!/bin/sh
+# /etc/rc.d/rc.dbus — system D-Bus daemon.
+# Required by elogind, portals, and most desktop apps.
+
+DBUS_PID=/run/dbus/pid
+
+case "${1:-start}" in
+  start)
+    [ -e /run/dbus ] || mkdir -p /run/dbus
+    [ -e /var/lib/dbus/machine-id ] || dbus-uuidgen --ensure
+    if [ -f "$DBUS_PID" ] && kill -0 "$(cat "$DBUS_PID")" 2>/dev/null; then
+      echo "[rc.dbus] already running"
+    else
+      dbus-daemon --system
+    fi
+    ;;
+  stop)
+    [ -f "$DBUS_PID" ] && kill "$(cat "$DBUS_PID")" 2>/dev/null
+    rm -f "$DBUS_PID"
+    ;;
+  *) echo "usage: $0 {start|stop}"; exit 1 ;;
+esac

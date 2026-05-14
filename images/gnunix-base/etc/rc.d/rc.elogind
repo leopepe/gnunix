@@ -1,0 +1,22 @@
+#!/bin/sh
+# /etc/rc.d/rc.elogind — seat/session manager.
+# Provides org.freedesktop.login1 D-Bus API for Wayland compositors.
+
+ELOGIND=/usr/lib/elogind/elogind
+PIDFILE=/run/elogind.pid
+
+case "${1:-start}" in
+  start)
+    if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+      echo "[rc.elogind] already running"
+    else
+      "$ELOGIND" --daemon
+      pgrep -f elogind | head -n1 > "$PIDFILE"
+    fi
+    ;;
+  stop)
+    [ -f "$PIDFILE" ] && kill "$(cat "$PIDFILE")" 2>/dev/null
+    rm -f "$PIDFILE"
+    ;;
+  *) echo "usage: $0 {start|stop}"; exit 1 ;;
+esac

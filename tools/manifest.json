@@ -1,0 +1,365 @@
+{
+  "$schema_note": "Pinned versions for the entire base image. Do not edit ad hoc \u2014 Renovate (ADR-008) opens PRs to bump these. The 'sha256' fields are SHA256 of the upstream tarball at the listed url. Empty sha256 means it must be filled in by the first run of tools/fetch-sources.sh, or pre-populated.",
+  "manifest_version": "0.1.0",
+  "lfs_image_version": "0.1.0",
+  "$arch_note": "Multi-arch axis (ADR-010). 'active_arch' picks the current build target; 'archs' holds the per-arch toolchain pins, kernel arch name, GRUB target and Nix binary URL. The legacy top-level 'target_arch'/'target_triple'/'nix.binary_*' fields mirror archs[active_arch] for backwards compatibility with Phase 2-4 scripts.",
+  "active_arch": "aarch64",
+  "archs": {
+    "aarch64": {
+      "target_triple": "aarch64-lfs-linux-gnu",
+      "kernel_arch": "arm64",
+      "grub_target": "aarch64-efi",
+      "efi_loader": "BOOTAA64.EFI",
+      "builder_image": "ghcr.io/cirruslabs/ubuntu:latest",
+      "builder_grub_package": "grub-efi-arm64-bin",
+      "nix_binary_url": "https://releases.nixos.org/nix/nix-2.24.10/nix-2.24.10-aarch64-linux.tar.xz",
+      "nix_binary_sha256": "1d8cf1d0760a4ca70d3d5c0becef1183ad4d5c87b4afb0e77085da3fd88b0bfb",
+      "runner_labels": ["self-hosted", "macOS", "arm64", "tart"]
+    },
+    "x86_64": {
+      "$status_note": "Scaffolded per ADR-010 \u00a7 Phasing. Builds will fail until a Linux x86_64 runner exists and the gnunix-base stages consume the per-arch fields. Nix binary URL is the official upstream; sha256 must be pinned by first fetch.",
+      "target_triple": "x86_64-lfs-linux-gnu",
+      "kernel_arch": "x86",
+      "grub_target": "x86_64-efi",
+      "efi_loader": "BOOTX64.EFI",
+      "builder_image": "ghcr.io/cirruslabs/ubuntu:latest",
+      "builder_grub_package": "grub-efi-amd64-bin",
+      "nix_binary_url": "https://releases.nixos.org/nix/nix-2.24.10/nix-2.24.10-x86_64-linux.tar.xz",
+      "nix_binary_sha256": "",
+      "runner_labels": ["self-hosted", "linux", "x64"]
+    }
+  },
+  "$platforms_note": "Per-platform image packagers (ADR-010). Each entry declares which archs it supports + the path to its package.sh. tools/package-platform.sh dispatches here.",
+  "platforms": {
+    "generic-uefi": {
+      "archs": ["aarch64", "x86_64"],
+      "packager": "images/variants/generic-uefi/package.sh",
+      "output_format": "raw-img"
+    },
+    "rpi-native": {
+      "$status_note": "Scaffolded; package.sh refuses to run until kernel_has_bcm_drivers=true and firmware.{version,url,sha256} are populated. See docs/TODO.md.",
+      "archs": ["aarch64"],
+      "packager": "images/variants/rpi-native/package.sh",
+      "output_format": "raw-img",
+      "kernel_has_bcm_drivers": false,
+      "firmware": {
+        "version": "",
+        "url": "",
+        "sha256": ""
+      }
+    },
+    "nuc-installer": {
+      "$status_note": "Scaffolded; package.sh refuses to run until active_arch=x86_64 and a Linux runner is available. See docs/TODO.md.",
+      "archs": ["x86_64"],
+      "packager": "images/variants/nuc-installer/package.sh",
+      "output_format": "hybrid-iso"
+    }
+  },
+  "active_platforms": ["generic-uefi"],
+  "target_arch": "aarch64",
+  "target_triple": "aarch64-lfs-linux-gnu",
+  "host_distro_for_builder": {
+    "_note": "Prebuilt Tart-native Ubuntu image from cirruslabs. Chosen over the Debian netinst ISO so the builder can be provisioned non-interactively. The choice of builder OS does not affect the LFS target \u2014 any Debian-family host with gcc/make works.",
+    "name": "ubuntu",
+    "source": "tart",
+    "tart_image": "ghcr.io/cirruslabs/ubuntu:latest",
+    "default_user": "admin",
+    "default_password": "admin",
+    "arch": "arm64"
+  },
+  "toolchain": {
+    "binutils": {
+      "version": "2.43.1",
+      "url": "https://ftp.gnu.org/gnu/binutils/binutils-2.43.1.tar.xz",
+      "sha256": "13f74202a3c4c51118b797a39ea4200d3f6cfbe224da6d1d95bb938480132dfd"
+    },
+    "gcc": {
+      "version": "14.2.0",
+      "url": "https://ftp.gnu.org/gnu/gcc/gcc-14.2.0/gcc-14.2.0.tar.xz",
+      "sha256": "a7b39bc69cbf9e25826c5a60ab26477001f7c08d85cec04bc0e29cabed6f3cc9"
+    },
+    "gcc_prereqs": {
+      "gmp": {
+        "version": "6.3.0",
+        "url": "https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz",
+        "sha256": "a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898"
+      },
+      "mpfr": {
+        "version": "4.2.1",
+        "url": "https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.1.tar.xz",
+        "sha256": "277807353a6726978996945af13e52829e3abd7a9a5b7fb2793894e18f1fcbb2"
+      },
+      "mpc": {
+        "version": "1.3.1",
+        "url": "https://ftp.gnu.org/gnu/mpc/mpc-1.3.1.tar.gz",
+        "sha256": "ab642492f5cf882b74aa0cb730cd410a81edcdbec895183ce930e706c1c759b8"
+      },
+      "isl": {
+        "version": "0.27",
+        "url": "https://libisl.sourceforge.io/isl-0.27.tar.xz",
+        "sha256": "6d8babb59e7b672e8cb7870e874f3f7b813b6e00e6af3f8b04f7579965643d5c"
+      }
+    },
+    "linux_headers": {
+      "version": "6.12.20",
+      "url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.12.20.tar.xz",
+      "sha256": "230e89b07b0ab82e74f07ecc1bee3105dca81d0ef4a97f900929c407249b6ac7"
+    },
+    "glibc": {
+      "version": "2.40",
+      "url": "https://ftp.gnu.org/gnu/glibc/glibc-2.40.tar.xz",
+      "sha256": "19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2"
+    }
+  },
+  "kernel": {
+    "version": "6.12.20",
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.12.20.tar.xz",
+    "sha256": "230e89b07b0ab82e74f07ecc1bee3105dca81d0ef4a97f900929c407249b6ac7",
+    "config_fragment": "images/gnunix-base/kernel.config"
+  },
+  "base_packages": {
+    "bash": {
+      "version": "5.2.32",
+      "url": "https://ftp.gnu.org/gnu/bash/bash-5.2.32.tar.gz",
+      "sha256": "d3ef80d2b67d8cbbe4d3265c63a72c46f9b278ead6e0e06d61801b58f23f50b5"
+    },
+    "coreutils": {
+      "version": "9.5",
+      "url": "https://ftp.gnu.org/gnu/coreutils/coreutils-9.5.tar.xz",
+      "sha256": "cd328edeac92f6a665de9f323c93b712af1858bc2e0d88f3f7100469470a1b8a"
+    },
+    "util-linux": {
+      "version": "2.40.2",
+      "url": "https://www.kernel.org/pub/linux/utils/util-linux/v2.40/util-linux-2.40.2.tar.xz",
+      "sha256": "d78b37a66f5922d70edf3bdfb01a6b33d34ed3c3cafd6628203b2a2b67c8e8b3"
+    },
+    "e2fsprogs": {
+      "version": "1.47.1",
+      "url": "https://downloads.sourceforge.net/project/e2fsprogs/e2fsprogs/v1.47.1/e2fsprogs-1.47.1.tar.gz",
+      "sha256": "9afcd201f39429d2db2492aeb13dba5e75d6cc50682b732dca35643bd5f092e3"
+    },
+    "iproute2": {
+      "version": "6.10.0",
+      "url": "https://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-6.10.0.tar.xz",
+      "sha256": "91a62f82737b44905a00fa803369c447d549e914e9a2a4018fdd75b1d54e8dce"
+    },
+    "iputils": {
+      "version": "20240905",
+      "url": "https://github.com/iputils/iputils/archive/refs/tags/20240905.tar.gz",
+      "sha256": "055b4e6e4f298c97fd5848898099e59b4590db63fac3f7ad4fa796354ad44403"
+    },
+    "dhcpcd": {
+      "version": "10.1.0",
+      "url": "https://github.com/NetworkConfiguration/dhcpcd/releases/download/v10.1.0/dhcpcd-10.1.0.tar.xz",
+      "sha256": "abc307c63853da3199baa5c1e15fd5ede9d68d068b2a59ca14c5a6768e9cc3b7"
+    },
+    "openssh": {
+      "version": "9.9p1",
+      "url": "https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-9.9p1.tar.gz",
+      "sha256": "b343fbcdbff87f15b1986e6e15d6d4fc9a7d36066be6b7fb507087ba8f966c02"
+    },
+    "openssl": {
+      "version": "3.3.2",
+      "url": "https://www.openssl.org/source/openssl-3.3.2.tar.gz",
+      "sha256": "2e8a40b01979afe8be0bbfb3de5dc1c6709fedb46d6c89c10da114ab5fc3d281"
+    },
+    "zlib": {
+      "version": "1.3.1",
+      "url": "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.xz",
+      "sha256": "38ef96b8dfe510d42707d9c781877914792541133e1870841463bfa73f883e32"
+    },
+    "ncurses": {
+      "version": "6.5",
+      "url": "https://ftp.gnu.org/gnu/ncurses/ncurses-6.5.tar.gz",
+      "sha256": "136d91bc269a9a5785e5f9e980bc76ab57428f604ce3e5a5a90cebc767971cc6"
+    },
+    "readline": {
+      "version": "8.2",
+      "url": "https://ftp.gnu.org/gnu/readline/readline-8.2.tar.gz",
+      "sha256": "3feb7171f16a84ee82ca18a36d7b9be109a52c04f492a053331d7d1095007c35"
+    },
+    "less": {
+      "version": "661",
+      "url": "https://www.greenwoodsoftware.com/less/less-661.tar.gz",
+      "sha256": "2b5f0167216e3ef0ffcb0c31c374e287eb035e4e223d5dae315c2783b6e738ed"
+    },
+    "vim": {
+      "version": "9.1.0707",
+      "url": "https://github.com/vim/vim/archive/refs/tags/v9.1.0707.tar.gz",
+      "sha256": "859fadc6d3c391d2ba4a5dff71cd81adbd2fdf20e5690b17ff1ea07905adccd6"
+    },
+    "shadow": {
+      "version": "4.16.0",
+      "url": "https://github.com/shadow-maint/shadow/releases/download/4.16.0/shadow-4.16.0.tar.xz",
+      "sha256": "b78e3921a95d53282a38e90628880624736bf6235e36eea50c50835f59a3530b"
+    },
+    "libxcrypt": {
+      "version": "4.4.36",
+      "url": "https://github.com/besser82/libxcrypt/releases/download/v4.4.36/libxcrypt-4.4.36.tar.xz",
+      "sha256": "e5e1f4caee0a01de2aee26e3138807d6d3ca2b8e67287966d1fefd65e1fd8943"
+    },
+    "perl": {
+      "version": "5.38.2",
+      "url": "https://www.cpan.org/src/5.0/perl-5.38.2.tar.xz",
+      "sha256": "d91115e90b896520e83d4de6b52f8254ef2b70a8d545ffab33200ea9f1cf29e8"
+    },
+    "bison": {
+      "version": "3.8.2",
+      "url": "https://ftp.gnu.org/gnu/bison/bison-3.8.2.tar.xz",
+      "sha256": "9bba0214ccf7f1079c5d59210045227bcf619519840ebfa80cd3849cff5a5bf2"
+    },
+    "flex": {
+      "version": "2.6.4",
+      "url": "https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz",
+      "sha256": "e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995"
+    },
+    "gperf": {
+      "version": "3.1",
+      "url": "https://ftp.gnu.org/gnu/gperf/gperf-3.1.tar.gz",
+      "sha256": "588546b945bba4b70b6a3a616e80b4ab466e3f33024a352fc2198112cdbb3ae2"
+    },
+    "pkgconf": {
+      "version": "2.3.0",
+      "url": "https://distfiles.ariadne.space/pkgconf/pkgconf-2.3.0.tar.xz",
+      "sha256": "3a9080ac51d03615e7c1910a0a2a8df08424892b5f13b0628a204d3fcce0ea8b"
+    },
+    "python": {
+      "version": "3.12.5",
+      "url": "https://www.python.org/ftp/python/3.12.5/Python-3.12.5.tar.xz",
+      "sha256": "fa8a2e12c5e620b09f53e65bcd87550d2e5a1e2e04bf8ba991dcc55113876397"
+    },
+    "pam": {
+      "version": "1.6.1",
+      "url": "https://github.com/linux-pam/linux-pam/releases/download/v1.6.1/Linux-PAM-1.6.1.tar.xz",
+      "sha256": "f8923c740159052d719dbfc2a2f81942d68dd34fcaf61c706a02c9b80feeef8e"
+    },
+    "expat": {
+      "version": "2.6.4",
+      "url": "https://github.com/libexpat/libexpat/releases/download/R_2_6_4/expat-2.6.4.tar.xz",
+      "sha256": "a695629dae047055b37d50a0ff4776d1d45d0a4c842cf4ccee158441f55ff7ee"
+    },
+    "file": {
+      "version": "5.45",
+      "url": "https://astron.com/pub/file/file-5.45.tar.gz",
+      "sha256": "fc97f51029bb0e2c9f4e3bffefdaf678f0e039ee872b9de5c002a6d09c784d82"
+    },
+    "gawk": {
+      "version": "5.3.1",
+      "url": "https://ftp.gnu.org/gnu/gawk/gawk-5.3.1.tar.xz",
+      "sha256": "694db764812a6236423d4ff40ceb7b6c4c441301b72ad502bb5c27e00cd56f78"
+    },
+    "grep": {
+      "version": "3.11",
+      "url": "https://ftp.gnu.org/gnu/grep/grep-3.11.tar.xz",
+      "sha256": "1db2aedde89d0dea42b16d9528f894c8d15dae4e190b59aecc78f5a951276eab"
+    },
+    "sed": {
+      "version": "4.9",
+      "url": "https://ftp.gnu.org/gnu/sed/sed-4.9.tar.xz",
+      "sha256": "6e226b732e1cd739464ad6862bd1a1aba42d7982922da7a53519631d24975181"
+    },
+    "xz": {
+      "version": "5.6.3",
+      "url": "https://github.com/tukaani-project/xz/releases/download/v5.6.3/xz-5.6.3.tar.xz",
+      "sha256": "db0590629b6f0fa36e74aea5f9731dc6f8df068ce7b7bafa45301832a5eebc3a"
+    },
+    "gzip": {
+      "version": "1.13",
+      "url": "https://ftp.gnu.org/gnu/gzip/gzip-1.13.tar.xz",
+      "sha256": "7454eb6935db17c6655576c2e1b0fabefd38b4d0936e0f87f48cd062ce91a057"
+    },
+    "tar": {
+      "version": "1.35",
+      "url": "https://ftp.gnu.org/gnu/tar/tar-1.35.tar.xz",
+      "sha256": "4d62ff37342ec7aed748535323930c7cf94acf71c3591882b26a7ea50f3edc16"
+    },
+    "make": {
+      "version": "4.4.1",
+      "url": "https://ftp.gnu.org/gnu/make/make-4.4.1.tar.gz",
+      "sha256": "dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3"
+    },
+    "m4": {
+      "version": "1.4.20",
+      "url": "https://ftp.gnu.org/gnu/m4/m4-1.4.20.tar.xz",
+      "sha256": "e236ea3a1ccf5f6c270b1c4bb60726f371fa49459a8eaaebc90b216b328daf2b"
+    },
+    "diffutils": {
+      "version": "3.10",
+      "url": "https://ftp.gnu.org/gnu/diffutils/diffutils-3.10.tar.xz",
+      "sha256": "90e5e93cc724e4ebe12ede80df1634063c7a855692685919bfe60b556c9bd09e"
+    },
+    "findutils": {
+      "version": "4.10.0",
+      "url": "https://ftp.gnu.org/gnu/findutils/findutils-4.10.0.tar.xz",
+      "sha256": "1387e0b67ff247d2abde998f90dfbf70c1491391a59ddfecb8ae698789f0a4f5"
+    },
+    "patch": {
+      "version": "2.7.6",
+      "url": "https://ftp.gnu.org/gnu/patch/patch-2.7.6.tar.xz",
+      "sha256": "ac610bda97abe0d9f6b7c963255a11dcb196c25e337c61f94e4778d632f1d8fd"
+    }
+  },
+  "init_and_session": {
+    "sysvinit": {
+      "version": "3.10",
+      "url": "https://github.com/slicer69/sysvinit/releases/download/3.10/sysvinit-3.10.tar.xz",
+      "sha256": "c52d22f63e187a1247ad491b6a3a049561b887400a166d6b04fc9d67705c4da6"
+    },
+    "eudev": {
+      "version": "3.2.14",
+      "url": "https://github.com/eudev-project/eudev/releases/download/v3.2.14/eudev-3.2.14.tar.gz",
+      "sha256": "8da4319102f24abbf7fff5ce9c416af848df163b29590e666d334cc1927f006f"
+    },
+    "dbus": {
+      "version": "1.14.10",
+      "url": "https://dbus.freedesktop.org/releases/dbus/dbus-1.14.10.tar.xz",
+      "sha256": "ba1f21d2bd9d339da2d4aa8780c09df32fea87998b73da24f49ab9df1e36a50f"
+    },
+    "elogind": {
+      "version": "252.9",
+      "url": "https://github.com/elogind/elogind/archive/refs/tags/v252.9.tar.gz",
+      "sha256": "7af8caa8225a406e77fb99c9f33dba5e1f0a94f0e1277c9d91dcfc016f116d85"
+    }
+  },
+  "bootloader": {
+    "grub": {
+      "version": "2.12",
+      "url": "https://mirrors.kernel.org/gnu/grub/grub-2.12.tar.xz",
+      "sha256": "f3c97391f7c4eaa677a78e090c7e97e6dc47b16f655f04683ebd37bef7fe0faa"
+    }
+  },
+  "nix": {
+    "installer_version": "2.24.10",
+    "installer_url": "https://releases.nixos.org/nix/nix-2.24.10/install",
+    "_note_binary": "Phase 3 (gnunix-nix) installs the multi-user Nix daemon from this binary tarball. Manual install: our /etc/rc.d/rc.nix-daemon supervises the daemon (no systemd, per ADR-001).",
+    "binary_version": "2.24.10",
+    "binary_url": "https://releases.nixos.org/nix/nix-2.24.10/nix-2.24.10-aarch64-linux.tar.xz",
+    "binary_sha256": "1d8cf1d0760a4ca70d3d5c0becef1183ad4d5c87b4afb0e77085da3fd88b0bfb",
+    "channel": "nixos-25.11",
+    "nixpkgs_rev_pin": ""
+  },
+  "image_packaging": {
+    "rootfs_size_gb": 8,
+    "boot_partition_mb": 512,
+    "filesystem": "ext4"
+  },
+  "hardening": {
+    "$note": "Compile-time hardening per ADR-011. The native_* sets are exported by stage 03b onwards (final native build); the cross_* sets are exported by stages 01-02 (cross-toolchain + temp-tools). Per-package exclusions are merged in by lib/hardening.sh:hardening_export. CFLAGS use space-separated tokens so the helper can split on whitespace; never embed spaces inside a token.",
+    "native_cflags":   "-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fstack-clash-protection -fPIE -mbranch-protection=standard -fno-strict-overflow -fno-delete-null-pointer-checks -fno-strict-aliasing -ftrivial-auto-var-init=zero -Wformat -Wformat=2 -Werror=format-security",
+    "native_cxxflags_extra": "-D_GLIBCXX_ASSERTIONS",
+    "native_ldflags":  "-Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -Wl,--as-needed",
+    "cross_cflags":    "-O2",
+    "cross_ldflags":   "-Wl,-z,relro -Wl,-z,now",
+    "exclude": {
+      "$note": "Per-package strip list. Values: a list of individual flag tokens to drop from CFLAGS+CXXFLAGS+LDFLAGS, OR the special sentinel ['ALL'] to drop every hardening flag for that package (kernel, GRUB).",
+      "glibc":    ["-D_FORTIFY_SOURCE=3", "-fstack-protector-strong", "-fPIE", "-pie", "-Werror=format-security"],
+      "linux":    ["ALL"],
+      "kernel":   ["ALL"],
+      "gcc":      ["-pie", "-fPIE", "-Werror=format-security"],
+      "grub":     ["-fPIE", "-pie", "-fstack-protector-strong", "-fstack-clash-protection", "-mbranch-protection=standard", "-Werror=format-security"],
+      "binutils": ["-D_FORTIFY_SOURCE=3", "-Werror=format-security"],
+      "bash":     ["-ftrivial-auto-var-init=zero"],
+      "gettext":  ["-ftrivial-auto-var-init=zero"]
+    }
+  }
+}
