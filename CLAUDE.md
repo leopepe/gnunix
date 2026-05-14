@@ -21,11 +21,63 @@ Strategy doc: `~/Documents/hyground/analysis/gnunix-nix-wayland-distro-strategy.
 
 ## Guiding philosophy (load-bearing)
 
-- **Static base, dynamic userland.** The LFS layer is boring on purpose. Anything that evolves week-to-week belongs in Nix, not in `/etc`.
-- **No policy in PID 1.** Init does init. No service supervisor, no D-Bus-coupled init.
-- **Boring base, declarative top.** System config lives in shell scripts and a few text files. User config lives in `home-manager`.
+GNUnix is a deliberate sandwich: a GNU coreutils + `sysvinit` base from
+the 1990s, a Wayland + Nix userland from the 2020s, and nothing in
+between pretending to be middleware. It is *not* a general-purpose
+distro; it's a developer workstation that took strong opinions and wrote
+them down as ADRs so nobody has to argue about them twice.
 
-When proposing changes, ask: *does this belong in the static base or the dynamic userland?* If unsure, default to userland (Nix).
+The base layer is **Slackware-lineage on purpose.** Patrick Volkerding
+named his distro after the SubGenius pursuit of *Slack* and proved that
+an init system you can read in an afternoon is the most Slack-maximizing
+thing on the disk. We inherit those priorities directly: BSD-style
+`/etc/rc.d/`, `chmod +x` toggling, `sysvinit` as PID 1, GNU coreutils
+everywhere, no policy daemons in the boot path. The Nix and Wayland
+layers are new; the *attitude* is 1993. Praise "Bob."
+
+The load-bearing rules:
+
+- **Static base, dynamic userland.** The LFS layer is boring on purpose.
+  Anything that evolves week-to-week belongs in Nix, not in `/etc`. If
+  you find yourself patching `/etc/` to ship a feature, you're in the
+  wrong layer.
+- **No policy in PID 1.** Init does init. No service supervisor, no
+  D-Bus-coupled init, no "declarative dependency graph." `sysvinit`
+  starts `rc.S`, `rc.S` runs scripts, scripts exit. End of story.
+- **Boring base, declarative top.** System config lives in shell scripts
+  and a few text files. User config lives in `home-manager`. There is
+  no third layer; resist the urge to invent one.
+- **GNU userland, unapologetically.** `coreutils`, glibc, GCC, bash —
+  the GNU stack, compiled from source. No `busybox`, no `musl`, no
+  drop-in replacements "for size." If a tool exists in coreutils, use
+  it; don't reach for a third-party rewrite because it has a logo.
+- **Wayland-only display, compositor-agnostic.** We ship the substrate
+  (`elogind`, `dbus`, portals, `seatd` where relevant). We do not ship
+  X11 or XWayland in the base. We do not pick the compositor for the
+  user — `sway` is the *reference* session, not the *only* session.
+- **No desktop environment in the base image.** GNOME and KDE are
+  excellent and explicitly out of scope. GNUnix gives the user a TTY,
+  a working Nix, and a Wayland-capable kernel; what they build on top
+  is their problem and Nix's strength.
+- **Old where it works, new where it helps.** `sysvinit` because it
+  still boots in under a second and you can read it. Nix because it
+  solved dependency hell. Wayland because X11 didn't age well. We are
+  not nostalgic *or* trend-chasing — we picked each layer on merit and
+  wrote an ADR explaining why.
+- **Simple, direct, objective.** One concern per script, one decision
+  per ADR, one reason per commit. If something feels clever, it is
+  probably wrong for this codebase. Clever costs Slack; Slack is the
+  point.
+
+When proposing changes, ask in order:
+
+1. *Does this belong in the static base or the dynamic userland?* If
+   unsure, default to userland (Nix).
+2. *Is this something the user should choose, not us?* If yes, ship the
+   substrate, not the choice. (Compositors, editors, shells, fonts,
+   browsers — all user choice.)
+3. *Does an ADR already answer this?* Check the locked-decisions table
+   below before designing around it.
 
 ## Locked decisions — do not relitigate without an ADR update
 
@@ -136,6 +188,73 @@ When the user asks to build, resume, or test `gnunix-base`, use these entry poin
 - **Auto-merge:** userland bumps (nixpkgs, bundles) that pass CI.
 - **Human review required:** kernel, glibc, binutils, gcc, sysvinit, eudev, dbus, elogind, GRUB.
 - Releases publish Tart images (`*.tart.tar.zst`) + `manifest.json` as GitHub Release artifacts via `tools/promote.sh`.
+
+## Opening issues and pull requests
+
+**Before you create an issue or open a PR — including any time the user asks
+you to do so — read [`CONTRIBUTING.md`](CONTRIBUTING.md) first.** It is the
+authoritative guide for contribution flow; this section only adds Claude-
+specific instructions on top of it. If guidance here ever drifts from
+`CONTRIBUTING.md`, `CONTRIBUTING.md` wins.
+
+Mandatory reading triggers:
+
+- The user asks you to **open, draft, file, or create** an issue or PR
+  (via `gh`, the GitHub MCP, a web URL, or by writing the body to a file).
+- The user asks you to **edit** an existing issue or PR body / title.
+- You are about to suggest issue or PR text the user will paste themselves.
+
+In all of those cases, re-read `CONTRIBUTING.md` in the same session — do
+not rely on memory from a previous turn. Pay particular attention to
+*Before you start*, *Submitting a pull request*, and *What we don't accept*.
+
+### Always use the repository templates
+
+GitHub stores templates under `.github/`. **Never** invent your own
+structure; populate the existing template fields and delete the inline
+HTML comments / placeholders you have actually filled in.
+
+Pull requests:
+
+- Template: [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md).
+- When using `gh pr create`, pass `--body-file` pointing at a body you
+  generated from this template (or `--template PULL_REQUEST_TEMPLATE.md`).
+  Do not use `--body "..."` with a hand-written summary that skips the
+  template sections.
+- Fill in: Summary, Why (link the issue / ADR), How validated (tick the
+  smoke-test boxes that actually ran; don't tick what you didn't run),
+  Locked-decisions check, Checklist.
+
+Issues:
+
+- Templates live in [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/).
+  Pick the one that matches the intent:
+  - `bug_report.yml` — something is broken or behaves wrong.
+  - `feature_request.yml` — new capability or enhancement.
+  - `documentation.yml` — docs are missing, wrong, or unclear.
+  - `adr_proposal.yml` — proposing a load-bearing decision (new ADR, or
+    amendment to an existing one). Use this whenever a task seems to
+    require violating a locked decision — surface the conflict here
+    instead of working around it.
+  - `question.yml` — architecture / usage question with no concrete bug.
+- When using `gh issue create`, pass `--template <file>.yml` (e.g.
+  `--template bug_report.yml`) and answer each form field. Do not bypass
+  the form with a free-form `--body`.
+- If no template fits, stop and ask the user which one to use rather than
+  filing a template-less issue.
+
+### Content rules (in addition to the templates)
+
+- Reference the relevant ADR number(s) by ID — e.g. "per ADR-001" — for
+  any claim about a locked decision. Don't paraphrase the rationale; link
+  to it.
+- Validation evidence must be real. If you didn't run
+  `tests/boot-smoke.sh`, don't tick its box. Note what you ran instead
+  under *Other* or *Reviewer notes*.
+- Don't open meta-PRs that rewrite `README.md`, `CLAUDE.md`, or
+  `CONTRIBUTING.md` for style. Fix factual errors only, per *What NOT to
+  do* above.
+- Don't bundle a version bump with an unrelated change (ADR-008).
 
 ## External tooling on the host (macOS)
 
