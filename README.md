@@ -35,3 +35,9 @@ build/test entry points, and `docs/adrs/` for the locked decisions
 …).
 
 For Claude Code sessions: read `CLAUDE.md` first.
+
+---
+
+<p align="center">
+  <img src="assets/gnunix-fractal-banner.png" alt="GNUnix fractal banner" width="100%">
+</p>
