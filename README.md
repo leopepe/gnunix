@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/gnunix-logo-v1.png" alt="GNUnix logo" width="640">
+</p>
+
 # GNUnix
 
 Custom Linux distribution for developer workstations on Apple Silicon.
