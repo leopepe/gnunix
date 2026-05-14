@@ -70,6 +70,11 @@ jobs:
           ./actionlint -version
 
       - name: Lint .github/workflows/*.yml
+        # Match the standalone shellcheck job's severity threshold so
+        # actionlint's embedded shellcheck doesn't fail on info-level
+        # findings (SC2015, SC2086, SC2035) the dedicated job ignores.
+        env:
+          SHELLCHECK_OPTS: "-S warning"
         run: ./actionlint -color
 
   gitleaks:

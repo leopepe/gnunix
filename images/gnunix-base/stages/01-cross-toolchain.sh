@@ -74,7 +74,7 @@ build_gcc_pass1() {
   ../configure \
     --target="$LFS_TGT" \
     --prefix="$TOOLS" \
-    --with-glibc-version=$(jq -r .toolchain.glibc.version "$REPO_ROOT/tools/manifest.json") \
+    --with-glibc-version="$(jq -r .toolchain.glibc.version "$REPO_ROOT/tools/manifest.json")" \
     --with-sysroot="$LFS" \
     --with-newlib --without-headers \
     --enable-default-pie --enable-default-ssp \
@@ -162,7 +162,7 @@ build_glibc() {
   ../configure \
     --prefix=/usr \
     --host="$LFS_TGT" \
-    --build=$(../scripts/config.guess) \
+    --build="$(../scripts/config.guess)" \
     --enable-kernel=5.4 \
     --with-headers="$LFS/usr/include" \
     libc_cv_slibdir=/usr/lib
@@ -180,7 +180,7 @@ build_libstdcxx() {
   hardening_export gcc cross
   ../libstdc++-v3/configure \
     --host="$LFS_TGT" \
-    --build=$(../config.guess) \
+    --build="$(../config.guess)" \
     --prefix=/usr \
     --disable-multilib \
     --disable-nls \

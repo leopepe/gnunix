@@ -10,6 +10,9 @@ set -euo pipefail
 REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}
 LFS=${LFS:-/mnt/lfs}
 
+# Resolved for symmetry with the other image build scripts; not yet
+# embedded in the disk image but useful in logs / future metadata.
+# shellcheck disable=SC2034
 VERSION=$(jq -r .lfs_image_version "$REPO_ROOT/tools/manifest.json")
 KERNEL_VERSION=$(jq -r .kernel.version "$REPO_ROOT/tools/manifest.json")
 ROOTFS_GB=$(jq -r .image_packaging.rootfs_size_gb "$REPO_ROOT/tools/manifest.json")

@@ -5,7 +5,6 @@
 SP=/nix/var/nix/profiles/system
 DBUSD=$SP/bin/dbus-daemon
 DBUS_UUIDGEN=$SP/bin/dbus-uuidgen
-DBUS_CONF=$SP/share/dbus-1/system.conf
 DBUS_PID=/run/dbus/pid
 
 case "${1:-start}" in

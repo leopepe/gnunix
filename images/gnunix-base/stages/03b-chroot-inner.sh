@@ -1,5 +1,8 @@
 #!/bin/bash
 # Stage 3b: Inner chroot build.
+#
+# All `ver_*` references come from /repo/versions.env, sourced below.
+# shellcheck disable=SC2154
 # Runs *inside* the chroot. Builds the final system: binutils-pass2, gcc-pass2,
 # and all base packages, using the temp tools.
 #

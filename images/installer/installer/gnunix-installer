@@ -16,8 +16,12 @@
 set -euo pipefail
 
 # Paths the live image lays out (install-installer.sh ships these).
+# PROFILES_DIR / THEMES_DIR are reserved for the TUI loader; the
+# unattended path drives the profile script directly.
 PAYLOAD_DIR=${PAYLOAD_DIR:-/usr/local/share/gnunix-installer}
+# shellcheck disable=SC2034
 PROFILES_DIR="$PAYLOAD_DIR/profiles"
+# shellcheck disable=SC2034
 THEMES_DIR="$PAYLOAD_DIR/themes"
 TARGET_MOUNT=${TARGET_MOUNT:-/mnt/gnunix-target}
 

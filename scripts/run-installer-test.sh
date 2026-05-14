@@ -70,6 +70,9 @@ trap cleanup_phase1 EXIT
 
 echo "[installer-test] booting installer with target disk attached"
 tart run --no-graphics --disk "$TARGET_IMG:sync=none" "$TEST_VM" >/dev/null 2>&1 &
+# Captured for visibility in `ps`/debug logs; cleanup_phase1 uses
+# `tart stop` by VM name rather than killing the PID directly.
+# shellcheck disable=SC2034
 TART_PID=$!
 
 if ! tart_wait_ssh "$TEST_VM" root; then
