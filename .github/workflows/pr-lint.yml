@@ -13,6 +13,10 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Required for the GitHub Merge Queue: checks must run against the
+  # temporary merge_group ref so the queue can decide whether to merge.
+  # See ruleset "main-protection".
+  merge_group:
 
 permissions:
   contents: read
@@ -74,7 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # gitleaks scans history
+          fetch-depth: 0 # gitleaks scans history
 
       - name: Run gitleaks
         uses: gitleaks/gitleaks-action@v2
