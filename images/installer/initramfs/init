@@ -1,0 +1,118 @@
+#!/bin/sh
+# images/installer/initramfs/init — live-boot init script.
+#
+# Packed into the live ISO's initramfs (cpio.gz). The kernel hands
+# control here after loading the cpio. Job:
+#
+#   1. Mount the live medium (the ISO/USB itself) read-only.
+#   2. Mount the rootfs.squashfs from the medium, also read-only.
+#   3. Overlay a tmpfs on top so the running system can write.
+#   4. Move the necessary mounts into the overlay.
+#   5. switch_root into the overlay and exec /sbin/init (sysvinit).
+#
+# Per ADR-017. No bash-isms — busybox ash compatible.
+
+# Bail to a rescue shell on any error.
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+set -e
+trap 'echo "[live-init] FAILED — dropping to rescue shell"; exec /bin/sh' EXIT INT TERM
+
+LABEL=GNUNIX_LIVE
+MOUNT_MEDIUM=/run/live/medium
+MOUNT_ROOTFS=/run/live/rootfs
+MOUNT_OVERLAY=/run/live/overlay
+MOUNT_ROOT=/run/live/root
+
+# --- step 0: minimal vfs mounts --------------------------------------
+mkdir -p /proc /sys /dev /run /tmp
+mount -t proc     -o nodev,nosuid,noexec proc /proc
+mount -t sysfs    -o nodev,nosuid,noexec sys  /sys
+mount -t devtmpfs -o mode=0755            dev  /dev
+mount -t tmpfs    -o nosuid,nodev         run  /run
+mount -t tmpfs    -o nosuid,nodev,mode=1777 tmpfs /tmp
+
+mkdir -p "$MOUNT_MEDIUM" "$MOUNT_ROOTFS" "$MOUNT_OVERLAY" "$MOUNT_ROOT"
+
+echo "[live-init] hello from initramfs ($(uname -r))"
+
+# --- step 1: wait for /dev/disk/by-label/<LABEL> to appear ----------
+# eudev/mdev populated /dev/disk/by-label automatically once block
+# devices are probed. We poll up to ~10 s.
+echo "[live-init] looking for live medium (label=$LABEL)"
+i=0
+while [ $i -lt 50 ]; do
+  if [ -e "/dev/disk/by-label/$LABEL" ]; then
+    MEDIUM_DEV=$(readlink -f "/dev/disk/by-label/$LABEL")
+    echo "[live-init] medium: $MEDIUM_DEV"
+    break
+  fi
+  # Force probe (busybox blkid scans all block devices)
+  blkid >/dev/null 2>&1 || true
+  sleep 0.2
+  i=$((i + 1))
+done
+
+if [ -z "${MEDIUM_DEV:-}" ]; then
+  echo "[live-init] no medium with label=$LABEL after 10s" >&2
+  echo "[live-init] available block devices:" >&2
+  ls -la /dev/disk/by-label/ 2>/dev/null >&2 || true
+  exit 1
+fi
+
+# --- step 2: mount the medium read-only -----------------------------
+# Try iso9660 first (CD/DVD/dd-to-USB), fall back to vfat (some weird
+# write-to-USB tooling reformats as FAT).
+mount -t iso9660 -o ro "$MEDIUM_DEV" "$MOUNT_MEDIUM" 2>/dev/null \
+  || mount -o ro "$MEDIUM_DEV" "$MOUNT_MEDIUM"
+
+# --- step 3: loopback-mount the squashfs ----------------------------
+SQUASHFS="$MOUNT_MEDIUM/live/rootfs.squashfs"
+if [ ! -f "$SQUASHFS" ]; then
+  echo "[live-init] no /live/rootfs.squashfs on the medium" >&2
+  exit 1
+fi
+modprobe loop      2>/dev/null || true
+modprobe squashfs  2>/dev/null || true
+modprobe overlay   2>/dev/null || true
+mount -t squashfs -o ro,loop "$SQUASHFS" "$MOUNT_ROOTFS"
+
+# --- step 4: overlayfs (lower=squashfs, upper=tmpfs) ----------------
+mount -t tmpfs -o nodev,mode=0755 tmpfs "$MOUNT_OVERLAY"
+mkdir -p "$MOUNT_OVERLAY/upper" "$MOUNT_OVERLAY/work"
+mount -t overlay overlay \
+      -o "lowerdir=$MOUNT_ROOTFS,upperdir=$MOUNT_OVERLAY/upper,workdir=$MOUNT_OVERLAY/work" \
+      "$MOUNT_ROOT"
+
+# --- step 5: move vfs into the overlay -------------------------------
+mkdir -p "$MOUNT_ROOT/proc" "$MOUNT_ROOT/sys" "$MOUNT_ROOT/dev" \
+         "$MOUNT_ROOT/run" "$MOUNT_ROOT/tmp" "$MOUNT_ROOT/run/live"
+
+# The live-root needs to see the medium + squashfs too (so the installer
+# can rsync content from it).
+mkdir -p "$MOUNT_ROOT/run/live/medium" "$MOUNT_ROOT/run/live/rootfs"
+mount --move /proc                 "$MOUNT_ROOT/proc"
+mount --move /sys                  "$MOUNT_ROOT/sys"
+mount --move /dev                  "$MOUNT_ROOT/dev"
+mount --move /tmp                  "$MOUNT_ROOT/tmp"
+mount --move "$MOUNT_MEDIUM"       "$MOUNT_ROOT/run/live/medium"
+mount --move "$MOUNT_ROOTFS"       "$MOUNT_ROOT/run/live/rootfs"
+mount --move /run                  "$MOUNT_ROOT/run"
+
+# --- step 6: switch_root ---------------------------------------------
+# Disable the EXIT trap before switch_root — once we exec, the trap
+# would never fire anyway, but being tidy avoids spurious "FAILED"
+# echoes if the shell exits before exec.
+trap - EXIT INT TERM
+
+echo "[live-init] switch_root → /sbin/init"
+# SC2093: the `exec` is intentional. switch_root replaces this process
+# with /sbin/init in the new root; if it succeeds, control never
+# returns. The next line only runs if exec ITSELF failed (e.g.,
+# switch_root binary missing) — fall through to a rescue shell rather
+# than panicking the kernel with "init died".
+# shellcheck disable=SC2093
+exec switch_root "$MOUNT_ROOT" /sbin/init
+
+# Only reached if `exec switch_root` failed to call execve at all.
+echo "[live-init] switch_root failed — dropping to rescue shell"
+exec /bin/sh

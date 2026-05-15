@@ -1,7 +1,7 @@
 #!/bin/bash
 # images/variants/rpi-native/package.sh — Raspberry Pi 4 / 5 image packager.
 #
-# Takes an aarch64 lfs-{nix,wayland} raw disk image, extracts the ext4 root,
+# Takes an aarch64 gnunix-{minimal,desktop} raw disk image, extracts the ext4 root,
 # and re-bundles it under the Raspberry Pi boot scheme (ADR-010):
 #
 #   MBR partition table:

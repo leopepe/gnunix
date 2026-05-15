@@ -57,9 +57,9 @@ Per the [platform matrix](platforms.md):
 
 | Platform | Arch | Pattern | Status today |
 |---|---|---|---|
-| `generic-uefi` | aarch64 | `gnunix-{nix,desktop}-generic-uefi-aarch64-<ver>.img.zst` | shipping |
-| `rpi-native` | aarch64 | `gnunix-{nix,desktop}-rpi-native-aarch64-<ver>.img.zst` | scaffolded |
-| `nuc-installer` | x86_64 | `gnunix-{nix,desktop}-nuc-installer-x86_64-<ver>.iso` | scaffolded |
+| `generic-uefi` | aarch64 | `gnunix-{minimal,desktop}-generic-uefi-aarch64-<ver>.img.zst` | shipping |
+| `rpi-native` | aarch64 | `gnunix-{minimal,desktop}-rpi-native-aarch64-<ver>.img.zst` | scaffolded |
+| `nuc-installer` | x86_64 | `gnunix-{minimal,desktop}-nuc-installer-x86_64-<ver>.iso` | scaffolded |
 
 Scaffolded platforms are listed in the release body but the file column
 shows `—` until the platform's prerequisites in `docs/TODO.md` land.

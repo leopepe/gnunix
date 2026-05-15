@@ -2,6 +2,8 @@
   "$schema_note": "Pinned versions for the entire base image. Do not edit ad hoc \u2014 Renovate (ADR-008) opens PRs to bump these. The 'sha256' fields are SHA256 of the upstream tarball at the listed url. Empty sha256 means it must be filled in by the first run of tools/fetch-sources.sh, or pre-populated.",
   "manifest_version": "0.1.0",
   "lfs_image_version": "0.1.0",
+  "$upstream_repo_note": "Per ADR-018 release-dependency flow: when a fork's CI calls tools/fetch-image.sh and the fork's own GH Release doesn't have the asset, fetch-image.sh falls back to this upstream repo. Keep in sync with the canonical upstream.",
+  "upstream_repo": "leopepe/gnunix",
   "$arch_note": "Multi-arch axis (ADR-010). 'active_arch' picks the current build target; 'archs' holds the per-arch toolchain pins, kernel arch name, GRUB target and Nix binary URL. The legacy top-level 'target_arch'/'target_triple'/'nix.binary_*' fields mirror archs[active_arch] for backwards compatibility with Phase 2-4 scripts.",
   "active_arch": "aarch64",
   "archs": {

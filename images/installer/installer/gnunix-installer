@@ -16,13 +16,10 @@
 set -euo pipefail
 
 # Paths the live image lays out (install-installer.sh ships these).
-# PROFILES_DIR / THEMES_DIR are reserved for the TUI loader; the
-# unattended path drives the profile script directly.
+# Per ADR-019: no themes anymore — Wayland-only, no X11 theme assets.
 PAYLOAD_DIR=${PAYLOAD_DIR:-/usr/local/share/gnunix-installer}
 # shellcheck disable=SC2034
 PROFILES_DIR="$PAYLOAD_DIR/profiles"
-# shellcheck disable=SC2034
-THEMES_DIR="$PAYLOAD_DIR/themes"
 TARGET_MOUNT=${TARGET_MOUNT:-/mnt/gnunix-target}
 
 require_root() {
@@ -63,7 +60,8 @@ This will:
   • install GRUB,
   • create your user.
 
-You'll choose the installation profile (minimal / desktop) on the next screen."
+You'll choose between a minimal install and a desktop install on the
+next screens (per ADR-019)."
 
   # Disk selection — only block devices, with their size
   local disks=()
@@ -75,13 +73,31 @@ You'll choose the installation profile (minimal / desktop) on the next screen."
   TARGET_DISK=$(ui_menu "Target disk (will be ERASED):" "${disks[@]}") \
     || { echo "cancelled"; exit 1; }
 
-  # Profile selection (Wayland-only; see ADR-015 § "Why no X11")
-  PROFILE=$(ui_radiolist "Installation profile:" \
-    "minimal"            "CLI base + Nix package manager"                 "ON" \
-    "desktop-sway"       "Desktop: Sway (Wayland tiling, i3-style)"        "OFF" \
-    "desktop-hyprland"   "Desktop: Hyprland (Wayland dynamic tiling)"      "OFF" \
-    "desktop-labwc"      "Desktop: labwc (Wayland stacking, Openbox-style)" "OFF") \
+  # Edition: minimal vs desktop (ADR-019 § 4).
+  local edition
+  edition=$(ui_radiolist "Edition:" \
+    "minimal"  "CLI base + Nix. No graphical session. (offline-installable)"  "OFF" \
+    "desktop"  "Wayland desktop. Pick a compositor on the next screen."        "ON") \
     || { echo "cancelled"; exit 1; }
+
+  if [ "$edition" = minimal ]; then
+    PROFILE=minimal
+  else
+    # Compositor choice (ADR-020 § "Sway demoted to optional install profile";
+    # Hyprland is the default).
+    ui_msg "Desktop install — the chosen compositor's closure will be
+pulled from cache.nixos.org during install. NETWORK REQUIRED.
+
+If you don't have network right now, go back and pick the minimal
+edition; you can install a compositor later via nix-env."
+    local compositor
+    compositor=$(ui_radiolist "Wayland compositor:" \
+      "hyprland"  "Dynamic tiling + animations (DEFAULT)"           "ON" \
+      "sway"      "Tiling, i3-style"                                "OFF" \
+      "labwc"     "Stacking, Openbox-style"                         "OFF") \
+      || { echo "cancelled"; exit 1; }
+    PROFILE="desktop-$compositor"
+  fi
 
   # Identity
   HOSTNAME=$(ui_input "Hostname:" "gnunix") || exit 1
@@ -164,10 +180,10 @@ do_chroot_postinstall() {
   mount --bind /dev  "$TARGET_MOUNT/dev"
   mount -t tmpfs tmpfs "$TARGET_MOUNT/run"
 
-  # Stage the profile script + theme assets into the chroot
+  # Stage the profile scripts into the chroot. No theme assets — per
+  # ADR-019 / ADR-015 § "Why no X11", we're Wayland-only.
   install -d -m 0755 "$TARGET_MOUNT/usr/local/share/gnunix-installer"
   cp -a "$PAYLOAD_DIR/profiles" "$TARGET_MOUNT/usr/local/share/gnunix-installer/"
-  cp -a "$PAYLOAD_DIR/themes"   "$TARGET_MOUNT/usr/local/share/gnunix-installer/"
 
   # Write identity files BEFORE invoking the profile script — profiles
   # may read them.
