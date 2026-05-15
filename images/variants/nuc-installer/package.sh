@@ -50,7 +50,7 @@ fi
 #     installs GRUB to ESP, writes /etc/fstab, runs a first-boot hook to
 #     create the unprivileged user.
 #
-# All of the above depends on having an x86_64 lfs-{core,nix,wayland} image
+# All of the above depends on having an x86_64 gnunix-{base,minimal,desktop} image
 # to start from — which requires a Linux builder we don't have today.
 
 echo "[nuc-installer] not implemented yet — needs x86_64 builder (Phase 5)" >&2
