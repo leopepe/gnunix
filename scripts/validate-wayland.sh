@@ -30,7 +30,8 @@ tart_ssh "$VM" root sh -c '
   SP=/nix/var/nix/profiles/system
 
   # 1. system-profile binaries are present.
-  for bin in dbus-daemon greetd tuigreet sway foot; do
+  #    Per ADR-020: Hyprland (capital H) replaces sway as the compositor.
+  for bin in dbus-daemon greetd tuigreet Hyprland foot waybar; do
     [ -x "$SP/bin/$bin" ] \
       || { echo "FAIL: missing $SP/bin/$bin"; exit 2; }
   done

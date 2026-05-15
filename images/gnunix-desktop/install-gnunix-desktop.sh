@@ -2,10 +2,10 @@
 # images/gnunix-desktop/install-gnunix-desktop.sh — runs INSIDE the gnunix-desktop-build
 # VM as root (called by images/gnunix-desktop/build.sh).
 #
-# Phase 4 (ADR-009): pulls dbus, elogind, greetd, sway, and a small set of
-# compositor utilities from nixpkgs into the system profile, sets up the rc.d
-# wiring to supervise them under sysvinit (ADR-001), and creates an
-# unprivileged login user.
+# Phase 4 (ADR-009 amended by ADR-020): pulls dbus, elogind, greetd,
+# Hyprland, and a small set of compositor utilities from nixpkgs into
+# the system profile, sets up the rc.d wiring to supervise them under
+# sysvinit (ADR-001), and creates an unprivileged login user.
 #
 # Idempotent: re-running on an already-installed system updates packages
 # (nix-env handles dedupe), rewrites configs, recreates users only if missing.
@@ -52,9 +52,10 @@ nix-env -p "$SYSTEM_PROFILE" -iA \
   nixpkgs.elogind \
   nixpkgs.greetd \
   nixpkgs.tuigreet \
-  nixpkgs.sway \
+  nixpkgs.hyprland \
+  nixpkgs.xdg-desktop-portal-hyprland \
+  nixpkgs.hyprpaper \
   nixpkgs.foot \
-  nixpkgs.swaybg \
   nixpkgs.wayland-utils \
   nixpkgs.xkeyboard_config \
   nixpkgs.procps \
@@ -105,23 +106,23 @@ if ! getent passwd "$LOGIN_USER" >/dev/null; then
   # the PAM stack with key auth — see docs/runbooks/build-wayland.md).
   passwd -d "$LOGIN_USER"
 fi
-install -d -m 0755 -o "$LOGIN_USER" -g "$LOGIN_USER" "/home/$LOGIN_USER/.config/sway"
+install -d -m 0755 -o "$LOGIN_USER" -g "$LOGIN_USER" "/home/$LOGIN_USER/.config/hypr"
 
 # 5. Install configs from the payload.
 echo "[install-wayland] installing /etc configs"
 install -d -m 0755 /etc/dbus-1/system.d
 install -d -m 0755 /etc/elogind
 install -d -m 0755 /etc/greetd
-install -d -m 0755 /etc/sway
+install -d -m 0755 /etc/hypr
 install -d -m 0755 /etc/pam.d
 install -d -m 0755 /etc/rc.d
 
-install -m 0644 "$PAYLOAD_DIR/etc/greetd/config.toml"   /etc/greetd/config.toml
-install -m 0644 "$PAYLOAD_DIR/etc/sway/config"          /etc/sway/config
-install -m 0644 "$PAYLOAD_DIR/etc/pam.d/greetd"         /etc/pam.d/greetd
-install -d -m 0755                                       /etc/xdg/waybar
-install -m 0644 "$PAYLOAD_DIR/etc/xdg/waybar/config"    /etc/xdg/waybar/config
-install -m 0644 "$PAYLOAD_DIR/etc/xdg/waybar/style.css" /etc/xdg/waybar/style.css
+install -m 0644 "$PAYLOAD_DIR/etc/greetd/config.toml"     /etc/greetd/config.toml
+install -m 0644 "$PAYLOAD_DIR/etc/hypr/hyprland.conf"     /etc/hypr/hyprland.conf
+install -m 0644 "$PAYLOAD_DIR/etc/pam.d/greetd"           /etc/pam.d/greetd
+install -d -m 0755                                         /etc/xdg/waybar
+install -m 0644 "$PAYLOAD_DIR/etc/xdg/waybar/config"      /etc/xdg/waybar/config
+install -m 0644 "$PAYLOAD_DIR/etc/xdg/waybar/style.css"   /etc/xdg/waybar/style.css
 
 # 5a. Set the image hostname. gnunix-base's chroot-inner.sh writes "gnunix-base" to
 #     /etc/hostname; carrying that forward into gnunix-desktop is misleading
@@ -135,10 +136,10 @@ hostname gnunix-desktop 2>/dev/null || true
 #       claim vt=1. Whichever opens /dev/tty1 first wins; if agetty wins,
 #       greetd dies and inittab respawns agetty, leaving the user at a plain
 #       login(1) prompt that doesn't go through pam_elogind — so /run/user/1000
-#       is never created and sway can't claim a seat.
+#       is never created and Hyprland can't claim a seat.
 #
 #       Comment out the tty1 line (keep hvc0 so `tart run --no-graphics`
-#       still gives a serial console). Users who lose sway can still
+#       still gives a serial console). Users who lose Hyprland can still
 #       Ctrl-Alt-F<n> elsewhere if we ever add fallbacks later.
 sed -i 's|^\(2:.*agetty.*tty1.*\)$|# \1   # disabled by gnunix-desktop (greetd owns tty1)|' /etc/inittab
 # Tell init to reload its config without a reboot — telinit q rescans inittab.
@@ -221,10 +222,10 @@ for rc in rc.dbus rc.elogind rc.greetd rc.M; do
   install -m 0755 "$PAYLOAD_DIR/etc/rc.d/$rc" "/etc/rc.d/$rc"
 done
 
-# 7. Drop a default per-user sway config so the user has a working keybind set.
-if [ ! -f "/home/$LOGIN_USER/.config/sway/config" ]; then
+# 7. Drop a default per-user Hyprland config so the user has a working keybind set.
+if [ ! -f "/home/$LOGIN_USER/.config/hypr/hyprland.conf" ]; then
   install -m 0644 -o "$LOGIN_USER" -g "$LOGIN_USER" \
-    "$PAYLOAD_DIR/etc/sway/config" "/home/$LOGIN_USER/.config/sway/config"
+    "$PAYLOAD_DIR/etc/hypr/hyprland.conf" "/home/$LOGIN_USER/.config/hypr/hyprland.conf"
 fi
 
 # 8. Provide a wrapper that greetd can exec to start the Wayland session with
@@ -232,12 +233,12 @@ fi
 #    greetd's config.toml command line short.
 #
 #    The wrapper redirects all output to /var/log/wayland-session.log so
-#    failures during sway startup are recoverable via SSH (otherwise sway's
-#    stderr only goes to greetd's controlling pty and is lost when greetd
-#    respawns tuigreet).
+#    failures during Hyprland startup are recoverable via SSH (otherwise
+#    Hyprland's stderr only goes to greetd's controlling pty and is lost
+#    when greetd respawns tuigreet).
 cat > /usr/local/bin/start-wayland-session.sh <<EOF
 #!/bin/sh
-# Launches sway as the logged-in user. Invoked by greetd.
+# Launches Hyprland as the logged-in user. Invoked by greetd.
 # All output captured to /var/log/wayland-session.log (world-readable so
 # the operator can tail it via SSH without sudo).
 
@@ -272,7 +273,11 @@ export LD_LIBRARY_PATH="$SYSTEM_PROFILE/lib:\${LD_LIBRARY_PATH:-}"
 # Show what elogind sees for this session
 $SYSTEM_PROFILE/bin/loginctl 2>&1 | head -10 || true
 
-exec $SYSTEM_PROFILE/bin/sway
+# Hyprland on virtio-gpu (Tart/qemu) needs the WLR cursor workaround.
+# Real hardware ignores this; only the virtio-gpu cursor path requires it.
+export WLR_NO_HARDWARE_CURSORS=1
+
+exec $SYSTEM_PROFILE/bin/Hyprland
 EOF
 chmod 0755 /usr/local/bin/start-wayland-session.sh
 # Make the log world-readable + pre-create it with permissive perms so the
@@ -294,7 +299,7 @@ fi
 #     sessions), and 73-seat-late.rules (final per-seat tagging pass) under
 #     its OWN nixpkgs store dir. eudev only reads /lib/udev/rules.d/ and
 #     /etc/udev/rules.d/, so without copying these in, `loginctl seat-status
-#     seat0` lists Devices: n/a — and sway's libseat→logind backend gets
+#     seat0` lists Devices: n/a — and Hyprland's libseat→logind backend gets
 #     "Could not take device: No such device" when trying to claim /dev/dri/card0.
 install -d -m 0755 /etc/udev/rules.d
 for r in "$SYSTEM_PROFILE"/lib/udev/rules.d/7?-*.rules; do
@@ -317,7 +322,7 @@ for bin in \
   "$SYSTEM_PROFILE/bin/dbus-daemon" \
   "$SYSTEM_PROFILE/bin/greetd" \
   "$SYSTEM_PROFILE/bin/tuigreet" \
-  "$SYSTEM_PROFILE/bin/sway"
+  "$SYSTEM_PROFILE/bin/Hyprland"
 do
   [ -x "$bin" ] || { echo "[install-wayland] FAIL: missing $bin"; exit 1; }
 done
