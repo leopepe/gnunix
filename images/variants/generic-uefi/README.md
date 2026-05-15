@@ -13,8 +13,8 @@ aarch64 image has shipped as since Phase 2. Boots on:
 ## Inputs / outputs
 
 - **Input**: a base disk image produced by Phase 2/3/4 — i.e.,
-  `cache/artifacts/lfs-{core,nix,wayland}-disk-<ver>.img`.
-- **Output**: `cache/artifacts/lfs-<image>-generic-uefi-<arch>-<ver>.img(.zst)`.
+  `cache/artifacts/gnunix-{base,minimal,desktop}-disk-<ver>.img`.
+- **Output**: `cache/artifacts/gnunix-<image>-generic-uefi-<arch>-<ver>.img(.zst)`.
 
 Because the base image is already in this shape, `package.sh` is effectively
 `cp + zstd`. The layer exists so the CI matrix has a uniform entry point for
