@@ -1,0 +1,150 @@
+# Manually-triggered release publish via tools/release-image.sh.
+#
+# Runs on a self-hosted Mac runner (the same labels build.yml uses). To
+# use this workflow:
+#
+#   1. Register a self-hosted runner on this repo with labels
+#      `[self-hosted, macOS, arm64, tart]` (Settings → Actions → Runners
+#      → New self-hosted runner). The runner machine needs the same
+#      pre-reqs as a developer's Mac: tart, jq, gh, zstd, ssh.
+#   2. Build the images locally on that machine (`tools/build-all.sh
+#      gnunix-base | gnunix-minimal | gnunix-desktop`).
+#   3. Trigger this workflow with `gh workflow run publish.yml -f
+#      version=0.1.0` (or via the Actions UI). The runner picks up the
+#      job, packages every form via tools/package.sh, and uploads to
+#      GitHub Releases via tools/release-image.sh.
+#
+# Why not on the hosted ubuntu-22.04-arm runners? release-image.sh
+# needs the locally-built Tart VM directories at ~/.tart/vms/<image>
+# to produce .tart.zst forms. Those exist only on the Mac that ran the
+# build. Once ADR-016's qemu+KVM migration lands (PR-3b), the build and
+# the publish step both move to hosted runners and this workflow can
+# be retired in favour of a tag-triggered release.yml flow.
+
+name: Publish release
+
+on:
+  workflow_dispatch:
+    inputs:
+      images:
+        description: "Comma-separated list of images to publish"
+        required: false
+        default: "gnunix-base,gnunix-minimal,gnunix-desktop"
+        type: string
+      version:
+        description: "Image version (must match manifest.json:lfs_image_version). Empty = read from manifest."
+        required: false
+        default: ""
+        type: string
+      release_tag_desktop:
+        description: "Override the desktop/installer release tag (default: v<version>)"
+        required: false
+        default: ""
+        type: string
+      draft:
+        description: "Create release as draft (recommended for v<ver> releases)"
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: [self-hosted, macOS, arm64, tart]
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify host prerequisites
+        run: |
+          set -eu
+          for t in gh jq zstd tart tar ssh; do
+            command -v "$t" >/dev/null || { echo "missing: $t"; exit 1; }
+          done
+
+      - name: Resolve version
+        id: ver
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -eu
+          v="$INPUT_VERSION"
+          [ -z "$v" ] && v=$(jq -r .lfs_image_version tools/manifest.json)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "[publish] version=$v"
+
+      - name: Package every requested form
+        env:
+          IMAGES: ${{ inputs.images }}
+        run: |
+          set -eu
+          for img in $(echo "$IMAGES" | tr ',' ' '); do
+            case "$img" in
+              gnunix-base|gnunix-minimal|gnunix-desktop)
+                # Both .img.zst and .tart.zst exist by default for these.
+                for form in img.zst tart.zst; do
+                  echo "[publish] packaging $img → $form"
+                  tools/package.sh "$img" --as="$form" --ver="${{ steps.ver.outputs.version }}"
+                done
+                ;;
+              gnunix-installer)
+                # Only valid form per ADR-018.
+                echo "[publish] packaging $img → iso"
+                tools/package.sh "$img" --as=iso --ver="${{ steps.ver.outputs.version }}"
+                ;;
+              *)
+                echo "[publish] unknown image: $img" >&2
+                exit 1
+                ;;
+            esac
+          done
+
+      - name: Publish to GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGES: ${{ inputs.images }}
+          DESKTOP_TAG_OVERRIDE: ${{ inputs.release_tag_desktop }}
+          DRAFT: ${{ inputs.draft }}
+        run: |
+          set -eu
+          ver="${{ steps.ver.outputs.version }}"
+          draft_arg=""
+          [ "$DRAFT" = "true" ] && draft_arg="--draft"
+
+          for img in $(echo "$IMAGES" | tr ',' ' '); do
+            case "$img" in
+              gnunix-base|gnunix-minimal)
+                # Defaults to base-images-<ver>; no override needed.
+                tools/release-image.sh "$img" --ver="$ver"
+                ;;
+              gnunix-desktop|gnunix-installer)
+                # Defaults to v<ver>; honour optional override.
+                if [ -n "$DESKTOP_TAG_OVERRIDE" ]; then
+                  tools/release-image.sh "$img" --ver="$ver" \
+                    --release-tag="$DESKTOP_TAG_OVERRIDE" $draft_arg
+                else
+                  tools/release-image.sh "$img" --ver="$ver" $draft_arg
+                fi
+                ;;
+            esac
+          done
+
+      - name: Summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          v="${{ steps.ver.outputs.version }}"
+          echo "### Releases" >> "$GITHUB_STEP_SUMMARY"
+          for tag in "base-images-$v" "v$v" "${{ inputs.release_tag_desktop }}"; do
+            [ -z "$tag" ] && continue
+            if gh release view "$tag" >/dev/null 2>&1; then
+              url=$(gh release view "$tag" --json url --jq .url)
+              echo "- ✓ [$tag]($url)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
