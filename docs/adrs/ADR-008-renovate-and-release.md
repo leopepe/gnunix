@@ -1,7 +1,16 @@
 # ADR-008: Dependency updates with Renovate, image release via GitHub
 
-**Status:** Accepted
+**Status:** Accepted (amended by [ADR-016](ADR-016-ci-split-build-and-validation.md))
 **Date:** 2026-05-10
+**Amended:** 2026-05-15 — runner topology revised by ADR-016
+
+> **Note** — the runner topology described below ("macOS arm64 runner",
+> "self-hosted Mac mini") is **superseded by [ADR-016](ADR-016-ci-split-build-and-validation.md)**
+> for routine CI. Routine CI runs on free hosted `ubuntu-22.04-arm`
+> with qemu+KVM; `gnunix-base` rebuilds happen locally on a Mac and
+> are published as GH Release artifacts that CI consumes.
+> The Renovate model, the auto-merge-userland-but-human-review-base
+> policy, and the GitHub-Releases artifact model are unchanged.
 
 ## Context
 
@@ -37,7 +46,7 @@ Renovate PR  →  GH Actions: build affected images on macOS arm64 runner
                    tools/promote.sh tags images, uploads to GH Releases
 ```
 
-- macOS arm64 runners are required (Tart + Virtualization.framework). GitHub-hosted macOS runners are arm64 by default since 2024; otherwise self-hosted Mac mini.
+- macOS arm64 runners are required (Tart + Virtualization.framework). **Correction (2026-05-15, see ADR-016):** GitHub-hosted macOS runners do **not** expose Virtualization.framework to workflows, so Tart cannot run there. A self-hosted Mac is the only Tart-on-CI option; ADR-016 instead splits the pipeline so only the `gnunix-base` rebuild needs Tart (run locally) and everything else moves to hosted Linux arm64 + qemu.
 - Test gating is non-negotiable: an image that fails `boot-smoke.sh` does not get released.
 
 ## Renovate config principles
@@ -63,7 +72,7 @@ Per release tag, GitHub Release contains:
 - Adds: `.github/workflows/build.yml`, `.github/workflows/release.yml`, `.github/renovate.json5`.
 - Adds: `tools/promote.sh` (already planned) extended to upload to GH Releases via `gh release create`.
 - Repo must be on GitHub (or a Renovate-supported host).
-- Self-hosted macOS arm64 runner is the most reliable path; revisit when GH-hosted arm64 runtime + Tart compatibility matures.
+- Self-hosted macOS arm64 runner is the most reliable path; revisit when GH-hosted arm64 runtime + Tart compatibility matures. **(Revisited 2026-05-15 in ADR-016: hosted macOS Virtualization.framework is not on the roadmap; split-pipeline is the chosen alternative.)**
 
 ## Out of scope
 
