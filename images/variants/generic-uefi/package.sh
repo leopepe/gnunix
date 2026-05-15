@@ -1,7 +1,7 @@
 #!/bin/bash
 # images/variants/generic-uefi/package.sh — generic UEFI image packager.
 #
-# This is the *current* shape of lfs-{core,nix,wayland}-disk-<ver>.img:
+# This is the *current* shape of gnunix-{base,minimal,desktop}-disk-<ver>.img:
 # GPT + ESP (FAT32) + ext4 root with GRUB EFI. Same artifact, renamed under
 # the platform-aware scheme defined in ADR-010.
 #

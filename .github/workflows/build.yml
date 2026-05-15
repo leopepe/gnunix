@@ -1,4 +1,4 @@
-# Build + smoke-test gnunix-{base,nix,desktop} and per-platform packages on a
+# Build + smoke-test gnunix-{base,minimal,desktop} and per-platform packages on a
 # macOS arm64 runner with Tart.
 #
 # Trigger model (ADR-008):
