@@ -119,13 +119,13 @@ case "$PHASE" in
     mkdir -p "$OUT_DIR"
     # shellcheck disable=SC2086
     rsync -av --progress -e "ssh $SSH_OPTS" \
-      "admin@$BUILDER_IP:/tmp/gnunix-base-disk.img" "$OUT_DIR/gnunix-base-disk-$VERSION.img"
+      "admin@$BUILDER_IP:/tmp/gnunix-base-disk.img" "$OUT_DIR/gnunix-base-$ARCH-$VERSION.img"
 
     echo "[build-all] importing into Tart"
     bash "$REPO_ROOT/images/gnunix-base/packaging/tart-import.sh" \
-      "$OUT_DIR/gnunix-base-disk-$VERSION.img"
+      "$OUT_DIR/gnunix-base-$ARCH-$VERSION.img"
 
-    # The raw disk image at $OUT_DIR/gnunix-base-disk-$VERSION.img is the
+    # The raw disk image at $OUT_DIR/gnunix-base-$ARCH-$VERSION.img is the
     # portable artifact (generic GPT + UEFI + ext4). Tart is just one
     # consumer; qemu/libvirt/UTM/Proxmox can boot it directly.
     if command -v zstd >/dev/null; then
@@ -134,16 +134,16 @@ case "$PHASE" in
       # Backgrounded so the next layer's build can start immediately; an
       # outer waiter (or a manual `wait` before tagging a release) ensures
       # the .zst exists before publishing.
-      rm -f "$OUT_DIR/gnunix-base-disk-$VERSION.img.zst"
-      ( zstd -10 -f -k "$OUT_DIR/gnunix-base-disk-$VERSION.img" \
-          -o "$OUT_DIR/gnunix-base-disk-$VERSION.img.zst" \
-          && ls -lh "$OUT_DIR/gnunix-base-disk-$VERSION.img.zst" ) &
+      rm -f "$OUT_DIR/gnunix-base-$ARCH-$VERSION.img.zst"
+      ( zstd -10 -f -k "$OUT_DIR/gnunix-base-$ARCH-$VERSION.img" \
+          -o "$OUT_DIR/gnunix-base-$ARCH-$VERSION.img.zst" \
+          && ls -lh "$OUT_DIR/gnunix-base-$ARCH-$VERSION.img.zst" ) &
       echo "[build-all]   zstd pid=$! (will finish in background)"
     fi
 
     echo "[build-all] === gnunix-base $VERSION built. ==="
     echo "  Tart VM:        gnunix-base-$VERSION  (tart run gnunix-base-$VERSION)"
-    echo "  Raw disk image: $OUT_DIR/gnunix-base-disk-$VERSION.img"
+    echo "  Raw disk image: $OUT_DIR/gnunix-base-$ARCH-$VERSION.img"
     echo "  Smoke test:     tests/boot-smoke.sh gnunix-base-$VERSION"
     ;;
 

@@ -136,10 +136,13 @@ jobs:
           set -eu
           v=${{ steps.meta.outputs.version }}
           missing=0
+          # Per ADR-018: canonical name is gnunix-<image>-<arch>-<ver>.<ext>.
+          # Active arch is aarch64 today; multi-arch loops past Phase 5.
+          a=$(jq -r '.active_arch // .target_arch' tools/manifest.json)
           for f in \
-              "gnunix-base-disk-$v.img.zst" \
-              "gnunix-minimal-disk-$v.img.zst" \
-              "gnunix-desktop-disk-$v.img.zst"; do
+              "gnunix-base-$a-$v.img.zst" \
+              "gnunix-minimal-$a-$v.img.zst" \
+              "gnunix-desktop-$a-$v.img.zst"; do
             if [ ! -f "release/$f" ]; then
               echo "[release] MISSING: $f"
               missing=$((missing + 1))
@@ -169,6 +172,7 @@ jobs:
           set -eu
           v=${{ steps.meta.outputs.version }}
           tag=${{ steps.meta.outputs.tag }}
+          a=$(jq -r '.active_arch // .target_arch' tools/manifest.json)
 
           have() { [ -f "release/$1" ] && echo "✓" || echo "—"; }
 
@@ -190,14 +194,14 @@ jobs:
             echo "See \`docs/runbooks/build-minimal.md\` § Consumers and"
             echo "\`docs/runbooks/platforms.md\` for the per-platform image map."
             echo
-            echo "### Base images"
+            echo "### Images (ADR-018 § Published images)"
             echo
-            echo "| In this release | Artifact | Content |"
-            echo "|---|---|---|"
-            echo "| $(have gnunix-base-disk-$v.img.zst)    | \`gnunix-base-disk-$v.img.zst\`    | Minimal LFS base (sshd + DHCP) |"
-            echo "| $(have gnunix-minimal-disk-$v.img.zst)     | \`gnunix-minimal-disk-$v.img.zst\`     | Base + multi-user Nix daemon |"
-            echo "| $(have gnunix-desktop-disk-$v.img.zst) | \`gnunix-desktop-disk-$v.img.zst\` | Base + Nix + dbus/elogind/greetd/sway |"
-            echo "| $(have gnunix-installer-aarch64-$v.img.zst) | \`gnunix-installer-aarch64-$v.img.zst\` | Live installer (ADR-015): picks minimal / desktop-sway / desktop-hyprland / desktop-labwc at install time |"
+            echo "| Image | \`.iso\` | \`.img.zst\` | \`.tart.zst\` | Notes |"
+            echo "|---|---|---|---|---|"
+            echo "| \`gnunix-base\`      | — | $(have gnunix-base-$a-$v.img.zst)      | $(have gnunix-base-$a-$v.tart.zst)      | LFS base — reproducibility / debugging / alt-packaging forks |"
+            echo "| \`gnunix-minimal\`   | — | $(have gnunix-minimal-$a-$v.img.zst)   | $(have gnunix-minimal-$a-$v.tart.zst)   | Base + multi-user Nix daemon. CI release-dependency anchor. |"
+            echo "| \`gnunix-desktop\`   | — | $(have gnunix-desktop-$a-$v.img.zst)   | $(have gnunix-desktop-$a-$v.tart.zst)   | Minimal + Hyprland + greetd (per ADR-020) |"
+            echo "| \`gnunix-installer\` | $(have gnunix-installer-$a-$v.iso) | — | — | Live ISO (ADR-017 + ADR-019): edition → compositor → identity TUI |"
             echo
             echo "### Platform-packaged images (ADR-010)"
             echo

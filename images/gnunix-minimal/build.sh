@@ -22,6 +22,7 @@ REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}
 . "$REPO_ROOT/scripts/tart-helpers.sh"
 
 CORE_VER=$(jq -r .lfs_image_version "$REPO_ROOT/tools/manifest.json")
+ARCH=$(jq -r '.active_arch // .target_arch' "$REPO_ROOT/tools/manifest.json")
 NIX_TARBALL_URL=$(jq -r .nix.binary_url "$REPO_ROOT/tools/manifest.json")
 NIX_TARBALL_SHA=$(jq -r .nix.binary_sha256 "$REPO_ROOT/tools/manifest.json")
 
@@ -117,7 +118,7 @@ tart clone "$BUILD_VM" "$NIX_VM"
 #    directly. See docs/runbooks/test-image.md for host-agnostic options.
 ART_DIR="$REPO_ROOT/cache/artifacts"
 mkdir -p "$ART_DIR"
-RAW_OUT="$ART_DIR/gnunix-minimal-disk-$CORE_VER.img"
+RAW_OUT="$ART_DIR/gnunix-minimal-$ARCH-$CORE_VER.img"
 echo "[build-minimal] emitting raw disk artifact → $RAW_OUT"
 cp "$HOME/.tart/vms/$NIX_VM/disk.img" "$RAW_OUT"
 ls -lh "$RAW_OUT"
