@@ -1,6 +1,11 @@
 #!/bin/sh
 # Shared helpers for working with Tart VMs.
 # Source this from other scripts: . "$REPO_ROOT/scripts/tart-helpers.sh"
+#
+# Uses `local` (non-POSIX but supported by every shell we actually run
+# under: bash, dash, busybox sh, macOS /bin/sh). Tell shellcheck to lint
+# as bash so SC3043 doesn't fire.
+# shellcheck shell=bash
 
 tart_exists() { tart list 2>/dev/null | awk 'NR>1 {print $2}' | grep -qx "$1"; }
 

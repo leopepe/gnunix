@@ -39,6 +39,10 @@ on:
     tags: ["v*"]
   pull_request:
     branches: [main]
+  # Required for the GitHub Merge Queue: this workflow's jobs are pinned
+  # as required status checks on `main`, so they must also run against
+  # the temporary merge_group ref. See ruleset "main-protection".
+  merge_group:
   workflow_dispatch:
     inputs:
       images:

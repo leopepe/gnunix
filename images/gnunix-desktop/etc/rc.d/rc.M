@@ -2,6 +2,9 @@
 # /etc/rc.d/rc.M — multi-user runlevel.
 # Dispatcher that starts each enabled service in deterministic order,
 # ending with greetd which owns the foreground TTY.
+#
+# Uses `local` — runs under /bin/sh which on this LFS system is bash.
+# shellcheck shell=bash
 
 set -u
 echo "[rc.M] entering multi-user runlevel"

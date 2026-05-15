@@ -26,6 +26,8 @@
 set -euo pipefail
 
 SRC=${1:?usage: package.sh <src.img> <out.img>}
+# OUT is consumed once the real packager is wired up (see TODO above).
+# shellcheck disable=SC2034
 OUT=${2:?usage: package.sh <src.img> <out.img>}
 REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}
 

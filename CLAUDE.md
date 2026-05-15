@@ -99,6 +99,8 @@ See `docs/adrs/` for full rationale. Summary:
 | 012 | Module-first kernel: boot-critical drivers `=y`, rest `=m`, auto-loaded by eudev MODALIAS | Monolithic `=y` everywhere, initramfs |
 | 013 | Project renamed to GNUnix | Keep placeholder `gnunix` |
 | 014 | AI PR review: blocking `pr-lint.yml` + opt-in advisory `ai-review.yml` (provider-agnostic, OpenAI-compatible API; OpenRouter free-tier default) driven by `.claude/skills/pr-review/` | Always-on AI review, blocking AI review, vendor-locked review (Anthropic-only / OpenAI-only) |
+| 015 | Live installer (`gnunix-installer`) + 4 Wayland-only profiles (`minimal`, `desktop-sway`, `desktop-hyprland`, `desktop-labwc`); whiptail TUI; pull compositor closures at install time | Bundle-every-compositor, X11/Xorg profiles, GUI installer |
+| 016 | CI split: routine CI on free `ubuntu-22.04-arm` + qemu+KVM; `gnunix-base` rebuilds happen locally on Mac with Tart and ship as GH Release artifacts; `scripts/vm-helpers.sh` abstraction keeps entrypoints stable across drivers (amends ADR-008) | Paid self-hosted Mac runner, always-build-from-scratch CI, separate scripts for local vs CI |
 
 If a task seems to require violating a locked decision, **stop and surface the conflict** — don't silently work around it.
 

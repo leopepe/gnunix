@@ -19,7 +19,6 @@ echo "$USERNAME:$PASSWORD" | chpasswd
 
 # greetd's config.toml from the installer points at the legacy "user"
 # account. Rewrite it to use the actual chosen username.
-SP=/nix/var/nix/profiles/system
 if [ -f /etc/greetd/config.toml ]; then
   sed -i "s|--cmd /usr/local/bin/start-wayland-session.sh|--cmd /usr/local/bin/start-wayland-session.sh --user $USERNAME|" \
     /etc/greetd/config.toml 2>/dev/null || true

@@ -13,6 +13,10 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Required for the GitHub Merge Queue: checks must run against the
+  # temporary merge_group ref so the queue can decide whether to merge.
+  # See ruleset "main-protection".
+  merge_group:
 
 permissions:
   contents: read
@@ -66,6 +70,11 @@ jobs:
           ./actionlint -version
 
       - name: Lint .github/workflows/*.yml
+        # Match the standalone shellcheck job's severity threshold so
+        # actionlint's embedded shellcheck doesn't fail on info-level
+        # findings (SC2015, SC2086, SC2035) the dedicated job ignores.
+        env:
+          SHELLCHECK_OPTS: "-S warning"
         run: ./actionlint -color
 
   gitleaks:
@@ -74,7 +83,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # gitleaks scans history
+          fetch-depth: 0 # gitleaks scans history
 
       - name: Run gitleaks
         uses: gitleaks/gitleaks-action@v2

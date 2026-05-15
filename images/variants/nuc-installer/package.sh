@@ -12,7 +12,11 @@
 
 set -euo pipefail
 
+# SRC / OUT are consumed once the real packager is wired up
+# (see implementation outline below).
+# shellcheck disable=SC2034
 SRC=${1:?usage: package.sh <src.img> <out.iso>}
+# shellcheck disable=SC2034
 OUT=${2:?usage: package.sh <src.img> <out.iso>}
 REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}
 

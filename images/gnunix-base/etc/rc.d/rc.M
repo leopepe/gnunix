@@ -2,6 +2,9 @@
 # /etc/rc.d/rc.M — multi-user runlevel.
 # Dispatcher: starts each enabled service in deterministic order.
 # A service is enabled iff /etc/rc.d/rc.<name> is executable.
+#
+# Uses `local` — runs under /bin/sh which on this LFS system is bash.
+# shellcheck shell=bash
 
 set -u
 echo "[rc.M] entering multi-user runlevel"

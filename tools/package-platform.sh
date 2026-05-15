@@ -19,6 +19,10 @@
 set -euo pipefail
 
 REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}
+# Exported so per-platform packagers under images/variants/*/package.sh
+# can rely on it without re-deriving from $0 (paths differ once they're
+# invoked from this dispatcher).
+export REPO_ROOT
 MANIFEST="$REPO_ROOT/tools/manifest.json"
 
 usage() {
@@ -84,5 +88,5 @@ case "$PLATFORM" in
 esac
 
 echo "[package] $IMAGE / $ARCH / $PLATFORM → $OUT"
-REPO_ROOT="$REPO_ROOT" "$REPO_ROOT/$PACKAGER" "$SRC" "$OUT"
+"$REPO_ROOT/$PACKAGER" "$SRC" "$OUT"
 echo "[package] DONE"

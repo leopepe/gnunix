@@ -85,7 +85,10 @@ scp $SSH_OPTS "$PAYLOAD" "root@$IP:/root/wayland-payload.tar.gz"
 # 5. Install. Pipe the script over stdin (heredoc) to avoid the nested
 #    single-quote-in-double-quote hell that bites `ssh ... bash -c '...'`.
 echo "[build-wayland] running install-gnunix-desktop.sh inside VM (channel: $CHANNEL)"
-# shellcheck disable=SC2086
+# SC2086: $SSH_OPTS deliberately splits into separate -o flags.
+# SC2087: $CHANNEL is a local variable; we *want* it expanded on the
+#   client side and embedded into the script that runs in the VM.
+# shellcheck disable=SC2086,SC2087
 ssh $SSH_OPTS "root@$IP" bash <<EOF
 set -euo pipefail
 cd /root
