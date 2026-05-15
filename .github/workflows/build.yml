@@ -1,15 +1,25 @@
 # Build + smoke-test gnunix-{base,minimal,desktop} and per-platform packages on a
 # macOS arm64 runner with Tart.
 #
-# Trigger model (ADR-008):
-#   * push to main      — build + smoke-test. Disk artifacts uploaded for
-#                         retention=30d (consumable by hotfix branches).
-#   * pull_request      — build + smoke-test (when changes warrant it).
-#                         Artifacts kept for 3d so PR reviewers can pull
-#                         and try them.
+# !! TEMPORARY: PR / push / merge_group triggers DISABLED !!
+#
+# This workflow targets `runs-on: [self-hosted, macOS, arm64, tart]` which
+# the repo doesn't currently have provisioned. Triggering on PRs makes every
+# PR's CI sit pending forever (or fail) waiting for an unavailable runner,
+# blocking merges. ADR-016 specifies migrating routine CI to free hosted
+# `ubuntu-22.04-arm` + qemu+KVM; until that lands, this workflow is
+# manual-only (`workflow_dispatch`) plus release-tag-driven so `release.yml`
+# can still consume its artifacts on a `v*` tag push.
+#
+# REMINDER: once ADR-016's qemu/KVM driver is wired into scripts/vm-helpers.sh
+# and the downstream jobs migrate to `ubuntu-22.04-arm`, re-add `pull_request`
+# and `merge_group` triggers below. Branch protection will pick the workflow
+# up again automatically (this file's name is unchanged).
+#
+# Trigger model (ADR-008, currently REDUCED):
+#   * push tag v*       — artifacts retained 90d so release.yml can attach
+#                         them to the GH Release.
 #   * workflow_dispatch — manual rerun knob (with image-selection input).
-#   * push tag v*       — same as main, but artifacts retained 90d so
-#                         release.yml can attach them to the GH Release.
 #
 # Release publishing moved out of this workflow:
 #   This workflow no longer creates GitHub Releases. That's release.yml's
@@ -34,15 +44,11 @@
 name: Build images
 
 on:
+  # PR + push-to-main + merge_group triggers temporarily removed; see the
+  # header comment for rationale. Workflow is manual-only + release-tag-driven
+  # until ADR-016's hosted-runner migration lands.
   push:
-    branches: [main]
     tags: ["v*"]
-  pull_request:
-    branches: [main]
-  # Required for the GitHub Merge Queue: this workflow's jobs are pinned
-  # as required status checks on `main`, so they must also run against
-  # the temporary merge_group ref. See ruleset "main-protection".
-  merge_group:
   workflow_dispatch:
     inputs:
       images:
