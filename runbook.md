@@ -132,9 +132,9 @@ Each phase emits a portable raw disk image under `cache/artifacts/`:
 - `cache/artifacts/gnunix-base-disk-<ver>.img`                              — Phase 2 base
 - `cache/artifacts/gnunix-minimal-disk-<ver>.img`                               — Phase 3 (gnunix-base + Nix)
 - `cache/artifacts/gnunix-desktop-disk-<ver>.img`                           — Phase 4 (gnunix-minimal + Wayland stack)
-- `cache/artifacts/gnunix-{nix,desktop}-generic-uefi-aarch64-<ver>.img`     — Phase 5: platform-packaged for any UEFI host (~9 GB raw / ~750 MB zstd)
-- `cache/artifacts/gnunix-{nix,desktop}-rpi-native-aarch64-<ver>.img`       — Phase 6 (planned): Raspberry Pi SD-card image
-- `cache/artifacts/gnunix-{nix,desktop}-nuc-installer-x86_64-<ver>.iso`     — Phase 5 (planned): NUC live ISO + installer
+- `cache/artifacts/gnunix-{minimal,desktop}-generic-uefi-aarch64-<ver>.img`     — Phase 5: platform-packaged for any UEFI host (~9 GB raw / ~750 MB zstd)
+- `cache/artifacts/gnunix-{minimal,desktop}-rpi-native-aarch64-<ver>.img`       — Phase 6 (planned): Raspberry Pi SD-card image
+- `cache/artifacts/gnunix-{minimal,desktop}-nuc-installer-x86_64-<ver>.iso`     — Phase 5 (planned): NUC live ISO + installer
 
 They're generic GPT/UEFI/ext4 images — Tart is one consumer, but they also boot under QEMU/KVM, libvirt, UTM, Proxmox, or Apple Silicon bare metal. See [`docs/runbooks/build-minimal.md` § Consumers](docs/runbooks/build-minimal.md#consumers-of-the-produced-image).
 
