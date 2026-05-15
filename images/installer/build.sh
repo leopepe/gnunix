@@ -90,7 +90,11 @@ ssh $SSH_OPTS "root@$IP" "sync; sync"
 
 # 7. Inside the VM: run mkiso.sh against the live rootfs.
 echo "[build-installer] running mkiso.sh inside VM"
-# shellcheck disable=SC2086
+# SC2086: $SSH_OPTS deliberately splits into separate -o flags.
+# SC2087: heredoc unquoted on purpose — ${ARCH} and ${VER} are expanded
+#   on the host side so the values flow into the VM. \$PATH stays
+#   escaped to expand server-side.
+# shellcheck disable=SC2086,SC2087
 ssh $SSH_OPTS "root@$IP" bash <<EOF
 set -euo pipefail
 export PATH=/nix/var/nix/profiles/system/bin:/nix/var/nix/profiles/installer-build/bin:\$PATH

@@ -105,8 +105,14 @@ mount --move /run                  "$MOUNT_ROOT/run"
 trap - EXIT INT TERM
 
 echo "[live-init] switch_root → /sbin/init"
+# SC2093: the `exec` is intentional. switch_root replaces this process
+# with /sbin/init in the new root; if it succeeds, control never
+# returns. The next line only runs if exec ITSELF failed (e.g.,
+# switch_root binary missing) — fall through to a rescue shell rather
+# than panicking the kernel with "init died".
+# shellcheck disable=SC2093
 exec switch_root "$MOUNT_ROOT" /sbin/init
 
-# We only get here if switch_root failed.
+# Only reached if `exec switch_root` failed to call execve at all.
 echo "[live-init] switch_root failed — dropping to rescue shell"
 exec /bin/sh

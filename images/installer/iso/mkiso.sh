@@ -61,11 +61,15 @@ mksquashfs "$ROOTFS_SRC" "$STAGE/live/rootfs.squashfs" \
 # 2) build the initramfs.
 # ---------------------------------------------------------------------
 echo "[mkiso] building initramfs for kernel $KVER"
-SCRIPT_DIR="$SCRIPT_DIR/../initramfs" \
+# Resolve the initramfs dir once. Using a separate variable so the
+# parent-side path expansion and the child-process SCRIPT_DIR env var
+# refer to the same resolved path (shellcheck SC2097/SC2098).
+INITRAMFS_DIR="$SCRIPT_DIR/../initramfs"
+SCRIPT_DIR="$INITRAMFS_DIR" \
   OUT_DIR="$STAGE/live" \
   KVER="$KVER" \
-  bash "$SCRIPT_DIR/../initramfs/build-initramfs.sh"
-mv "$STAGE/live/initrd.img" "$STAGE/live/initrd.img"  # path stable; build script writes here
+  bash "$INITRAMFS_DIR/build-initramfs.sh"
+# build-initramfs.sh writes initrd.img into $OUT_DIR ($STAGE/live).
 
 # ---------------------------------------------------------------------
 # 3) copy the kernel from the rootfs.
