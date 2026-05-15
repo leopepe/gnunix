@@ -1,78 +1,79 @@
 #!/bin/bash
-# images/installer/build.sh — produces gnunix-installer-<arch>-<ver>
-# Tart VM + a raw .img artifact. Mirrors the gnunix-desktop pattern
-# (clone → ssh in → install → promote → emit), but the in-VM step is
-# `install-installer.sh` instead of `install-gnunix-desktop.sh`, and
-# the deliverable is meant to be `dd`'d to a USB rather than imported
-# into Tart by an end user.
+# images/installer/build.sh — produces gnunix-installer-<arch>-<ver>.iso.
 #
-# Per ADR-015.
+# Per ADR-017 (live-ISO architecture) and ADR-019 (installer pivot).
+# The installer layers on gnunix-minimal (text-only live env). The
+# build VM gets the ISO toolchain via nix-env, runs install-installer.sh
+# to provision the live env, then mkiso.sh to assemble the hybrid EFI
+# ISO. ISO comes out, build VM is discarded.
 
 set -euo pipefail
 
 REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}
-. "$REPO_ROOT/scripts/tart-helpers.sh"
+. "$REPO_ROOT/scripts/vm-helpers.sh"
 
 VER=$(jq -r .lfs_image_version "$REPO_ROOT/tools/manifest.json")
-DESKTOP_VM="gnunix-desktop-$VER"
+ARCH=$(jq -r '.active_arch // .target_arch' "$REPO_ROOT/tools/manifest.json")
+MINIMAL_VM="gnunix-minimal-$VER"
 BUILD_VM="gnunix-installer-build"
-INSTALLER_VM="gnunix-installer-$VER"
+ART="$REPO_ROOT/cache/artifacts"
+OUT_ISO="$ART/gnunix-installer-${ARCH}-${VER}.iso"
 
 SSH_OPTS="-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 
-# 1. Base must exist.
-tart_exists "$DESKTOP_VM" \
-  || { echo "[build-installer] $DESKTOP_VM not found — run 'tools/build-all.sh gnunix-desktop' first" >&2; exit 1; }
+# 1. Parent must exist (ADR-019: installer is layered on gnunix-minimal).
+vm_exists "$MINIMAL_VM" \
+  || { echo "[build-installer] $MINIMAL_VM not found — run 'tools/build-all.sh gnunix-minimal' first" >&2; exit 1; }
 
-# 2. Clone.
-echo "[build-installer] cloning $DESKTOP_VM → $BUILD_VM"
-tart_exists "$BUILD_VM" && tart delete "$BUILD_VM" || true
-tart clone "$DESKTOP_VM" "$BUILD_VM"
+# 2. Fresh build VM cloned from gnunix-minimal.
+echo "[build-installer] cloning $MINIMAL_VM → $BUILD_VM"
+if vm_exists "$BUILD_VM"; then vm_stop "$BUILD_VM"; vm_delete "$BUILD_VM"; fi
+vm_clone "$MINIMAL_VM" "$BUILD_VM"
 
 # 3. Boot.
 echo "[build-installer] starting $BUILD_VM"
-tart run --no-graphics "$BUILD_VM" >/dev/null 2>&1 &
+vm_run --no-graphics "$BUILD_VM" >/dev/null 2>&1 &
 BUILDER_PID=$!
 stop_builder() {
-  local ip; ip=$(tart_ip "$BUILD_VM" 2>/dev/null || true)
+  local ip; ip=$(vm_ip "$BUILD_VM" 2>/dev/null || true)
   if [ -n "$ip" ]; then
+    # Per the project's tart-sync rule: sync before stop, else writes vanish.
     # shellcheck disable=SC2086
     ssh $SSH_OPTS -o ConnectTimeout=5 "root@$ip" "sync; sync" 2>/dev/null || true
   fi
-  tart stop "$BUILD_VM" >/dev/null 2>&1 || true
+  vm_stop "$BUILD_VM"
   kill "$BUILDER_PID" 2>/dev/null || true
 }
 trap stop_builder EXIT
 
 echo "[build-installer] waiting for ssh"
-IP=""
-for i in $(seq 1 60); do
-  IP=$(tart_ip "$BUILD_VM" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | tail -1 || true)
-  if [ -n "$IP" ]; then
-    # shellcheck disable=SC2086
-    if ssh $SSH_OPTS -o ConnectTimeout=2 "root@$IP" true 2>/dev/null; then
-      break
-    fi
-  fi
-  sleep 3
-done
-[ -n "$IP" ] || { echo "[build-installer] ssh never came up"; exit 1; }
+vm_wait_ssh "$BUILD_VM" root || { echo "[build-installer] ssh never came up"; exit 1; }
+IP=$(vm_ip "$BUILD_VM")
 echo "[build-installer] root@$IP ready"
 
-# 4. Payload tar — the installer TUI + profiles + themes.
+# 4. Stage the installer payload (TUI + profile scripts + initramfs +
+#    mkiso) inside the VM.
 PAYLOAD=$(mktemp -t installer-payload.XXXXXX.tar.gz)
-trap 'rm -f "$PAYLOAD"; stop_builder' EXIT
+cleanup_payload() { rm -f "$PAYLOAD"; stop_builder; }
+trap cleanup_payload EXIT
+
 echo "[build-installer] building payload tarball"
-tar -C "$REPO_ROOT/images/installer" -czf "$PAYLOAD" installer install-installer.sh
+# Ship everything under images/installer/ EXCEPT build.sh and README.md
+# (build.sh stays on the host; README.md is for humans, not the VM).
+tar -C "$REPO_ROOT/images/installer" -czf "$PAYLOAD" \
+  --exclude=build.sh --exclude=README.md \
+  install-installer.sh installer initramfs iso
 
 echo "[build-installer] copying payload ($(du -h "$PAYLOAD" | cut -f1))"
 # shellcheck disable=SC2086
 scp $SSH_OPTS "$PAYLOAD" "root@$IP:/root/installer-payload.tar.gz"
 
-# 5. Run the provisioner inside the VM.
+# 5. Run install-installer.sh inside the VM. This provisions the LIVE
+#    environment (installs TUI, configures getty on tty1, installs ISO
+#    build tools via nix-env).
 echo "[build-installer] running install-installer.sh inside VM"
 # shellcheck disable=SC2086
-ssh $SSH_OPTS "root@$IP" bash <<EOF
+ssh $SSH_OPTS "root@$IP" bash <<'EOF'
 set -euo pipefail
 cd /root
 rm -rf installer-payload
@@ -81,47 +82,42 @@ tar -C installer-payload -xzf installer-payload.tar.gz
 bash installer-payload/install-installer.sh
 EOF
 
-# 6. Sync + stop.
-echo "[build-installer] sync + stop $BUILD_VM"
+# 6. Sync to disk before snapshotting the live rootfs into the ISO.
+#    The squashfs is built from the live rootfs as-is; uncommitted
+#    writes would be lost.
 # shellcheck disable=SC2086
 ssh $SSH_OPTS "root@$IP" "sync; sync"
-tart stop "$BUILD_VM"
+
+# 7. Inside the VM: run mkiso.sh against the live rootfs.
+echo "[build-installer] running mkiso.sh inside VM"
+# SC2086: $SSH_OPTS deliberately splits into separate -o flags.
+# SC2087: heredoc unquoted on purpose — ${ARCH} and ${VER} are expanded
+#   on the host side so the values flow into the VM. \$PATH stays
+#   escaped to expand server-side.
+# shellcheck disable=SC2086,SC2087
+ssh $SSH_OPTS "root@$IP" bash <<EOF
+set -euo pipefail
+export PATH=/nix/var/nix/profiles/system/bin:/nix/var/nix/profiles/installer-build/bin:\$PATH
+export ARCH=${ARCH} VER=${VER}
+bash /root/installer-payload/iso/mkiso.sh / /root/gnunix-installer.iso
+EOF
+
+# 8. Pull the ISO back to the host.
+mkdir -p "$ART"
+echo "[build-installer] fetching ISO → $OUT_ISO"
+rm -f "$OUT_ISO"
+# shellcheck disable=SC2086
+scp $SSH_OPTS "root@$IP:/root/gnunix-installer.iso" "$OUT_ISO"
+
+# 9. Sync + drop the build VM.
+# shellcheck disable=SC2086
+ssh $SSH_OPTS "root@$IP" "sync; sync"
+vm_stop "$BUILD_VM"
 trap 'rm -f "$PAYLOAD"' EXIT
+vm_delete "$BUILD_VM"
 
-# 7. Promote.
-echo "[build-installer] cloning $BUILD_VM → $INSTALLER_VM"
-tart_exists "$INSTALLER_VM" && tart delete "$INSTALLER_VM" || true
-tart clone "$BUILD_VM" "$INSTALLER_VM"
-
-# 8. Emit raw .img. (.iso emission is a follow-up; the .img is bootable
-#    by `dd` to a USB stick on its own.)
-ART_DIR="$REPO_ROOT/cache/artifacts"
-ARCH=$(jq -r '.active_arch // .target_arch' "$REPO_ROOT/tools/manifest.json")
-mkdir -p "$ART_DIR"
-RAW_OUT="$ART_DIR/gnunix-installer-$ARCH-$VER.img"
-echo "[build-installer] emitting raw disk artifact → $RAW_OUT"
-cp "$HOME/.tart/vms/$INSTALLER_VM/disk.img" "$RAW_OUT"
-ls -lh "$RAW_OUT"
-
-# 9. zstd in background, same pattern as the other layers.
-if command -v zstd >/dev/null; then
-  ZST_OUT="$RAW_OUT.zst"
-  echo "[build-installer] compressing → $ZST_OUT (level 10, backgrounded)"
-  rm -f "$ZST_OUT"
-  ( zstd -10 -f -k "$RAW_OUT" -o "$ZST_OUT" && ls -lh "$ZST_OUT" ) &
-  ZSTD_PID=$!
-  echo "[build-installer]   zstd pid=$ZSTD_PID (will finish in background)"
-fi
-
-rm -f "$PAYLOAD"
-
-# Leaf of the lineage — wait for our own zstd, same as gnunix-desktop does.
-if [ -n "${ZSTD_PID:-}" ]; then
-  echo "[build-installer] waiting for zstd ($ZSTD_PID) to finish before exit"
-  wait "$ZSTD_PID" 2>/dev/null || true
-fi
-
-echo "[build-installer] === gnunix-installer $VER built. ==="
-echo "  Tart VM:        $INSTALLER_VM   (tart run --vnc-experimental $INSTALLER_VM to try the live boot)"
-echo "  Raw disk image: $RAW_OUT"
-echo "  USB write:      sudo dd if=$RAW_OUT of=/dev/sdX bs=4M status=progress conv=fsync"
+ls -lh "$OUT_ISO"
+echo "[build-installer] === gnunix-installer $VER ($ARCH) built. ==="
+echo "  ISO: $OUT_ISO"
+echo "  USB:    sudo dd if=$OUT_ISO of=/dev/diskN bs=4M status=progress conv=fsync"
+echo "  QEMU:   qemu-system-aarch64 ... -cdrom $OUT_ISO"
