@@ -60,11 +60,17 @@ tart_ssh "$VM" root sh -c '
   id -nG user | tr " " "\n" | grep -qx video \
     || { echo "FAIL: user not in video group"; exit 8; }
 
-  # 5. virtio-gpu DRM device present (warns rather than fails: a kernel
-  #    config drift could nuke /dev/dri without invalidating the rest of
-  #    the install, and we want the operator to see that explicitly).
+  # 5. virtio-gpu DRM device present. Hard fail now (was WARN): the
+  #    explicit /etc/modules-load.d/virtio.conf + the /sbin/modprobe
+  #    symlink shipped by install-gnunix-desktop.sh should make this
+  #    reliable. A missing device means MODALIAS coldplug or rc.modules
+  #    is silently broken — and every Wayland compositor bails at
+  #    wlroots DRM init without it.
   if [ ! -e /dev/dri/card0 ]; then
-    echo "WARN: /dev/dri/card0 missing (no DRM device — check CONFIG_DRM_VIRTIO_GPU)"
+    echo "FAIL: /dev/dri/card0 missing — virtio-gpu did not load."
+    echo "  Check: /sbin/modprobe exists, /etc/modules-load.d/virtio.conf exists,"
+    echo "         and rc.modules ran at boot."
+    exit 9
   fi
 
   # 6. login1 D-Bus name is reachable (elogind registered with dbus).

@@ -59,8 +59,46 @@ nix-env -p "$SYSTEM_PROFILE" -iA \
   nixpkgs.wayland-utils \
   nixpkgs.xkeyboard_config \
   nixpkgs.procps \
+  nixpkgs.kmod \
   nixpkgs.mesa \
   nixpkgs.waybar
+
+# 2a. Wire kmod into /sbin so the kernel's hardcoded modprobe path
+#     (/proc/sys/kernel/modprobe = /sbin/modprobe) finds it, and so
+#     /etc/rc.d/rc.modules can load the explicit lists below.
+#
+#     The base eudev was built without the `kmod` builtin (verified at
+#     runtime: `udevadm test-builtin kmod` returns "unknown command 'kmod'").
+#     That means MODALIAS coldplug never autoloads anything from sysfs —
+#     ADR-012's "auto-loaded by eudev MODALIAS coldplug" is effectively
+#     dead until eudev is rebuilt with --enable-kmod. Until then, we
+#     fall back to the explicit modules-load.d list + rc.modules + a
+#     working /sbin/modprobe.
+install -d -m 0755 /sbin
+for tool in modprobe insmod rmmod lsmod depmod kmod; do
+  if [ -x "$SYSTEM_PROFILE/bin/$tool" ]; then
+    ln -sfn "$SYSTEM_PROFILE/bin/$tool" "/sbin/$tool"
+  fi
+done
+
+# 2b. Drop the explicit module list for virtio-* devices. rc.S calls
+#     rc.modules which iterates over /etc/modules-load.d/*.conf. virtio-gpu
+#     is the critical one — without it /dev/dri/card0 doesn't exist and
+#     every Wayland compositor refuses to start.
+install -d -m 0755 /etc/modules-load.d
+cat > /etc/modules-load.d/virtio.conf <<'EOF'
+# Virtualization drivers. The base eudev doesn't autoload from MODALIAS;
+# list them here so rc.modules loads them at every boot.
+#
+# Most important for the Wayland session: virtio-gpu — without it,
+# /dev/dri/card0 is missing and Hyprland / Sway / labwc all bail at
+# the wlroots DRM backend init.
+virtio-gpu
+virtio_pci
+virtio_blk
+virtio_net
+virtio_console
+EOF
 
 # Convenience symlinks so rc.M's PATH search still resolves dbus-uuidgen etc.
 # (rc.dbus calls dbus-uuidgen by basename for the first-boot machine-id step.)
