@@ -46,9 +46,9 @@ on:
   workflow_dispatch:
     inputs:
       images:
-        description: "Comma-separated list (gnunix-base, gnunix-nix, gnunix-desktop, gnunix-installer)"
+        description: "Comma-separated list (gnunix-base, gnunix-minimal, gnunix-desktop, gnunix-installer)"
         required: false
-        default: "gnunix-base,gnunix-nix,gnunix-desktop,gnunix-installer"
+        default: "gnunix-base,gnunix-minimal,gnunix-desktop,gnunix-installer"
       installer_tests:
         description: "Profiles to test (comma-separated subset of: minimal,desktop-sway,desktop-hyprland,desktop-labwc)"
         required: false
@@ -154,15 +154,15 @@ jobs:
             tart stop "$vm" 2>/dev/null || true
           done
 
-  # Phase 3: layer Nix on gnunix-base → gnunix-nix. ~5–15 min; depends on gnunix-base.
-  gnunix-nix:
+  # Phase 3: layer Nix on gnunix-base → gnunix-minimal. ~5–15 min; depends on gnunix-base.
+  gnunix-minimal:
     needs: gnunix-base
     runs-on: [self-hosted, macOS, arm64, tart]
     timeout-minutes: 60
     # Skip Phase 3 when caller explicitly limits to gnunix-base only.
     if: |
       github.event_name != 'workflow_dispatch' ||
-      contains(github.event.inputs.images, 'gnunix-nix')
+      contains(github.event.inputs.images, 'gnunix-minimal')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -185,46 +185,46 @@ jobs:
       - name: Fetch Nix binary tarball if not cached
         run: tools/fetch-sources.sh # idempotent; only downloads what's missing
 
-      - name: Build gnunix-nix (layered on gnunix-base-${{ needs.gnunix-base.outputs.version }})
-        run: tools/build-all.sh gnunix-nix
+      - name: Build gnunix-minimal (layered on gnunix-base-${{ needs.gnunix-base.outputs.version }})
+        run: tools/build-all.sh gnunix-minimal
 
-      - name: Smoke test gnunix-nix
-        run: tests/nix-smoke.sh gnunix-nix-${{ needs.gnunix-base.outputs.version }}
+      - name: Smoke test gnunix-minimal
+        run: tests/minimal-smoke.sh gnunix-minimal-${{ needs.gnunix-base.outputs.version }}
 
       - name: Collect build metadata
         if: always()
         run: |
           set -eu
           mkdir -p meta
-          [ -f /tmp/lfs-build-logs/gnunix-nix-build.log ] && cp /tmp/lfs-build-logs/gnunix-nix-build.log meta/ || true
+          [ -f /tmp/lfs-build-logs/gnunix-minimal-build.log ] && cp /tmp/lfs-build-logs/gnunix-minimal-build.log meta/ || true
 
-      - name: Upload gnunix-nix metadata
+      - name: Upload gnunix-minimal metadata
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gnunix-nix-meta-${{ github.run_id }}
+          name: gnunix-minimal-meta-${{ github.run_id }}
           path: meta/
           retention-days: 14
 
-      - name: Upload gnunix-nix raw disk artifact
+      - name: Upload gnunix-minimal raw disk artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gnunix-nix-disk-${{ needs.gnunix-base.outputs.version }}
-          path: cache/artifacts/gnunix-nix-disk-${{ needs.gnunix-base.outputs.version }}.img.zst
+          name: gnunix-minimal-disk-${{ needs.gnunix-base.outputs.version }}
+          path: cache/artifacts/gnunix-minimal-disk-${{ needs.gnunix-base.outputs.version }}.img.zst
           if-no-files-found: error
           retention-days: ${{ github.event_name == 'pull_request' && 3 || (startsWith(github.ref, 'refs/tags/v') && 90 || 30) }}
 
       - name: Stop VMs
         if: always()
         run: |
-          for vm in gnunix-nix-${{ needs.gnunix-base.outputs.version }} gnunix-nix-build; do
+          for vm in gnunix-minimal-${{ needs.gnunix-base.outputs.version }} gnunix-minimal-build; do
             tart stop "$vm" 2>/dev/null || true
           done
 
-  # Phase 4: layer Wayland stack (dbus, elogind, greetd, sway) on gnunix-nix →
-  # gnunix-desktop. ~10-25 min; depends on gnunix-nix.
+  # Phase 4: layer Wayland stack (dbus, elogind, greetd, sway) on gnunix-minimal →
+  # gnunix-desktop. ~10-25 min; depends on gnunix-minimal.
   gnunix-desktop:
-    needs: [gnunix-base, gnunix-nix]
+    needs: [gnunix-base, gnunix-minimal]
     runs-on: [self-hosted, macOS, arm64, tart]
     timeout-minutes: 60
     # Skip when caller explicitly limits to upstream phases.
@@ -242,7 +242,7 @@ jobs:
             command -v "$t" >/dev/null || { echo "missing: $t"; exit 1; }
           done
 
-      - name: Build gnunix-desktop (layered on gnunix-nix-${{ needs.gnunix-base.outputs.version }})
+      - name: Build gnunix-desktop (layered on gnunix-minimal-${{ needs.gnunix-base.outputs.version }})
         run: tools/build-all.sh gnunix-desktop
 
       - name: Smoke test gnunix-desktop
@@ -287,13 +287,13 @@ jobs:
   # job failure, so PRs don't go red on "scaffolded, not yet building".
   # Upload only happens when rc=0.
   package:
-    needs: [gnunix-base, gnunix-nix, gnunix-desktop]
+    needs: [gnunix-base, gnunix-minimal, gnunix-desktop]
     runs-on: [self-hosted, macOS, arm64, tart]
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        image: [gnunix-nix, gnunix-desktop]
+        image: [gnunix-minimal, gnunix-desktop]
         arch: [aarch64] # x86_64 added once a Linux runner exists
         platform: [generic-uefi, rpi-native]
         # No exclude — the rc=2/rc=3 handling below makes "scaffolded" /
@@ -365,7 +365,7 @@ jobs:
   # End-user artifact: dd-to-USB and boot for a TUI installer that lets
   # the user pick { minimal | desktop-sway | desktop-hyprland | desktop-labwc }.
   gnunix-installer:
-    needs: [gnunix-base, gnunix-nix, gnunix-desktop]
+    needs: [gnunix-base, gnunix-minimal, gnunix-desktop]
     runs-on: [self-hosted, macOS, arm64, tart]
     timeout-minutes: 45
     if: |

@@ -1,6 +1,6 @@
-# Runbook: Building gnunix-desktop from gnunix-nix
+# Runbook: Building gnunix-desktop from gnunix-minimal
 
-Phase 4 layers a Wayland graphical session on top of `gnunix-nix-<ver>` and produces
+Phase 4 layers a Wayland graphical session on top of `gnunix-minimal-<ver>` and produces
 `gnunix-desktop-<ver>`. The base image isn't rebuilt — Phase 4 reuses Phase 3's
 output, exactly as Phase 3 reused Phase 2's.
 
@@ -9,8 +9,8 @@ the system-profile substitution from `cache.nixos.org`. No compilation.
 
 ## Prerequisites
 
-- `gnunix-nix-<ver>` exists in `tart list`. If not, run Phase 3 first
-  (`tools/build-all.sh gnunix-nix`).
+- `gnunix-minimal-<ver>` exists in `tart list`. If not, run Phase 3 first
+  (`tools/build-all.sh gnunix-minimal`).
 - Host has `~/.ssh/id_ed25519.pub`. Phase 2 installed it as `root`'s
   `authorized_keys` inside the rootfs; Phase 3 carried it forward; Phase 4
   inherits it again.
@@ -25,8 +25,8 @@ tools/build-all.sh gnunix-desktop
 
 This calls `images/gnunix-desktop/build.sh`, which:
 
-1. Verifies `gnunix-nix-<ver>` exists.
-2. `tart clone gnunix-nix-<ver> → gnunix-desktop-build` (disposable working copy).
+1. Verifies `gnunix-minimal-<ver>` exists.
+2. `tart clone gnunix-minimal-<ver> → gnunix-desktop-build` (disposable working copy).
 3. Boots `gnunix-desktop-build`, waits for `root@<ip>` over SSH.
 4. Tars up `images/gnunix-desktop/etc/` + `install-wayland.sh`, scps the bundle
    into the VM.
@@ -113,7 +113,7 @@ login. Tracked in `docs/TODO.md` under "System configuration hardening".
 
 ## Iterating
 
-`build.sh` re-clones `gnunix-nix-<ver> → gnunix-desktop-build` every time, so
+`build.sh` re-clones `gnunix-minimal-<ver> → gnunix-desktop-build` every time, so
 iterations are stateless — same pattern as Phase 3.
 
 If you want to debug the in-progress build VM (e.g., `nix-env -iA` exploded),
@@ -126,4 +126,4 @@ running, fix the install state, then manually `sync` + `tart stop` and
 Same as Phase 3: `cache/artifacts/gnunix-desktop-disk-0.1.0.img` is a generic
 GPT/UEFI/ext4 disk image. Tart is one consumer; QEMU/KVM, libvirt, UTM,
 Proxmox, and arm64 bare metal with UEFI also boot it directly. See
-[`build-nix.md` § Consumers](build-nix.md#consumers-of-the-produced-image).
+[`build-minimal.md` § Consumers](build-minimal.md#consumers-of-the-produced-image).

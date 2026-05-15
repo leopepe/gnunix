@@ -2,7 +2,7 @@
 # Top-level orchestrator. Drives the full image build chain end to end.
 #
 # Phase 2 milestone (current): produces gnunix-base:<version> as a Tart VM.
-# Later phases extend this script: gnunix-nix → gnunix-desktop → variants.
+# Later phases extend this script: gnunix-minimal → gnunix-desktop → variants.
 
 set -euo pipefail
 
@@ -147,13 +147,13 @@ case "$PHASE" in
     echo "  Smoke test:     tests/boot-smoke.sh gnunix-base-$VERSION"
     ;;
 
-  gnunix-nix)
-    echo "[build-all] === gnunix-nix $VERSION (layering on gnunix-base-$VERSION) ==="
-    bash "$REPO_ROOT/images/gnunix-nix/build.sh"
+  gnunix-minimal)
+    echo "[build-all] === gnunix-minimal $VERSION (layering on gnunix-base-$VERSION) ==="
+    bash "$REPO_ROOT/images/gnunix-minimal/build.sh"
     ;;
 
   gnunix-desktop)
-    echo "[build-all] === gnunix-desktop $VERSION (layering on gnunix-nix-$VERSION) ==="
+    echo "[build-all] === gnunix-desktop $VERSION (layering on gnunix-minimal-$VERSION) ==="
     bash "$REPO_ROOT/images/gnunix-desktop/build.sh"
     ;;
 
@@ -164,12 +164,12 @@ case "$PHASE" in
 
   variants)
     echo "Phase $PHASE is not yet implemented."
-    echo "Current milestones: gnunix-base (Phase 2), gnunix-nix (Phase 3), gnunix-desktop (Phase 4), gnunix-installer (Phase 5)."
+    echo "Current milestones: gnunix-base (Phase 2), gnunix-minimal (Phase 3), gnunix-desktop (Phase 4), gnunix-installer (Phase 5)."
     exit 2
     ;;
 
   *)
-    echo "usage: $0 [gnunix-base|gnunix-nix|gnunix-desktop|gnunix-installer|variants]"
+    echo "usage: $0 [gnunix-base|gnunix-minimal|gnunix-desktop|gnunix-installer|variants]"
     exit 1
     ;;
 esac

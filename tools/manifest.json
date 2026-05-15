@@ -331,7 +331,7 @@
   "nix": {
     "installer_version": "2.24.10",
     "installer_url": "https://releases.nixos.org/nix/nix-2.24.10/install",
-    "_note_binary": "Phase 3 (gnunix-nix) installs the multi-user Nix daemon from this binary tarball. Manual install: our /etc/rc.d/rc.nix-daemon supervises the daemon (no systemd, per ADR-001).",
+    "_note_binary": "Phase 3 (gnunix-minimal) installs the multi-user Nix daemon from this binary tarball. Manual install: our /etc/rc.d/rc.nix-daemon supervises the daemon (no systemd, per ADR-001).",
     "binary_version": "2.24.10",
     "binary_url": "https://releases.nixos.org/nix/nix-2.24.10/nix-2.24.10-aarch64-linux.tar.xz",
     "binary_sha256": "1d8cf1d0760a4ca70d3d5c0becef1183ad4d5c87b4afb0e77085da3fd88b0bfb",

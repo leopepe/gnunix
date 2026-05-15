@@ -9,7 +9,7 @@ These complement the upstream image tests:
 | Image | Test |
 |---|---|
 | `gnunix-base` | `tests/boot-smoke.sh` (boots, ssh, dbus, nix-daemon) |
-| `gnunix-nix` (a.k.a. `gnunix-minimal`) | `tests/nix-smoke.sh` |
+| `gnunix-minimal` | `tests/minimal-smoke.sh` |
 | `gnunix-desktop` | `tests/wayland-session.sh` |
 | `gnunix-installer` *output for each profile* | **`tests/installer/profile-*.sh`** |
 

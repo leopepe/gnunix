@@ -1,6 +1,6 @@
 # Runbook: Per-platform image packaging
 
-Per ADR-010, gnunix produces **base images** (gnunix-base / gnunix-nix /
+Per ADR-010, gnunix produces **base images** (gnunix-base / gnunix-minimal /
 gnunix-desktop) and then re-packages those bases for **target platforms** —
 the shape the user actually flashes. This runbook documents the platform
 matrix and how to add a new one.
@@ -114,5 +114,5 @@ script.
 
 - ADR-010 (the locking decision)
 - `docs/runbooks/build.md` (Phase 2 base build)
-- `docs/runbooks/build-nix.md` (Phase 3 Nix layer)
+- `docs/runbooks/build-minimal.md` (Phase 3 Nix layer)
 - `docs/runbooks/build-wayland.md` (Phase 4 Wayland layer)

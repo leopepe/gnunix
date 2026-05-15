@@ -138,7 +138,7 @@ jobs:
           missing=0
           for f in \
               "gnunix-base-disk-$v.img.zst" \
-              "gnunix-nix-disk-$v.img.zst" \
+              "gnunix-minimal-disk-$v.img.zst" \
               "gnunix-desktop-disk-$v.img.zst"; do
             if [ ! -f "release/$f" ]; then
               echo "[release] MISSING: $f"
@@ -187,7 +187,7 @@ jobs:
             echo "- libvirt, UTM, Proxmox (\`qemu-img convert\` to qcow2)"
             echo "- Apple Silicon hardware via UEFI"
             echo
-            echo "See \`docs/runbooks/build-nix.md\` § Consumers and"
+            echo "See \`docs/runbooks/build-minimal.md\` § Consumers and"
             echo "\`docs/runbooks/platforms.md\` for the per-platform image map."
             echo
             echo "### Base images"
@@ -195,7 +195,7 @@ jobs:
             echo "| In this release | Artifact | Content |"
             echo "|---|---|---|"
             echo "| $(have gnunix-base-disk-$v.img.zst)    | \`gnunix-base-disk-$v.img.zst\`    | Minimal LFS base (sshd + DHCP) |"
-            echo "| $(have gnunix-nix-disk-$v.img.zst)     | \`gnunix-nix-disk-$v.img.zst\`     | Base + multi-user Nix daemon |"
+            echo "| $(have gnunix-minimal-disk-$v.img.zst)     | \`gnunix-minimal-disk-$v.img.zst\`     | Base + multi-user Nix daemon |"
             echo "| $(have gnunix-desktop-disk-$v.img.zst) | \`gnunix-desktop-disk-$v.img.zst\` | Base + Nix + dbus/elogind/greetd/sway |"
             echo "| $(have gnunix-installer-aarch64-$v.img.zst) | \`gnunix-installer-aarch64-$v.img.zst\` | Live installer (ADR-015): picks minimal / desktop-sway / desktop-hyprland / desktop-labwc at install time |"
             echo
@@ -203,13 +203,13 @@ jobs:
             echo
             echo "| In this release | Platform | Arch | Artifact | Status |"
             echo "|---|---|---|---|---|"
-            for img in gnunix-nix gnunix-desktop; do
+            for img in gnunix-minimal gnunix-desktop; do
               echo "| $(have ${img}-generic-uefi-aarch64-$v.img.zst) | \`generic-uefi\`   | aarch64 | \`${img}-generic-uefi-aarch64-$v.img.zst\` | Shipping |"
             done
-            for img in gnunix-nix gnunix-desktop; do
+            for img in gnunix-minimal gnunix-desktop; do
               echo "| $(have ${img}-rpi-native-aarch64-$v.img.zst) | \`rpi-native\`     | aarch64 | \`${img}-rpi-native-aarch64-$v.img.zst\` | Scaffolded (Phase 6) |"
             done
-            for img in gnunix-nix gnunix-desktop; do
+            for img in gnunix-minimal gnunix-desktop; do
               echo "| $(have ${img}-nuc-installer-x86_64-$v.iso) | \`nuc-installer\`  | x86_64  | \`${img}-nuc-installer-x86_64-$v.iso\` | Scaffolded (Phase 5) |"
             done
             echo

@@ -1,6 +1,6 @@
 #!/bin/sh
-# validate-nix.sh <vm-name>
-# Boots an gnunix-nix Tart image and runs Phase 3 post-boot checks.
+# validate-minimal.sh <vm-name>
+# Boots an gnunix-minimal Tart image and runs Phase 3 post-boot checks.
 # Exits 0 on success; non-zero with a one-line reason on failure.
 
 set -eu
@@ -10,18 +10,18 @@ REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}
 VM=${1:-}
 [ -z "$VM" ] && { echo "usage: $0 <vm-name>" >&2; exit 1; }
 
-echo "[validate-nix] starting $VM"
+echo "[validate-minimal] starting $VM"
 tart run --no-graphics "$VM" >/dev/null 2>&1 &
 TART_PID=$!
 trap 'tart stop "$VM" >/dev/null 2>&1 || true; kill $TART_PID 2>/dev/null || true' EXIT
 
-echo "[validate-nix] waiting for ssh"
+echo "[validate-minimal] waiting for ssh"
 if ! tart_wait_ssh "$VM" root; then
   echo "FAIL: ssh did not become available within 120s"
   exit 1
 fi
 
-echo "[validate-nix] running smoke checks"
+echo "[validate-minimal] running smoke checks"
 tart_ssh "$VM" root sh -c '
   set -e
   echo "uname: $(uname -a)"
@@ -54,5 +54,5 @@ tart_ssh "$VM" root sh -c '
   pidof sshd        >/dev/null || echo "WARN: sshd not running"
   pidof dbus-daemon >/dev/null || echo "WARN: dbus not running (still deferred)"
 
-  echo "[validate-nix] PASS"
+  echo "[validate-minimal] PASS"
 '

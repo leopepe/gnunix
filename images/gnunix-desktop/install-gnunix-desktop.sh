@@ -26,7 +26,7 @@ export NIX_SSL_CERT_FILE=${NIX_SSL_CERT_FILE:-/nix/var/nix/profiles/default/etc/
 export HOME=/root
 export USER=root
 
-# Ensure nix-daemon is running. install-gnunix-nix.sh deliberately doesn't start it
+# Ensure nix-daemon is running. install-gnunix-minimal.sh deliberately doesn't start it
 # (rc.M does, on the next boot). Phase 4 lands on an image that has already
 # rebooted at least once via the test step, so the daemon should be up.
 # Belt-and-braces: if it's missing, start it now in the background.
@@ -305,7 +305,7 @@ done
 chmod +x /etc/rc.d/rc.dbus /etc/rc.d/rc.elogind /etc/rc.d/rc.greetd /etc/rc.d/rc.M
 
 # 11. Verify (best-effort; daemons are NOT started here — rc.M handles that on
-#     next boot, same rationale as install-gnunix-nix.sh).
+#     next boot, same rationale as install-gnunix-minimal.sh).
 echo "[install-wayland] sanity checks"
 # elogind on nixpkgs lives at libexec/elogind (a single file, not a subdir);
 # bin/ holds elogind-inhibit but not the daemon. Older builds shipped it under

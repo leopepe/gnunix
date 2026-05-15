@@ -32,7 +32,7 @@ body:
       options:
         - gnunix-builder (the build VM)
         - gnunix-base (LFS, Phase 2)
-        - gnunix-nix (multi-user Nix, Phase 3)
+        - gnunix-minimal (multi-user Nix, Phase 3)
         - gnunix-desktop (Wayland session, Phase 4)
         - Platform packaging (generic-uefi / rpi-native / nuc-installer)
         - CI workflows (.github/workflows/)

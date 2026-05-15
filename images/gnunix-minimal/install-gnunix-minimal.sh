@@ -1,12 +1,12 @@
 #!/bin/bash
-# images/gnunix-nix/install-gnunix-nix.sh — runs INSIDE the gnunix-nix-build VM as root.
+# images/gnunix-minimal/install-gnunix-minimal.sh — runs INSIDE the gnunix-minimal-build VM as root.
 #
 # Manually installs Nix from a binary release tarball, multi-user mode,
 # WITHOUT systemd. The official `install-multi-user` script wants systemd
 # (or launchd on macOS) and aborts on sysvinit; we replicate what it does
 # but use our own /etc/rc.d/rc.nix-daemon for daemon supervision (ADR-001).
 #
-# Called by images/gnunix-nix/build.sh after scp'ing the tarball to /root/.
+# Called by images/gnunix-minimal/build.sh after scp'ing the tarball to /root/.
 # Tarball path can be overridden via $NIX_TARBALL.
 #
 # Idempotent: re-running on an already-installed system is a no-op for
