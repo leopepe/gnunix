@@ -92,9 +92,10 @@ If you don't have network right now, go back and pick the minimal
 edition; you can install a compositor later via nix-env."
     local compositor
     compositor=$(ui_radiolist "Wayland compositor:" \
-      "hyprland"  "Dynamic tiling + animations (DEFAULT)"           "ON" \
-      "sway"      "Tiling, i3-style"                                "OFF" \
-      "labwc"     "Stacking, Openbox-style"                         "OFF") \
+      "hyprland"         "Dynamic tiling + animations (DEFAULT)"               "ON" \
+      "sway"             "Tiling, i3-style"                                    "OFF" \
+      "labwc"            "Stacking, Openbox-style"                             "OFF" \
+      "labwc-nextspace"  "Stacking + NeXTSTEP-inspired theme (Wayland-native)" "OFF") \
       || { echo "cancelled"; exit 1; }
     PROFILE="desktop-$compositor"
   fi
