@@ -22,6 +22,7 @@ REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}
 . "$REPO_ROOT/scripts/tart-helpers.sh"
 
 VER=$(jq -r .lfs_image_version "$REPO_ROOT/tools/manifest.json")
+ARCH=$(jq -r '.active_arch // .target_arch' "$REPO_ROOT/tools/manifest.json")
 CHANNEL=$(jq -r .nix.channel "$REPO_ROOT/tools/manifest.json")
 
 NIX_VM="gnunix-minimal-$VER"
@@ -113,7 +114,7 @@ tart clone "$BUILD_VM" "$WAYLAND_VM"
 # 8. Emit the raw disk image as a portable artifact (same pattern as Phase 3).
 ART_DIR="$REPO_ROOT/cache/artifacts"
 mkdir -p "$ART_DIR"
-RAW_OUT="$ART_DIR/gnunix-desktop-disk-$VER.img"
+RAW_OUT="$ART_DIR/gnunix-desktop-$ARCH-$VER.img"
 echo "[build-wayland] emitting raw disk artifact → $RAW_OUT"
 cp "$HOME/.tart/vms/$WAYLAND_VM/disk.img" "$RAW_OUT"
 ls -lh "$RAW_OUT"

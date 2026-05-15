@@ -83,6 +83,7 @@ jobs:
     timeout-minutes: 720
     outputs:
       version: ${{ steps.version.outputs.version }}
+      arch:    ${{ steps.version.outputs.arch }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -103,11 +104,13 @@ jobs:
             ssh-keygen -t ed25519 -N '' -f "$HOME/.ssh/id_ed25519"
           fi
 
-      - name: Resolve image version
+      - name: Resolve image version and arch
         id: version
         run: |
           v=$(jq -r .lfs_image_version tools/manifest.json)
+          a=$(jq -r '.active_arch // .target_arch' tools/manifest.json)
           echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "arch=$a"    >> "$GITHUB_OUTPUT"
 
       - name: Cache pre-fetched source tarballs
         uses: actions/cache@v4
@@ -148,8 +151,8 @@ jobs:
       - name: Upload gnunix-base raw disk artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gnunix-base-disk-${{ steps.version.outputs.version }}
-          path: cache/artifacts/gnunix-base-disk-${{ steps.version.outputs.version }}.img.zst
+          name: gnunix-base-${{ steps.version.outputs.arch }}-${{ steps.version.outputs.version }}
+          path: cache/artifacts/gnunix-base-${{ steps.version.outputs.arch }}-${{ steps.version.outputs.version }}.img.zst
           if-no-files-found: error
           retention-days: ${{ github.event_name == 'pull_request' && 3 || (startsWith(github.ref, 'refs/tags/v') && 90 || 30) }}
 
@@ -215,8 +218,8 @@ jobs:
       - name: Upload gnunix-minimal raw disk artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gnunix-minimal-disk-${{ needs.gnunix-base.outputs.version }}
-          path: cache/artifacts/gnunix-minimal-disk-${{ needs.gnunix-base.outputs.version }}.img.zst
+          name: gnunix-minimal-${{ needs.gnunix-base.outputs.arch }}-${{ needs.gnunix-base.outputs.version }}
+          path: cache/artifacts/gnunix-minimal-${{ needs.gnunix-base.outputs.arch }}-${{ needs.gnunix-base.outputs.version }}.img.zst
           if-no-files-found: error
           retention-days: ${{ github.event_name == 'pull_request' && 3 || (startsWith(github.ref, 'refs/tags/v') && 90 || 30) }}
 
@@ -272,8 +275,8 @@ jobs:
       - name: Upload gnunix-desktop raw disk artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gnunix-desktop-disk-${{ needs.gnunix-base.outputs.version }}
-          path: cache/artifacts/gnunix-desktop-disk-${{ needs.gnunix-base.outputs.version }}.img.zst
+          name: gnunix-desktop-${{ needs.gnunix-base.outputs.arch }}-${{ needs.gnunix-base.outputs.version }}
+          path: cache/artifacts/gnunix-desktop-${{ needs.gnunix-base.outputs.arch }}-${{ needs.gnunix-base.outputs.version }}.img.zst
           if-no-files-found: error
           retention-days: ${{ github.event_name == 'pull_request' && 3 || (startsWith(github.ref, 'refs/tags/v') && 90 || 30) }}
 
@@ -406,12 +409,16 @@ jobs:
           path: meta/
           retention-days: 14
 
-      - name: Upload gnunix-installer raw disk artifact
+      - name: Upload gnunix-installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gnunix-installer-disk-${{ needs.gnunix-base.outputs.version }}
-          # build.sh emits the raw .img and zstd-compressed sibling.
-          path: cache/artifacts/gnunix-installer-aarch64-${{ needs.gnunix-base.outputs.version }}.img.zst
+          name: gnunix-installer-${{ needs.gnunix-base.outputs.arch }}-${{ needs.gnunix-base.outputs.version }}
+          # NOTE: this PR (artifact dedup) cleans up the artifact NAME but
+          # leaves the path as .img.zst for compatibility with the current
+          # scaffolded installer build. PR-4 (#8) pivots the installer to
+          # emit a hybrid EFI .iso instead; that PR updates this `path:`
+          # line to gnunix-installer-${arch}-${ver}.iso.
+          path: cache/artifacts/gnunix-installer-${{ needs.gnunix-base.outputs.arch }}-${{ needs.gnunix-base.outputs.version }}.img.zst
           if-no-files-found: error
           retention-days: ${{ github.event_name == 'pull_request' && 3 || (startsWith(github.ref, 'refs/tags/v') && 90 || 30) }}
 
