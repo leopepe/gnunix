@@ -6,8 +6,8 @@
 # the platform-aware scheme defined in ADR-010.
 #
 # Inputs:
-#   $1  the source disk image (e.g., cache/artifacts/gnunix-nix-disk-0.1.0.img)
-#   $2  the output path        (e.g., cache/artifacts/gnunix-nix-generic-uefi-aarch64-0.1.0.img)
+#   $1  the source disk image (e.g., cache/artifacts/gnunix-minimal-disk-0.1.0.img)
+#   $2  the output path        (e.g., cache/artifacts/gnunix-minimal-generic-uefi-aarch64-0.1.0.img)
 #
 # Today this is a copy-with-rename; the real packaging is already done by
 # images/gnunix-base/packaging/mkimage.sh. Keeping this layer exists so that the

@@ -4,7 +4,7 @@ This runbook indexes the in-depth runbooks under `docs/runbooks/`.
 
 > **Project name.** The distribution is **GNUnix** (renamed from
 > `lfs-nix-distro` per [ADR-013](docs/adrs/ADR-013-rename-to-gnunix.md)).
-> Image lineage: `gnunix-base` → `gnunix-nix` → `gnunix-desktop`,
+> Image lineage: `gnunix-base` → `gnunix-minimal` → `gnunix-desktop`,
 > built by `gnunix-builder`. Older ADRs (001–012) still mention the
 > pre-rename names; see ADR-013 for the rename mapping.
 
@@ -21,24 +21,24 @@ The pipeline produces a bootable `gnunix-base-0.1.0` Tart VM that passes `tests/
 
 | Procedure | Runbook |
 |---|---|
-| Layer multi-user Nix on `gnunix-base-<ver>` → `gnunix-nix-<ver>` | [`docs/runbooks/build-nix.md`](docs/runbooks/build-nix.md) |
-| Smoke-test `gnunix-nix-<ver>` | [`docs/runbooks/build-nix.md`](docs/runbooks/build-nix.md#smoke-test) |
+| Layer multi-user Nix on `gnunix-base-<ver>` → `gnunix-minimal-<ver>` | [`docs/runbooks/build-minimal.md`](docs/runbooks/build-minimal.md) |
+| Smoke-test `gnunix-minimal-<ver>` | [`docs/runbooks/build-minimal.md`](docs/runbooks/build-minimal.md#smoke-test) |
 
 ```sh
-tools/build-all.sh gnunix-nix             # ~5-15 min; clones gnunix-base, scp+install Nix
-tests/nix-smoke.sh gnunix-nix-0.1.0       # verifies nix + daemon + nixbld users
+tools/build-all.sh gnunix-minimal             # ~5-15 min; clones gnunix-base, scp+install Nix
+tests/minimal-smoke.sh gnunix-minimal-0.1.0       # verifies nix + daemon + nixbld users
 ```
 
 ## Phase 4 — Wayland session bring-up ✓ scaffolded
 
 | Procedure | Runbook |
 |---|---|
-| Layer dbus/elogind/greetd/sway on `gnunix-nix-<ver>` → `gnunix-desktop-<ver>` | [`docs/runbooks/build-wayland.md`](docs/runbooks/build-wayland.md) |
+| Layer dbus/elogind/greetd/sway on `gnunix-minimal-<ver>` → `gnunix-desktop-<ver>` | [`docs/runbooks/build-wayland.md`](docs/runbooks/build-wayland.md) |
 | Smoke-test `gnunix-desktop-<ver>` | [`docs/runbooks/build-wayland.md`](docs/runbooks/build-wayland.md#smoke-test) |
 | Decisions: compositor + greeter + system-service sourcing | [`docs/adrs/ADR-009`](docs/adrs/ADR-009-wayland-stack.md) |
 
 ```sh
-tools/build-all.sh gnunix-desktop             # ~10-25 min; clones gnunix-nix, installs system Nix profile
+tools/build-all.sh gnunix-desktop             # ~10-25 min; clones gnunix-minimal, installs system Nix profile
 tests/wayland-session.sh gnunix-desktop-0.1.0 # verifies dbus + elogind + greetd + user
 ```
 
@@ -111,8 +111,8 @@ tests/boot-smoke.sh gnunix-base-0.1.0           # acceptance test
 REUSE_BUILDER=1 tools/build-all.sh gnunix-base
 
 # Phase 3: layer Nix on top of the Phase 2 image.
-tools/build-all.sh gnunix-nix                   # → gnunix-nix-<ver>
-tests/nix-smoke.sh gnunix-nix-0.1.0
+tools/build-all.sh gnunix-minimal                   # → gnunix-minimal-<ver>
+tests/minimal-smoke.sh gnunix-minimal-0.1.0
 
 # Phase 4: layer dbus/elogind/greetd/sway on top of the Phase 3 image.
 tools/build-all.sh gnunix-desktop               # → gnunix-desktop-<ver>
@@ -130,13 +130,13 @@ scripts/enter-vm.sh <vm-name>
 Each phase emits a portable raw disk image under `cache/artifacts/`:
 
 - `cache/artifacts/gnunix-base-disk-<ver>.img`                              — Phase 2 base
-- `cache/artifacts/gnunix-nix-disk-<ver>.img`                               — Phase 3 (gnunix-base + Nix)
-- `cache/artifacts/gnunix-desktop-disk-<ver>.img`                           — Phase 4 (gnunix-nix + Wayland stack)
+- `cache/artifacts/gnunix-minimal-disk-<ver>.img`                               — Phase 3 (gnunix-base + Nix)
+- `cache/artifacts/gnunix-desktop-disk-<ver>.img`                           — Phase 4 (gnunix-minimal + Wayland stack)
 - `cache/artifacts/gnunix-{nix,desktop}-generic-uefi-aarch64-<ver>.img`     — Phase 5: platform-packaged for any UEFI host (~9 GB raw / ~750 MB zstd)
 - `cache/artifacts/gnunix-{nix,desktop}-rpi-native-aarch64-<ver>.img`       — Phase 6 (planned): Raspberry Pi SD-card image
 - `cache/artifacts/gnunix-{nix,desktop}-nuc-installer-x86_64-<ver>.iso`     — Phase 5 (planned): NUC live ISO + installer
 
-They're generic GPT/UEFI/ext4 images — Tart is one consumer, but they also boot under QEMU/KVM, libvirt, UTM, Proxmox, or Apple Silicon bare metal. See [`docs/runbooks/build-nix.md` § Consumers](docs/runbooks/build-nix.md#consumers-of-the-produced-image).
+They're generic GPT/UEFI/ext4 images — Tart is one consumer, but they also boot under QEMU/KVM, libvirt, UTM, Proxmox, or Apple Silicon bare metal. See [`docs/runbooks/build-minimal.md` § Consumers](docs/runbooks/build-minimal.md#consumers-of-the-produced-image).
 
 ## Prerequisites on the macOS host
 

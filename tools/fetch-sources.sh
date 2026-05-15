@@ -139,7 +139,7 @@ done < <(jq -r '
     (.base_packages     | to_entries[] | .value | {url, sha256: (.sha256 // "")}),
     (.init_and_session  | to_entries[] | .value | {url, sha256: (.sha256 // "")}),
     (.bootloader        | to_entries[] | .value | {url, sha256: (.sha256 // "")}),
-    # Phase 3: the Nix binary tarball used by images/gnunix-nix/install-gnunix-nix.sh.
+    # Phase 3: the Nix binary tarball used by images/gnunix-minimal/install-gnunix-minimal.sh.
     # Same sha256-pinned, mirror-fallback download path as base packages.
     {url: .nix.binary_url, sha256: .nix.binary_sha256}
   ]

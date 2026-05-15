@@ -32,7 +32,7 @@ project needs.
 - **Full `gnunix-base` build ≈ 6–10 h** on Apple Silicon w/ native
   virtualization. The hosted-runner free-tier job timeout is 6 h. A
   from-scratch base build does not fit in a single hosted-job run.
-- Downstream layering work (gnunix-nix, gnunix-desktop, gnunix-installer,
+- Downstream layering work (gnunix-minimal, gnunix-desktop, gnunix-installer,
   installer-test, package matrix, release assembly) is filesystem
   operations + `nix-env` pulls from `cache.nixos.org` + booting an
   already-built rootfs. These complete in 10–25 min each, and qemu
@@ -96,7 +96,7 @@ vm_export_raw_img <name> <out.img>
 - `tools/build-all.sh <image>`
 - `tools/package-platform.sh <image> <arch> <platform>`
 - `tools/promote.sh`
-- `tests/boot-smoke.sh`, `tests/nix-smoke.sh`, `tests/wayland-session.sh`
+- `tests/boot-smoke.sh`, `tests/minimal-smoke.sh`, `tests/wayland-session.sh`
 - `tests/installer/profile-*.sh`, `tests/installer/run-all.sh`
 - `scripts/run-installer-test.sh`, `scripts/validate-installed.sh`
 
@@ -114,7 +114,7 @@ the right backend at source time.
    `VM_DRIVER=qemu` env override. Local Mac users still default to
    Tart. Add `tools/get-base-image.sh` to fetch a published
    `gnunix-base` artifact (or use a local Tart VM if present).
-3. **PR: migrate CI jobs.** Move `gnunix-nix`, `gnunix-desktop`,
+3. **PR: migrate CI jobs.** Move `gnunix-minimal`, `gnunix-desktop`,
    `gnunix-installer`, `installer-test`, `package`, and `release.yml`
    off `[self-hosted, macOS, arm64, tart]` and onto
    `ubuntu-22.04-arm`. Mark `gnunix-base` job as
@@ -134,7 +134,7 @@ PR / push:
   Renovate or developer PR
     → ubuntu-latest:    lint (shellcheck, actionlint, gitleaks, manifest-schema)
     → ubuntu-22.04-arm: layer images (nix, desktop, installer) under qemu+KVM
-                        run boot-smoke + nix-smoke + wayland-session
+                        run boot-smoke + minimal-smoke + wayland-session
                         run installer-test matrix
                         run package matrix
     → on green: auto-merge userland bumps (ADR-008 unchanged here)
@@ -168,7 +168,7 @@ model do not. A back-pointer is added to ADR-008.
   (new), and the new base lands as a GH Release that downstream CI
   consumes.
 - **Cross-OS dev story improves**: a Linux contributor can
-  `VM_DRIVER=qemu tools/build-all.sh gnunix-nix` locally without
+  `VM_DRIVER=qemu tools/build-all.sh gnunix-minimal` locally without
   needing a Mac. Tart stops being a hard requirement for development;
   it's just the fastest local backend on Apple Silicon.
 - **No paid infra**. Free public-repo arm64 hosted runners cover
@@ -210,13 +210,13 @@ blocked by the very rules it sets up. Two paths to unblock:
 1. **One-time admin bypass** to merge PR #1
    (`current_user_can_bypass: pull_requests_only` in the ruleset).
 2. **After this ADR is merged**, update the ruleset's
-   `required_status_checks` to drop `gnunix-base`, `gnunix-nix`,
+   `required_status_checks` to drop `gnunix-base`, `gnunix-minimal`,
    `gnunix-desktop`, `gnunix-installer` (none of which have a
    working runner) and add the new hosted-runner checks once the
    migration PRs land:
    - `installer-test (minimal)`
    - `installer-test (desktop-sway)`
-   - `package (gnunix-nix / aarch64 / generic-uefi)`
+   - `package (gnunix-minimal / aarch64 / generic-uefi)`
    - `package (gnunix-desktop / aarch64 / generic-uefi)`
 
 Order of operations: bypass-merge PR #1 → merge this ADR → land the

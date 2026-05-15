@@ -22,7 +22,7 @@ body:
         State the problem before the solution. "I want to be able to X" is
         better than "Please add Y".
       placeholder: |
-        When I run `tools/build-all.sh gnunix-nix` twice in a row, it re-runs
+        When I run `tools/build-all.sh gnunix-minimal` twice in a row, it re-runs
         the Nix installer even though it succeeded the first time.
     validations:
       required: true
@@ -43,7 +43,7 @@ body:
       multiple: true
       options:
         - images/gnunix-base
-        - images/gnunix-nix
+        - images/gnunix-minimal
         - images/gnunix-desktop
         - images/gnunix-builder
         - images/variants (platforms)

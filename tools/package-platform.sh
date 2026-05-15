@@ -5,9 +5,9 @@
 # packager under images/variants/<platform>/package.sh. Per ADR-010.
 #
 # Examples:
-#   tools/package-platform.sh gnunix-nix     aarch64 generic-uefi
+#   tools/package-platform.sh gnunix-minimal     aarch64 generic-uefi
 #   tools/package-platform.sh gnunix-desktop aarch64 rpi-native      # scaffolded; fails today
-#   tools/package-platform.sh gnunix-nix     x86_64  nuc-installer   # scaffolded; fails today
+#   tools/package-platform.sh gnunix-minimal     x86_64  nuc-installer   # scaffolded; fails today
 #
 # Exit codes:
 #   0    artifact produced
@@ -28,7 +28,7 @@ MANIFEST="$REPO_ROOT/tools/manifest.json"
 usage() {
   cat <<EOF >&2
 usage: $0 <image> <arch> <platform>
-  image:    gnunix-base | gnunix-nix | gnunix-desktop
+  image:    gnunix-base | gnunix-minimal | gnunix-desktop
   arch:     aarch64 | x86_64
   platform: generic-uefi | rpi-native | nuc-installer
 EOF
@@ -38,7 +38,7 @@ EOF
 [ $# -eq 3 ] || usage
 IMAGE=$1; ARCH=$2; PLATFORM=$3
 
-case "$IMAGE" in gnunix-base|gnunix-nix|gnunix-desktop) ;; *) usage ;; esac
+case "$IMAGE" in gnunix-base|gnunix-minimal|gnunix-desktop) ;; *) usage ;; esac
 
 # Arch must be declared in manifest.archs.
 declared=$(jq -r --arg a "$ARCH" '.archs[$a] // empty' "$MANIFEST")

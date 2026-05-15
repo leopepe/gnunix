@@ -205,7 +205,7 @@ gh pr comment "$PR_NUMBER" --body "🤖 Claude review: no material findings agai
 - **Re-explaining ADRs.** Cite the ADR number; don't paraphrase its content.
 - **Asking for tests** for build-pipeline shell scripts. The validation
   strategy (per CLAUDE.md) is `boot-smoke.sh` / `wayland-session.sh` /
-  `nix-smoke.sh`, not unit tests.
+  `minimal-smoke.sh`, not unit tests.
 - **Suggesting `set -o pipefail`** in a `#!/bin/sh` script. That's a bash
   extension; CLAUDE.md § Shell scripts is explicit about this.
 

@@ -22,9 +22,9 @@ Per CLAUDE.md § How to validate work, smoke tests are the real gate.
 Tick what you ran; note anything you couldn't run locally and why.
 -->
 
-- [ ] `tests/boot-smoke.sh <image>` — for any change to `gnunix-base` or `gnunix-nix`
+- [ ] `tests/boot-smoke.sh <image>` — for any change to `gnunix-base` or `gnunix-minimal`
 - [ ] `tests/wayland-session.sh <image>` — for any change to `gnunix-desktop`
-- [ ] `tests/nix-smoke.sh <image>` — for any change to the Nix layer
+- [ ] `tests/minimal-smoke.sh <image>` — for any change to the Nix layer
 - [ ] `tools/package-platform.sh <image> <arch> <platform>` — for platform packagers
 - [ ] CI `PR lint` is green (shellcheck + actionlint + gitleaks + manifest schema)
 - [ ] Documentation only — no image rebuild needed

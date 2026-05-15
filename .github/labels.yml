@@ -57,7 +57,7 @@
 
 - name: area/nix
   color: fef2c0
-  description: gnunix-nix — multi-user Nix layer, Phase 3.
+  description: gnunix-minimal — multi-user Nix layer, Phase 3.
 
 - name: area/desktop
   color: f9d0c4
