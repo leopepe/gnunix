@@ -1,7 +1,8 @@
 # ADR-013: Rename the distribution to GNUnix
 
-**Status:** Accepted
+**Status:** Accepted (extended by [ADR-019](ADR-019-image-lineage-and-installer-pivot.md))
 **Date:** 2026-05-14
+**Extended:** 2026-05-15 — ADR-019 finishes a second rename within the GNUnix lineage: `gnunix-nix` → `gnunix-minimal`. Same pattern as the original rename — historical ADRs 001–012 keep the pre-rename names; new code/docs use the new name.
 
 ## Context
 

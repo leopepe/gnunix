@@ -1,7 +1,8 @@
 # ADR-009: Wayland stack — compositor, greeter, and system-service sourcing
 
-**Status:** Accepted
+**Status:** Accepted (amended by [ADR-020](ADR-020-compositor-switch-hyprland.md))
 **Date:** 2026-05-13
+**Amended:** 2026-05-15 — default compositor switched to Hyprland by ADR-020; Sway demoted to an optional installer profile. The substrate (greetd + tuigreet, dbus/elogind from nixpkgs, Wayland-only) is unchanged.
 
 ## Context
 
