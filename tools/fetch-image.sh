@@ -100,6 +100,8 @@ short_image=${IMAGE#gnunix-}
 ASSET="gnunix-${short_image}-${ARCH}-${VER}.${FORM}"
 
 # Try <repo>:<release-tag>; if missing AND <repo> != upstream, retry upstream.
+# Return code only — the `[fetch-image] trying ...` line above each attempt
+# is enough to tell the user which repo we ended up using.
 try_download() {
   local repo=$1
   echo "[fetch-image] trying $repo:$RELEASE_TAG  →  $ASSET"
@@ -107,15 +109,14 @@ try_download() {
     # Also fetch SHA256SUMS if present (for verification).
     gh release download "$RELEASE_TAG" --repo "$repo" \
        --pattern "SHA256SUMS-${IMAGE}-${VER}" --dir "$OUT_DIR" --clobber 2>/dev/null || true
-    echo "$repo"
     return 0
   fi
   return 1
 }
 
-if SOURCE_REPO=$(try_download "$REPO"); then
+if try_download "$REPO"; then
   :
-elif [ "$REPO" != "$UPSTREAM_REPO" ] && SOURCE_REPO=$(try_download "$UPSTREAM_REPO"); then
+elif [ "$REPO" != "$UPSTREAM_REPO" ] && try_download "$UPSTREAM_REPO"; then
   echo "[fetch-image] (fell back to upstream $UPSTREAM_REPO)"
 else
   echo "[fetch-image] asset '$ASSET' not found in $REPO:$RELEASE_TAG nor $UPSTREAM_REPO:$RELEASE_TAG" >&2
