@@ -1,8 +1,8 @@
 # ADR-008: Dependency updates with Renovate, image release via GitHub
 
-**Status:** Accepted (amended by [ADR-016](ADR-016-ci-split-build-and-validation.md))
+**Status:** Accepted (amended by [ADR-016](ADR-016-ci-split-build-and-validation.md), [ADR-018](ADR-018-artifact-taxonomy.md))
 **Date:** 2026-05-10
-**Amended:** 2026-05-15 — runner topology revised by ADR-016
+**Amended:** 2026-05-15 — runner topology revised by ADR-016; artifact taxonomy, naming grammar, and release-dependency flow specified by ADR-018
 
 > **Note** — the runner topology described below ("macOS arm64 runner",
 > "self-hosted Mac mini") is **superseded by [ADR-016](ADR-016-ci-split-build-and-validation.md)**

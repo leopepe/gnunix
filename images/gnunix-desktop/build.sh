@@ -1,13 +1,13 @@
 #!/bin/bash
 # images/gnunix-desktop/build.sh — Phase 4 orchestrator (runs on the macOS host).
 #
-# Layers a Wayland graphical session on top of gnunix-nix-<ver> and produces
+# Layers a Wayland graphical session on top of gnunix-minimal-<ver> and produces
 # gnunix-desktop-<ver>. ADRs: 001 (sysvinit), 002 (elogind), 003 (multi-user Nix),
 # 004 (plain Nix + home-manager), 009 (compositor + greeter + system services).
 #
-# Flow (mirrors images/gnunix-nix/build.sh):
-#   1. Verify gnunix-nix-<ver> exists in Tart (built by Phase 3).
-#   2. `tart clone gnunix-nix-<ver> → gnunix-desktop-build` (disposable working copy).
+# Flow (mirrors images/gnunix-minimal/build.sh):
+#   1. Verify gnunix-minimal-<ver> exists in Tart (built by Phase 3).
+#   2. `tart clone gnunix-minimal-<ver> → gnunix-desktop-build` (disposable working copy).
 #   3. Boot gnunix-desktop-build, ssh in as root.
 #   4. Tar up images/gnunix-desktop/etc/ and the installer script, scp into VM.
 #   5. Run install-gnunix-desktop.sh — adds nixpkgs channel, installs system services,
@@ -24,7 +24,7 @@ REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}
 VER=$(jq -r .lfs_image_version "$REPO_ROOT/tools/manifest.json")
 CHANNEL=$(jq -r .nix.channel "$REPO_ROOT/tools/manifest.json")
 
-NIX_VM="gnunix-nix-$VER"
+NIX_VM="gnunix-minimal-$VER"
 BUILD_VM="gnunix-desktop-build"
 WAYLAND_VM="gnunix-desktop-$VER"
 
@@ -32,7 +32,7 @@ SSH_OPTS="-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/de
 
 # 1. Base image must exist.
 tart_exists "$NIX_VM" \
-  || { echo "[build-wayland] $NIX_VM not found — run 'tools/build-all.sh gnunix-nix' first" >&2; exit 1; }
+  || { echo "[build-wayland] $NIX_VM not found — run 'tools/build-all.sh gnunix-minimal' first" >&2; exit 1; }
 
 # 2. Clone base.
 echo "[build-wayland] cloning $NIX_VM → $BUILD_VM"

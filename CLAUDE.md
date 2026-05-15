@@ -13,11 +13,14 @@ reads as "GN[U] Unix". Two layers:
 
 Strategy doc: `~/Documents/hyground/analysis/gnunix-nix-wayland-distro-strategy.md`.
 
-> **Project was renamed `gnunix` → GNUnix** per
-> [ADR-013](docs/adrs/ADR-013-rename-to-gnunix.md). The image lineage
-> rename `lfs-{core,nix,wayland,builder}` → `gnunix-{base,nix,desktop,builder}`
-> is gated on the in-flight build; commands below still use `lfs-*` until
-> the migration commit lands.
+> **Project was renamed `lfs-nix-distro` → GNUnix** per
+> [ADR-013](docs/adrs/ADR-013-rename-to-gnunix.md), with a second
+> internal rename `gnunix-nix` → `gnunix-minimal` per
+> [ADR-019](docs/adrs/ADR-019-image-lineage-and-installer-pivot.md).
+> The image lineage is now `lfs-{core,nix,wayland,builder}` →
+> `gnunix-{base,minimal,desktop,builder}` plus the new
+> `gnunix-installer` (live ISO). Historical ADRs 001–012 keep
+> pre-rename names; everything else uses the current names.
 
 ## Guiding philosophy (load-bearing)
 
@@ -101,6 +104,10 @@ See `docs/adrs/` for full rationale. Summary:
 | 014 | AI PR review: blocking `pr-lint.yml` + opt-in advisory `ai-review.yml` (provider-agnostic, OpenAI-compatible API; OpenRouter free-tier default) driven by `.claude/skills/pr-review/` | Always-on AI review, blocking AI review, vendor-locked review (Anthropic-only / OpenAI-only) |
 | 015 | Live installer (`gnunix-installer`) + 4 Wayland-only profiles (`minimal`, `desktop-sway`, `desktop-hyprland`, `desktop-labwc`); whiptail TUI; pull compositor closures at install time | Bundle-every-compositor, X11/Xorg profiles, GUI installer |
 | 016 | CI split: routine CI on free `ubuntu-22.04-arm` + qemu+KVM; `gnunix-base` rebuilds happen locally on Mac with Tart and ship as GH Release artifacts; `scripts/vm-helpers.sh` abstraction keeps entrypoints stable across drivers (amends ADR-008) | Paid self-hosted Mac runner, always-build-from-scratch CI, separate scripts for local vs CI |
+| 017 | Live-ISO architecture for `gnunix-installer`: squashfs + overlayfs + custom minimal initramfs (busybox-static), packaged as hybrid EFI ISO via `xorriso`. Adds `CONFIG_SQUASHFS=m`, `CONFIG_OVERLAY_FS=m`, `CONFIG_ISO9660_FS=m`, `CONFIG_BLK_DEV_LOOP=m` to the module-first kernel (per ADR-012). | Raw-disk live image, dracut/mkinitcpio, BIOS-hybrid, copy-to-RAM |
+| 018 | Three artifact types — `.iso` / `.img.zst` / `.tart.zst` — and a flat naming grammar `gnunix-<image>-<arch>[-<platform>]-<ver>.<ext>`. Four published images: `gnunix-base`, `gnunix-minimal`, `gnunix-desktop`, `gnunix-installer`. `gnunix-minimal` is the CI release-dependency anchor (downstream layers fetch it, not rebuild). Unified `tools/package.sh` replaces `tools/package-platform.sh`. (Amends ADR-008, ADR-010) | Per-image versioning, single-form-per-image, retained `-disk-` legacy form |
+| 019 | Image lineage roles: installer pivots to layer on `gnunix-minimal` (text-only live env, all desktop installs pull-at-install). `gnunix-desktop` and `gnunix-installer` are siblings of `gnunix-minimal`, not chained. TUI flow: edition → compositor → identity. Live image has no greetd session menu (getty on tty1 auto-launches installer; tty2 = root shell). Finishes the `gnunix-nix → gnunix-minimal` rename. (Extends ADR-013, ADR-015) | Installer-on-desktop, flat 4-radio profile selection, offline desktop installs |
+| 020 | Reference compositor switched from Sway to **Hyprland**. `gnunix-desktop` ships Hyprland pre-baked (with `xdg-desktop-portal-hyprland`, hyprpaper). Sway demoted to one of three optional installer profiles (sway / hyprland / labwc), pulled at install time. (Amends ADR-009) | Sway as default, Hyprland-as-variant-only, drop Sway entirely |
 
 If a task seems to require violating a locked decision, **stop and surface the conflict** — don't silently work around it.
 
@@ -109,13 +116,20 @@ If a task seems to require violating a locked decision, **stop and surface the c
 ```
 docs/         — architecture, ADRs, runbooks
 images/       — one subdir per Tart image, in build order
-  gnunix-builder → gnunix-base → gnunix-nix → gnunix-desktop → variants/
+  gnunix-builder → gnunix-base → gnunix-minimal
+                                      ├─> gnunix-desktop
+                                      ├─> gnunix-installer
+                                      └─> variants/
 bundles/      — reusable Nix expressions
-tools/        — pipeline programs (build-all, promote)
+tools/        — pipeline programs (build-all, package, release)
 scripts/      — small auxiliary helpers
-tests/        — boot smoke tests, session tests
+tests/        — boot smoke tests, session tests, installer tests
 runbook.md    — index of other runbooks in `docs/runbooks/`
 ```
+
+After [ADR-019](docs/adrs/ADR-019-image-lineage-and-installer-pivot.md),
+`gnunix-desktop`, `gnunix-installer`, and `variants/` are siblings
+layered on `gnunix-minimal` — not a single linear chain.
 
 **Where things go:**
 

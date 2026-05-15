@@ -29,7 +29,7 @@ Three workflows participate, each with a single responsibility:
                 ┌────────────────────────┐         ┌──────────────────────────┐
                 │ build.yml @ vX.Y.Z     │         │ release.yml @ vX.Y.Z     │
                 │  gnunix-base           │         │  polls for build.yml run │
-                │   → gnunix-nix         │         │   on same SHA            │
+                │   → gnunix-minimal         │         │   on same SHA            │
                 │     → gnunix-desktop   │         │  downloads artifacts     │
                 │       → package matrix │         │  creates DRAFT release   │
                 └────────────────────────┘         └──────────────────────────┘
@@ -48,7 +48,7 @@ Per the [platform matrix](platforms.md):
 ### Base images (always present in a valid release)
 
 - `gnunix-base-disk-<ver>.img.zst`
-- `gnunix-nix-disk-<ver>.img.zst`
+- `gnunix-minimal-disk-<ver>.img.zst`
 - `gnunix-desktop-disk-<ver>.img.zst`
 
 `release.yml` refuses to draft a release if any of these are missing.
@@ -163,4 +163,4 @@ violated it (e.g., hand-pushed a `v0.2.0` tag while the manifest still says
 - [ADR-008](../adrs/ADR-008-renovate-and-release.md) — the locking decision.
 - [ADR-010](../adrs/ADR-010-multi-arch-and-platforms.md) — platform matrix.
 - [`platforms.md`](platforms.md) — per-platform artifact shapes.
-- [`build.md`](build.md), [`build-nix.md`](build-nix.md), [`build-wayland.md`](build-wayland.md) — what each build phase produces.
+- [`build.md`](build.md), [`build-minimal.md`](build-minimal.md), [`build-wayland.md`](build-wayland.md) — what each build phase produces.

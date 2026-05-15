@@ -1,7 +1,8 @@
 # ADR-010: Multi-arch builds and platform-specific image packaging
 
-**Status:** Accepted
+**Status:** Accepted (amended by [ADR-018](ADR-018-artifact-taxonomy.md))
 **Date:** 2026-05-13
+**Amended:** 2026-05-15 — ADR-018 supersedes `tools/package-platform.sh` with the unified `tools/package.sh <image> --as=<form>` entry point. The platform concept (generic-uefi / rpi4 / nuc-installer) survives as the `--platform=` flag; default is `generic-uefi` and is omitted from artifact filenames.
 
 ## Context
 

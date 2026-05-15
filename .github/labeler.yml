@@ -16,7 +16,7 @@ area/base:
 area/nix:
   - changed-files:
       - any-glob-to-any-file:
-          - 'images/gnunix-nix/**'
+          - 'images/gnunix-minimal/**'
           - 'bundles/**'
 
 area/desktop:
