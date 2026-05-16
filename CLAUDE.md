@@ -125,7 +125,14 @@ images/       — one subdir per Tart image, in build order
 bundles/      — reusable Nix expressions
 tools/        — pipeline programs (build-all, package, release)
 scripts/      — small auxiliary helpers
-tests/        — boot smoke tests, session tests, installer tests
+tests/        — image acceptance / smoke tests, one directory per image:
+              —   tests/base/     gnunix-base   (Phase 2: boot smoke)
+              —   tests/minimal/  gnunix-minimal (Phase 3: nix daemon)
+              —   tests/desktop/  gnunix-desktop (Phase 4: wayland session)
+              —   tests/installer/ gnunix-installer (Phase 5: profiles)
+              — See `tests/CLAUDE.md` for layout rules, GWT scenario
+              — format, and the transitional compat symlinks at the old
+              — top-level paths.
 runbook.md    — index of other runbooks in `docs/runbooks/`
 ```
 
@@ -170,9 +177,54 @@ layered on `gnunix-minimal` — not a single linear chain.
 
 ## How to validate work
 
-- **Base image change** → `tests/boot-smoke.sh <image>` must pass (boot, DHCP, TTY login, dbus running, nix-daemon responsive).
-- **Wayland change** → `tests/wayland-session.sh` must pass (greetd → session → compositor on virtio-gpu → terminal opens).
-- Type-checking and shell linting are nice but not sufficient — boot tests are the real gate.
+Boot tests are the real gate; type-checking and shell linting are
+nice but not sufficient. Each image has a dedicated test set under
+`tests/<image>/`:
+
+- **`gnunix-base` change** → `tests/base/boot-smoke.sh <vm>` must pass (boot, DHCP, TTY login, dbus running, nix-daemon responsive).
+- **`gnunix-minimal` / Nix-layer change** → `tests/minimal/minimal-smoke.sh <vm>` must pass (nix installed, multi-user daemon running, store query works).
+- **`gnunix-desktop` / Wayland change** → `tests/desktop/wayland-session.sh <vm>` must pass (greetd → session → compositor on virtio-gpu → terminal opens).
+- **`gnunix-installer` change** → `tests/installer/profile-<name>.sh` must pass for the affected profile(s); `tests/installer/run-all.sh` runs all four.
+
+The three older entry points `tests/boot-smoke.sh`,
+`tests/minimal-smoke.sh`, and `tests/wayland-session.sh` still work as
+**transitional compat symlinks** pointing at the canonical paths
+above. New work should call the canonical paths; the symlinks are
+slated for removal once every reference (ADRs, runbooks, PR/issue
+templates, `build.sh` echo lines) has migrated.
+
+### Authoring or modifying tests
+
+Whenever the task involves creating, deleting, restructuring, or
+non-trivially editing anything under `tests/` — including adding a
+brand-new test set for a new image or variant — **read
+[`tests/CLAUDE.md`](tests/CLAUDE.md) first**. It is the
+authoritative guide for:
+
+- The one-directory-per-test-set rule (a new image gets a new
+  sibling subdirectory; never an inline `.sh` at the top level).
+- The shell-script language constraint (`#!/bin/sh` + `set -eu`,
+  `bash` only when actually needed; no Python/Go/new framework
+  unless an ADR sanctions it).
+- The thin-entry-point / `scripts/validate-*.sh` validator /
+  orchestrator split, including where each layer's logic belongs.
+- The mandatory **Given-When-Then** header block on every new
+  test entry-point script.
+- When to add a per-set `README.md` (only for non-obvious flows
+  like multi-phase install → reboot → assert, or per-scenario
+  assertion tables that don't fit in a script header).
+- The compat-symlink contract and its symlink-resolving preamble.
+- Which tests gate which PRs (PR-gate vs nightly / tag-build per
+  ADR-019 / ADR-020).
+- The explicit out-of-scope list (no pixel-level Wayland
+  rendering, no whiptail TUI interaction tests, no
+  reinstall/upgrade/RAID/LUKS, no X11) — extending the test
+  surface across those lines requires a new ADR, not just code.
+
+If a task seems to require testing something `tests/CLAUDE.md`
+places out of scope, stop and surface the conflict (open an
+`adr_proposal.yml` issue) instead of silently extending the test
+surface.
 
 ## What NOT to do
 
@@ -202,7 +254,7 @@ When the user asks to build, resume, or test `gnunix-base`, use these entry poin
 ## Updates and release flow (ADR-008)
 
 - Pinned versions live in `tools/manifest.json`, `bundles/*.nix`, and image build scripts. **Don't** bump pins ad hoc.
-- Renovate opens version-bump PRs. CI (macOS arm64 runner under `.github/workflows/build.yml`) rebuilds affected images and runs `tests/boot-smoke.sh` + `tests/wayland-session.sh`.
+- Renovate opens version-bump PRs. CI (macOS arm64 runner under `.github/workflows/build.yml`) rebuilds affected images and runs `tests/base/boot-smoke.sh` + `tests/desktop/wayland-session.sh` (the legacy `tests/boot-smoke.sh` / `tests/wayland-session.sh` compat symlinks still resolve — see `tests/CLAUDE.md`).
 - **Auto-merge:** userland bumps (nixpkgs, bundles) that pass CI.
 - **Human review required:** kernel, glibc, binutils, gcc, sysvinit, eudev, dbus, elogind, GRUB.
 - Releases publish Tart images (`*.tart.tar.zst`) + `manifest.json` as GitHub Release artifacts via `tools/promote.sh`.
@@ -267,8 +319,9 @@ Issues:
   any claim about a locked decision. Don't paraphrase the rationale; link
   to it.
 - Validation evidence must be real. If you didn't run
-  `tests/boot-smoke.sh`, don't tick its box. Note what you ran instead
-  under *Other* or *Reviewer notes*.
+  `tests/base/boot-smoke.sh` (or the legacy compat symlink
+  `tests/boot-smoke.sh`), don't tick its box. Note what you ran
+  instead under *Other* or *Reviewer notes*.
 - Don't open meta-PRs that rewrite `README.md`, `CLAUDE.md`, or
   `CONTRIBUTING.md` for style. Fix factual errors only, per *What NOT to
   do* above.
