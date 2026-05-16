@@ -152,7 +152,7 @@ if [ -z "$NOTES_FILE" ]; then
     echo "### Assets"
     for a in "${ASSETS[@]}"; do
       [ "$a" = "$SUMS_NAMED" ] && continue
-      printf '- `%s` (%s)\n' "$(basename "$a")" "$(du -h "$a" | cut -f1)"
+      printf -- '- `%s` (%s)\n' "$(basename "$a")" "$(du -h "$a" | cut -f1)"
     done
     echo
     echo "### Verify"
