@@ -1,0 +1,52 @@
+#!/usr/bin/env expect
+# tests/installer/tui-scenarios/desktop-sway.exp
+#
+# Desktop edition + non-default compositor. Verifies that moving the
+# cursor on the compositor radiolist and pressing space switches the
+# selection away from the default (hyprland) → "desktop-sway" lands in
+# the choices file.
+#
+# Expected choices file:
+#   TARGET_DISK=/dev/vda
+#   PROFILE=desktop-sway       (hyprland is row 0; sway is row 1)
+#   HOSTNAME=gnunix
+#   USERNAME=user
+#   PASSWORD=swaytest
+
+source [file join [file dirname $argv0] _lib.exp]
+
+start_installer
+
+await_screen "Welcome to the GNUnix installer"
+press_enter
+
+await_screen "Target disk"
+press_enter
+
+await_screen "Edition:"
+accept_default_selection
+
+await_screen "NETWORK REQUIRED"
+press_enter
+
+# Compositor radiolist: hyprland (ON, row 0), sway (row 1), labwc (row 2),
+# labwc-nextspace (row 3). Move down 1 row and toggle.
+await_screen "Wayland compositor:"
+radiolist_choose 1
+
+await_screen "Hostname:"
+press_enter
+
+await_screen "lowercase, no spaces"
+press_enter
+
+await_screen "Set password for"
+type_text "swaytest"
+
+await_screen "Re-enter password"
+type_text "swaytest"
+
+await_screen "Ready to install"
+press_enter
+
+expect eof

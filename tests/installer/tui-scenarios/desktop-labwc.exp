@@ -1,0 +1,40 @@
+#!/usr/bin/env expect
+# tests/installer/tui-scenarios/desktop-labwc.exp
+#
+# Desktop + labwc (row 2 of the compositor radiolist).
+
+source [file join [file dirname $argv0] _lib.exp]
+
+start_installer
+
+await_screen "Welcome to the GNUnix installer"
+press_enter
+
+await_screen "Target disk"
+press_enter
+
+await_screen "Edition:"
+accept_default_selection
+
+await_screen "NETWORK REQUIRED"
+press_enter
+
+await_screen "Wayland compositor:"
+radiolist_choose 2
+
+await_screen "Hostname:"
+press_enter
+
+await_screen "lowercase, no spaces"
+press_enter
+
+await_screen "Set password for"
+type_text "labwctest"
+
+await_screen "Re-enter password"
+type_text "labwctest"
+
+await_screen "Ready to install"
+press_enter
+
+expect eof

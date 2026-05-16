@@ -1,0 +1,56 @@
+#!/usr/bin/env expect
+# tests/installer/tui-scenarios/minimal.exp
+#
+# User toggles the edition radiolist from the default (desktop) to
+# minimal. Verifies:
+#   - the radiolist accepts a non-default selection,
+#   - choosing minimal skips the network-warning + compositor screens
+#     and goes straight to identity prompts,
+#   - the resulting profile is `minimal`, not `desktop-*`.
+#
+# Expected choices file:
+#   TARGET_DISK=/dev/vdb       (we move the disk-menu cursor down one)
+#   PROFILE=minimal
+#   HOSTNAME=tiny
+#   USERNAME=op
+#   PASSWORD=letmein01
+
+source [file join [file dirname $argv0] _lib.exp]
+
+start_installer
+
+await_screen "Welcome to the GNUnix installer"
+press_enter
+
+# Disk menu — pick the second entry (vdb) so the test asserts that
+# moving the cursor + Enter actually selects the highlighted row.
+await_screen "Target disk"
+send -s -- "\033\[B"
+press_enter
+
+# Edition radiolist — default ON is desktop; cursor lands there. Move
+# up one to minimal and toggle it.
+await_screen "Edition:"
+send -s -- "\033\[A"
+send -s -- " "
+send -s -- "\t\r"
+
+# Network warning + compositor screens MUST NOT appear for minimal.
+# Going straight to Hostname is the assertion that minimal short-
+# circuits past the desktop-only screens.
+await_screen "Hostname:"
+replace_text "tiny"
+
+await_screen "lowercase, no spaces"
+replace_text "op"
+
+await_screen "Set password for"
+type_text "letmein01"
+
+await_screen "Re-enter password"
+type_text "letmein01"
+
+await_screen "Ready to install"
+press_enter
+
+expect eof
