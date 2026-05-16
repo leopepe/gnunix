@@ -16,7 +16,7 @@
       "builder_grub_package": "grub-efi-arm64-bin",
       "nix_binary_url": "https://releases.nixos.org/nix/nix-2.24.10/nix-2.24.10-aarch64-linux.tar.xz",
       "nix_binary_sha256": "1d8cf1d0760a4ca70d3d5c0becef1183ad4d5c87b4afb0e77085da3fd88b0bfb",
-      "runner_labels": ["self-hosted", "macOS", "arm64", "tart"]
+      "runner_labels": ["ubuntu-22.04-arm"]
     },
     "x86_64": {
       "$status_note": "Scaffolded per ADR-010 \u00a7 Phasing. Builds will fail until a Linux x86_64 runner exists and the gnunix-base stages consume the per-arch fields. Nix binary URL is the official upstream; sha256 must be pinned by first fetch.",
@@ -28,7 +28,7 @@
       "builder_grub_package": "grub-efi-amd64-bin",
       "nix_binary_url": "https://releases.nixos.org/nix/nix-2.24.10/nix-2.24.10-x86_64-linux.tar.xz",
       "nix_binary_sha256": "",
-      "runner_labels": ["self-hosted", "linux", "x64"]
+      "runner_labels": ["ubuntu-22.04"]
     }
   },
   "$platforms_note": "Per-platform image packagers (ADR-010). Each entry declares which archs it supports + the path to its package.sh. tools/package-platform.sh dispatches here.",

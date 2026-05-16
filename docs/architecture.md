@@ -93,11 +93,12 @@ See `docs/adrs/` for full ADRs. Headlines:
 - **ADR-013:** Distribution renamed to **GNUnix** (was `lfs-nix-distro`); image lineage renamed `lfs-{core,nix,wayland,builder}` → `gnunix-{base,nix,desktop,builder}`
 - **ADR-014:** AI-assisted PR review — deterministic checks (`pr-lint.yml`) block; LLM-driven architectural review (`ai-review.yml` + `.claude/skills/pr-review/`) is opt-in advisory. Provider-agnostic over any OpenAI-compatible API; defaults to OpenRouter free tier.
 - **ADR-015:** Live installer (`gnunix-installer`) + multiple installable compositor profiles, whiptail TUI. *(Amended by ADR-017 + ADR-019.)*
-- **ADR-016:** CI split — routine validation on hosted `ubuntu-22.04-arm` + qemu+KVM; `gnunix-base` rebuilds happen locally on Mac and ship as GH Release artifacts. *(Amends ADR-008.)*
+- **ADR-016:** CI split — routine validation on hosted `ubuntu-22.04-arm` + qemu+KVM; `gnunix-base` rebuilds happen locally on Mac and ship as GH Release artifacts. *(Amends ADR-008. Amended by ADR-021.)*
 - **ADR-017:** Live-ISO architecture for `gnunix-installer` — squashfs + overlayfs + custom minimal initramfs (busybox-static), hybrid EFI ISO via `xorriso`. Adds 4 `=m` modules to the module-first kernel (per ADR-012).
 - **ADR-018:** Artifact taxonomy + naming + release flow — three forms (`.iso` / `.img.zst` / `.tart.zst`), flat grammar `gnunix-<image>-<arch>[-<platform>]-<ver>.<ext>`, four published images, `gnunix-minimal` as CI release-dep anchor. Unified `tools/package.sh`. *(Amends ADR-008, ADR-010.)*
 - **ADR-019:** Image lineage roles + installer pivot — installer layered on `gnunix-minimal` (text-only live env, network-required desktop installs). TUI flow: edition → compositor → identity. Finishes `gnunix-nix → gnunix-minimal` rename. *(Extends ADR-013, ADR-015.)*
 - **ADR-020:** Reference compositor switched Sway → **Hyprland**; Sway demoted to optional install profile. *(Amends ADR-009.)*
+- **ADR-021:** **No self-hosted CI runners — ever.** Every workflow runs on free GitHub-hosted runners only. The `gnunix-base` rebuild (6–10 h) stays on the maintainer's *unmanaged* Mac and ships as a GH Release artifact; CI fetches via `tools/fetch-image.sh`. Phase 5/6 of ADR-010 must use hosted runners (qemu+KVM on `ubuntu-22.04`) or stay as local-developer builds. *(Amends ADR-008, ADR-010, ADR-016.)*
 
 ## Key invariants
 
@@ -106,3 +107,4 @@ See `docs/adrs/` for full ADRs. Headlines:
 - **Linear image lineage.** A new variant gets a new directory under `images/variants/`, not an inline branch in an existing image.
 - **Pinned everything.** Every external version lives in `tools/manifest.json`; Renovate is the only path that changes those pins.
 - **Static base, dynamic userland.** When in doubt, the change goes in Nix, not in `/etc`.
+- **No self-hosted CI runners.** Per ADR-021. Workflows that pin self-hosted labels are a regression.

@@ -1,20 +1,20 @@
-# Build + smoke-test gnunix-{base,minimal,desktop} and per-platform packages on a
-# macOS arm64 runner with Tart.
+# Build + smoke-test gnunix-{base,minimal,desktop} on free GitHub-hosted
+# arm64 Linux runners. Per ADR-021, no self-hosted runners — ever.
 #
 # !! TEMPORARY: PR / push / merge_group triggers DISABLED !!
 #
-# This workflow targets `runs-on: [self-hosted, macOS, arm64, tart]` which
-# the repo doesn't currently have provisioned. Triggering on PRs makes every
-# PR's CI sit pending forever (or fail) waiting for an unavailable runner,
-# blocking merges. ADR-016 specifies migrating routine CI to free hosted
-# `ubuntu-22.04-arm` + qemu+KVM; until that lands, this workflow is
-# manual-only (`workflow_dispatch`) plus release-tag-driven so `release.yml`
-# can still consume its artifacts on a `v*` tag push.
+# This workflow is shape-correct (every job pinned to `ubuntu-22.04-arm`)
+# but does NOT actually rebuild anything yet — the downstream-job logic
+# still assumes a Tart-driven build path. PR-3b (qemu+KVM driver in
+# scripts/vm-helpers.sh + tools/fetch-image.sh CI wire-up) is the
+# follow-up that fills in the hosted-runner logic. Until then,
+# releases are cut manually from a maintainer's Mac via
+# tools/release-image.sh; this workflow is dormant.
 #
-# REMINDER: once ADR-016's qemu/KVM driver is wired into scripts/vm-helpers.sh
-# and the downstream jobs migrate to `ubuntu-22.04-arm`, re-add `pull_request`
-# and `merge_group` triggers below. Branch protection will pick the workflow
-# up again automatically (this file's name is unchanged).
+# REMINDER: once PR-3b lands the qemu/KVM driver and the downstream
+# jobs actually fetch + build on `ubuntu-22.04-arm`, re-add
+# `pull_request` and `merge_group` triggers below. Branch protection
+# will pick the workflow up again automatically (file name unchanged).
 #
 # Trigger model (ADR-008, currently REDUCED):
 #   * push tag v*       — artifacts retained 90d so release.yml can attach
@@ -33,13 +33,11 @@
 #   their prerequisites land. The step wrapper handles rc=2/rc=3 as
 #   expected outcomes rather than failures.
 #
-# Runner requirement:
-#   Self-hosted macOS arm64 with tart + jq + rsync + ssh + expect + zstd
-#   preinstalled. GitHub-hosted macOS runners don't expose
-#   Virtualization.framework, so Tart can't run there.
-#
-# Runner labels: `self-hosted`, `macOS`, `arm64`, `tart`.
-# Runner setup also needs: `~/.ssh/id_ed25519.pub` (generated on first run).
+# Runner labels: `ubuntu-22.04-arm` (free hosted, arm64). Per ADR-021,
+# no self-hosted runners. The `gnunix-base` rebuild (6–10 h) does not
+# fit a hosted-runner timeout and must happen on a maintainer's
+# unmanaged Mac, ship as a GH Release artifact, and be fetched by CI
+# via tools/fetch-image.sh.
 
 name: Build images
 
@@ -79,7 +77,7 @@ jobs:
   # Phase 2: build gnunix-base from scratch (cross-toolchain through final image).
   # ~6–10h on M-series; majority of the wall clock budget.
   gnunix-base:
-    runs-on: [self-hosted, macOS, arm64, tart]
+    runs-on: ubuntu-22.04-arm
     timeout-minutes: 720
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -166,7 +164,7 @@ jobs:
   # Phase 3: layer Nix on gnunix-base → gnunix-minimal. ~5–15 min; depends on gnunix-base.
   gnunix-minimal:
     needs: gnunix-base
-    runs-on: [self-hosted, macOS, arm64, tart]
+    runs-on: ubuntu-22.04-arm
     timeout-minutes: 60
     # Skip Phase 3 when caller explicitly limits to gnunix-base only.
     if: |
@@ -234,7 +232,7 @@ jobs:
   # gnunix-desktop. ~10-25 min; depends on gnunix-minimal.
   gnunix-desktop:
     needs: [gnunix-base, gnunix-minimal]
-    runs-on: [self-hosted, macOS, arm64, tart]
+    runs-on: ubuntu-22.04-arm
     timeout-minutes: 60
     # Skip when caller explicitly limits to upstream phases.
     if: |
@@ -297,7 +295,7 @@ jobs:
   # Upload only happens when rc=0.
   package:
     needs: [gnunix-base, gnunix-minimal, gnunix-desktop]
-    runs-on: [self-hosted, macOS, arm64, tart]
+    runs-on: ubuntu-22.04-arm
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -375,7 +373,7 @@ jobs:
   # the user pick { minimal | desktop-sway | desktop-hyprland | desktop-labwc }.
   gnunix-installer:
     needs: [gnunix-base, gnunix-minimal, gnunix-desktop]
-    runs-on: [self-hosted, macOS, arm64, tart]
+    runs-on: ubuntu-22.04-arm
     timeout-minutes: 45
     if: |
       github.event_name != 'workflow_dispatch' ||
@@ -439,7 +437,7 @@ jobs:
   # default subset for PR runs is minimal + desktop-sway.
   installer-test:
     needs: [gnunix-base, gnunix-installer]
-    runs-on: [self-hosted, macOS, arm64, tart]
+    runs-on: ubuntu-22.04-arm
     timeout-minutes: 30
     strategy:
       fail-fast: false
