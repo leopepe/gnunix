@@ -1,8 +1,9 @@
 # ADR-016: CI strategy — split build (local Tart) and validation/release (GitHub-hosted Linux)
 
-**Status:** Proposed
+**Status:** Accepted (amended by [ADR-021](ADR-021-no-self-hosted-runners.md))
 **Date:** 2026-05-15
 **Amends:** [ADR-008](ADR-008-renovate-and-release.md)
+**Amended:** 2026-05-16 — ADR-021 removes the self-hosted Mac runner option entirely. ADR-016's split (local Mac for `gnunix-base` rebuild → hosted Linux for routine validation) survives; the local Mac is reaffirmed as an *unmanaged developer machine*, not a self-hosted runner.
 
 ## Context
 

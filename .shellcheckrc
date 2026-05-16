@@ -1,0 +1,18 @@
+# shellcheck repo-wide config.
+#
+# Centralises the two settings .shellcheckrc actually supports out of the
+# list pr-lint.yml uses. Severity (-S warning) is NOT settable here —
+# that's a CLI-only flag — so it stays in pr-lint.yml, .pre-commit-
+# config.yaml, and the actionlint wrapper script.
+#
+# Keep in sync with .github/workflows/pr-lint.yml § shellcheck.
+
+# Follow `. file` / `source file` even when the path is dynamic — many
+# scripts here do `. "$REPO_ROOT/scripts/tart-helpers.sh"` which
+# shellcheck can't statically resolve.
+external-sources=true
+
+# Disabled checks (rationale per pr-lint.yml comments):
+#   SC1091 — un-followable sources (we have many; explicit follow above).
+#   SC2155 — declare-and-assign in one statement is idiomatic in this codebase.
+disable=SC1091,SC2155

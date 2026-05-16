@@ -1,10 +1,18 @@
-# actionlint config: declare custom self-hosted runner labels so the
-# linter doesn't flag them as "unknown".
+# actionlint config.
 #
-# We pair `self-hosted` with `tart` to identify the macOS-arm64 runner
-# that has Tart + Virtualization.framework available. See
-# .github/workflows/build.yml (ADR-008 + ADR-015).
+# The YAML key below is misleadingly named — `self-hosted-runner:` is
+# actionlint's bucket for ANY custom runner label, not just self-hosted
+# ones. Per ADR-021 we DO NOT use self-hosted runners; the entries here
+# are free GitHub-hosted runner labels that actionlint's pinned version
+# doesn't know about in its built-in list yet (e.g., `ubuntu-22.04-arm`
+# is recent enough that v1.7.1 hasn't catalogued it).
+#
+# If a real self-hosted label ever appears here, that's a regression
+# against ADR-021 and must be removed (or ADR-021 superseded).
 
 self-hosted-runner:
   labels:
-    - tart
+    # Free GitHub-hosted runners (arm64 Linux) — per ADR-021 the
+    # primary runner family for everything in build.yml.
+    - ubuntu-22.04-arm
+    - ubuntu-24.04-arm

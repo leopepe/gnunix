@@ -55,6 +55,38 @@ For changes that don't need a full image rebuild (documentation, CI
 workflows, small script edits), `ubuntu-latest` in CI is enough — no local
 build required.
 
+### Pre-commit hooks (recommended)
+
+The repo ships a `.pre-commit-config.yaml` that mirrors every check in
+`.github/workflows/pr-lint.yml`: `shellcheck`, `actionlint`, `gitleaks`,
+the `tools/manifest.json` schema validator, plus basic file hygiene.
+Installing it locally means the deterministic checks that gate every PR
+fail at `git commit` time instead of in CI:
+
+```sh
+pipx install pre-commit          # or: brew install pre-commit / nix-env -iA nixpkgs.pre-commit
+pre-commit install               # registers .git/hooks/pre-commit (one-time per checkout)
+```
+
+After install, every `git commit` runs the changed-files subset of the
+hooks. To run the full set the way CI does:
+
+```sh
+pre-commit run --all-files
+```
+
+The hook config keeps strict parity with `pr-lint.yml`. If you bump a
+linter version or change a severity flag in either file, change it in
+the other in the same PR. Shared inline pieces:
+
+- `.shellcheckrc` — the disable-list + external-sources, read by both
+  standalone shellcheck *and* actionlint's embedded shellcheck.
+- `scripts/lint/manifest-schema.sh` — the manifest predicates, called
+  from both the pre-commit hook and (in a future PR) `pr-lint.yml`.
+- `scripts/lint/actionlint.sh` — a thin wrapper that sets
+  `SHELLCHECK_OPTS=-S warning` before exec'ing actionlint, since
+  pre-commit's hook schema has no `env:` key.
+
 ## Submitting a pull request
 
 ### 1. Branch and code

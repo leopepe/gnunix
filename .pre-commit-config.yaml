@@ -1,0 +1,105 @@
+# Pre-commit hooks — mirror .github/workflows/pr-lint.yml so contributors
+# catch lint errors locally instead of in CI. Per ADR-014 (deterministic
+# blocking checks).
+#
+# One-time setup:
+#   pipx install pre-commit              # or brew install pre-commit / nix-env -iA nixpkgs.pre-commit
+#   pre-commit install                   # registers .git/hooks/pre-commit
+#
+# Run manually on everything (matches a full CI lint):
+#   pre-commit run --all-files
+#
+# When CI's pr-lint.yml changes — e.g., a tool version bumps or a new
+# severity flag is added — update this file in the same PR so local
+# and CI parity stays exact.
+
+default_install_hook_types: [pre-commit]
+default_stages: [pre-commit]
+fail_fast: false
+
+repos:
+  # ---------------------------------------------------------------------
+  # shellcheck — matches the `shellcheck` job in pr-lint.yml.
+  # Two of the three settings live in .shellcheckrc
+  # (external-sources + disable list). Severity is CLI-only (rcfile
+  # doesn't grok `severity=`), so it's passed as an arg here. types:
+  # [shell] picks up *.sh + any file with a shell shebang the way CI's
+  # `git ls-files | shebang-filter` does.
+  # ---------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: shellcheck
+        name: shellcheck (parity with pr-lint.yml § shellcheck)
+        description: Run shellcheck with -S warning; -x + -e from .shellcheckrc.
+        entry: shellcheck
+        args: ['-S', 'warning']
+        language: system
+        types: [shell]
+
+  # ---------------------------------------------------------------------
+  # actionlint — matches the `actionlint` job in pr-lint.yml.
+  # Wrapper script sets SHELLCHECK_OPTS=-S warning before exec'ing the
+  # locally-installed actionlint binary. Wrapper exists because
+  # pre-commit hook schema has no `env:` key for passing env vars to
+  # upstream-hooked binaries, and .shellcheckrc can't set severity.
+  # ---------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: actionlint
+        name: actionlint (parity with pr-lint.yml § actionlint)
+        description: actionlint with SHELLCHECK_OPTS=-S warning baked in.
+        entry: scripts/lint/actionlint.sh
+        language: script
+        files: ^\.github/workflows/.*\.ya?ml$
+        pass_filenames: false
+
+  # ---------------------------------------------------------------------
+  # gitleaks — matches the `gitleaks` job in pr-lint.yml.
+  # Stages-only by default (faster than scanning history each commit);
+  # for a full history scan run `gitleaks detect --no-git -v` manually
+  # or push to a PR where the gitleaks-action does the full scan.
+  # ---------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.20.1
+    hooks:
+      - id: gitleaks
+
+  # ---------------------------------------------------------------------
+  # manifest schema — matches the `manifest-schema` job in pr-lint.yml.
+  # The jq predicates live in scripts/lint/manifest-schema.sh so the
+  # same checks run locally and in CI.
+  # ---------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: manifest-schema
+        name: validate tools/manifest.json (parity with pr-lint.yml § manifest-schema)
+        entry: scripts/lint/manifest-schema.sh
+        language: script
+        files: ^tools/manifest\.json$
+        pass_filenames: false
+
+  # ---------------------------------------------------------------------
+  # Basic hygiene — not in pr-lint.yml but cheap and uncontroversial.
+  # Catches the small foot-guns (trailing whitespace, missing EOL,
+  # malformed JSON/YAML) before they reach CI.
+  # ---------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        # Markdown's two-space-line-break is a real syntax; preserve it.
+        args: ['--markdown-linebreak-ext=md']
+      - id: end-of-file-fixer
+      - id: check-yaml
+        # Multi-document YAML (rare here, but allow it).
+        args: ['--allow-multiple-documents']
+      - id: check-json
+        # JSON5 lives at .github/renovate.json5; check-json doesn't grok it.
+        exclude: '\.json5$'
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        # Built artifacts go to cache/artifacts/ which is gitignored; this
+        # is for accidental commits of disk images / tarballs.
+        args: ['--maxkb=1024']
+      - id: mixed-line-ending
+        args: ['--fix=lf']

@@ -1,8 +1,8 @@
 # ADR-010: Multi-arch builds and platform-specific image packaging
 
-**Status:** Accepted (amended by [ADR-018](ADR-018-artifact-taxonomy.md))
+**Status:** Accepted (amended by [ADR-018](ADR-018-artifact-taxonomy.md), [ADR-021](ADR-021-no-self-hosted-runners.md))
 **Date:** 2026-05-13
-**Amended:** 2026-05-15 — ADR-018 supersedes `tools/package-platform.sh` with the unified `tools/package.sh <image> --as=<form>` entry point. The platform concept (generic-uefi / rpi4 / nuc-installer) survives as the `--platform=` flag; default is `generic-uefi` and is omitted from artifact filenames.
+**Amended:** 2026-05-15 — ADR-018 supersedes `tools/package-platform.sh` with the unified `tools/package.sh <image> --as=<form>` entry point. 2026-05-16 — ADR-021 forbids self-hosted runners; Phase 5/6 (x86_64 / rpi-native) must use hosted runners (qemu+KVM on `ubuntu-22.04`) or stay as local-developer builds. The `--platform=` flag and the artifact-naming grammar are unchanged.
 
 ## Context
 
