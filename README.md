@@ -17,6 +17,9 @@
   <a href="https://github.com/leopepe/gnunix/commits/main">
     <img alt="Last commit" src="https://img.shields.io/github/last-commit/leopepe/gnunix?logo=github">
   </a>
+  <a href="https://github.com/leopepe/gnunix/graphs/contributors">
+    <img alt="Contributors" src="https://img.shields.io/github/contributors/leopepe/gnunix?logo=github">
+  </a>
   <a href="https://github.com/leopepe/gnunix/issues?q=is%3Aissue+is%3Aopen+label%3Abug">
     <img alt="Open bugs" src="https://img.shields.io/github/issues/leopepe/gnunix/bug?label=open%20bugs&logo=github">
   </a>
