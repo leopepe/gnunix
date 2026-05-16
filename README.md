@@ -8,14 +8,17 @@
   <a href="https://github.com/leopepe/gnunix/releases/latest">
     <img alt="Latest release" src="https://img.shields.io/github/v/release/leopepe/gnunix?include_prereleases&sort=semver&logo=github">
   </a>
+  <a href="https://github.com/leopepe/gnunix/tags">
+    <img alt="Latest tag" src="https://img.shields.io/github/v/tag/leopepe/gnunix?sort=semver&logo=github">
+  </a>
   <a href="https://github.com/leopepe/gnunix/blob/main/LICENSE">
     <img alt="License" src="https://img.shields.io/github/license/leopepe/gnunix?logo=github">
   </a>
   <a href="https://github.com/leopepe/gnunix/commits/main">
     <img alt="Last commit" src="https://img.shields.io/github/last-commit/leopepe/gnunix?logo=github">
   </a>
-  <a href="https://github.com/leopepe/gnunix/actions/workflows/pr-lint.yml">
-    <img alt="PR lint" src="https://github.com/leopepe/gnunix/actions/workflows/pr-lint.yml/badge.svg?branch=main">
+  <a href="https://github.com/leopepe/gnunix/issues?q=is%3Aissue+is%3Aopen+label%3Abug">
+    <img alt="Open bugs" src="https://img.shields.io/github/issues/leopepe/gnunix/bug?label=open%20bugs&logo=github">
   </a>
   <a href="https://github.com/leopepe/gnunix/actions/workflows/installer-tui-test.yml">
     <img alt="Installer TUI tests" src="https://github.com/leopepe/gnunix/actions/workflows/installer-tui-test.yml/badge.svg?branch=main">
