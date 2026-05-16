@@ -92,7 +92,7 @@ next screens (per ADR-019)."
     PROFILE=minimal
   else
     # Compositor choice (ADR-020 § "Sway demoted to optional install profile";
-    # Hyprland is the default).
+    # Hyprland is the default. ADR-022 adds cosmic as a fourth row.)
     ui_msg "Desktop install — the chosen compositor's closure will be
 pulled from cache.nixos.org during install. NETWORK REQUIRED.
 
@@ -103,7 +103,8 @@ edition; you can install a compositor later via nix-env."
       "hyprland"         "Dynamic tiling + animations (DEFAULT)"               "ON" \
       "sway"             "Tiling, i3-style"                                    "OFF" \
       "labwc"            "Stacking, Openbox-style"                             "OFF" \
-      "labwc-nextspace"  "Stacking + NeXTSTEP-inspired theme (Wayland-native)" "OFF") \
+      "labwc-nextspace"  "Stacking + NeXTSTEP-inspired theme (Wayland-native)" "OFF" \
+      "cosmic"           "System76 COSMIC desktop (init-agnostic, polished)"   "OFF") \
       || { echo "cancelled"; exit 1; }
     PROFILE="desktop-$compositor"
   fi
