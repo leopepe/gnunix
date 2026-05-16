@@ -13,7 +13,7 @@ have a 6 h timeout. So `gnunix-base` cannot be rebuilt in hosted CI.
 ## The flow
 
 ```
-Mac (local)              GH Release: base-images-<ver>        CI (hosted, ubuntu-22.04-arm)
+Mac (local)              GH Release: gnunix-images-<ver>        CI (hosted, ubuntu-22.04-arm)
 ────────────────         ────────────────────────────         ──────────────────────────────
 build gnunix-base    ──► gnunix-base-<arch>-<ver>.img.zst   ◄── tools/fetch-image.sh gnunix-base
 build gnunix-minimal ──► gnunix-minimal-<arch>-<ver>.img.zst ◄── tools/fetch-image.sh gnunix-minimal
@@ -32,7 +32,7 @@ build gnunix-minimal ──► gnunix-minimal-<arch>-<ver>.img.zst ◄── too
 
 Two release tracks:
 
-- **`base-images-<ver>`** — intermediate, populated by Mac runs. Consumed
+- **`gnunix-images-<ver>`** — intermediate, populated by Mac runs. Consumed
   by CI. Auto-published (not a draft) so CI can find the assets.
 - **`v<ver>`** — the user-facing release, drafted by `release.yml` after
   CI bundles all four images. A human reviews and clicks "Publish."
@@ -56,13 +56,13 @@ Each invocation:
 1. Ensures the `.img.zst` and `.tart.zst` artifacts exist (calls
    `tools/package.sh` if missing).
 2. Computes SHA256SUMS for the uploaded set.
-3. Creates or reuses the `base-images-<ver>` GitHub Release and
+3. Creates or reuses the `gnunix-images-<ver>` GitHub Release and
    uploads with `--clobber` (idempotent — safe to re-run).
 
 To force a different tag (e.g., for a hotfix):
 
 ```sh
-tools/release-image.sh gnunix-base --release-tag=base-images-0.2.1-hotfix
+tools/release-image.sh gnunix-base --release-tag=gnunix-images-0.2.1-hotfix
 ```
 
 ## Fetching from CI

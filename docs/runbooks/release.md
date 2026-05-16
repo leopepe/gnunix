@@ -6,7 +6,7 @@ Three workflows participate, each with a single responsibility:
 | Workflow | File | Trigger | What it does |
 |---|---|---|---|
 | Tag on version bump | `.github/workflows/tag-on-version-bump.yml` | push to `main` touching `tools/manifest.json` | If `lfs_image_version` changed, create + push `v<version>` tag |
-| Build | `.github/workflows/build.yml` | push tag `v*` / dispatch | Fetch each image from `base-images-<ver>` and re-upload as a workflow artifact for `release.yml` to attach (per PR-3b.1; rebuild path returns in PR-3b.2 — issue #20) |
+| Build | `.github/workflows/build.yml` | push tag `v*` / dispatch | Fetch each image from `gnunix-images-<ver>` and re-upload as a workflow artifact for `release.yml` to attach (per PR-3b.1; rebuild path returns in PR-3b.2 — issue #20) |
 | Release | `.github/workflows/release.yml` | push tag `v*` / dispatch | Wait for Build, download artifacts, draft a GH Release |
 
 ## The happy path
@@ -32,7 +32,7 @@ Three workflows participate, each with a single responsibility:
                 │  fetch-minimal              │     │   on same SHA            │
                 │  fetch-desktop              │     │  downloads artifacts     │
                 │  fetch-installer (soft)     │     │  creates DRAFT release   │
-                │ ← base-images-<ver> release │     │                          │
+                │ ← gnunix-images-<ver> release │     │                          │
                 └─────────────────────────────┘     └──────────────────────────┘
                               │                                 ▲
                               └─────────────────────────────────┘
@@ -42,11 +42,11 @@ Three workflows participate, each with a single responsibility:
 End state: a **draft** release on the GitHub Releases tab. A human reviews
 the asset list and clicks **Publish**.
 
-## Prerequisite — publish to `base-images-<ver>` first
+## Prerequisite — publish to `gnunix-images-<ver>` first
 
 Until PR-3b.2 lands the qemu+KVM rebuild path (tracking issue #20), `build.yml`
 **does not rebuild** any image. It fetches them from the intermediate
-`base-images-<ver>` release. The maintainer must populate that release from
+`gnunix-images-<ver>` release. The maintainer must populate that release from
 a Mac before pushing the `v<ver>` tag:
 
 ```sh
@@ -61,8 +61,8 @@ tools/build-all.sh gnunix-installer  # optional; soft-fails in CI if absent
 V=$(jq -r .lfs_image_version tools/manifest.json)
 tools/release-image.sh gnunix-base
 tools/release-image.sh gnunix-minimal
-tools/release-image.sh gnunix-desktop   --release-tag=base-images-$V
-tools/release-image.sh gnunix-installer --release-tag=base-images-$V
+tools/release-image.sh gnunix-desktop   --release-tag=gnunix-images-$V
+tools/release-image.sh gnunix-installer --release-tag=gnunix-images-$V
 
 # Now push the user-facing tag — the rest of the pipeline runs in CI.
 git push origin v$V
@@ -185,7 +185,7 @@ violated it (e.g., hand-pushed a `v0.2.0` tag while the manifest still says
   into the tag we'd otherwise type by hand.
 - **Build and release are separate workflows.** Build assembles the
   artifact set on a hosted runner — today by fetching from
-  `base-images-<ver>` (PR-3b.1); in PR-3b.2 by fetching base+minimal and
+  `gnunix-images-<ver>` (PR-3b.1); in PR-3b.2 by fetching base+minimal and
   rebuilding desktop+installer via qemu+KVM. Release is light
   (`gh release create`, seconds) and can be re-run without rebuilding.
 - **Draft, not auto-publish.** Single-maintainer audience (ADR-005); one

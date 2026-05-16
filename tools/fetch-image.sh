@@ -16,7 +16,7 @@
 #   --repo=        default: this repo (from `gh repo view`).
 #                  Forks fall back to the upstream gnunix repo if their
 #                  own release isn't found.
-#   --release-tag= default: `base-images-<ver>` for base/minimal,
+#   --release-tag= default: `gnunix-images-<ver>` for base/minimal,
 #                            `v<ver>` for desktop/installer.
 #   --form=        img.zst (default) | tart.zst | iso
 #   --no-import    download + decompress only; skip the VM-import step.
@@ -91,7 +91,7 @@ UPSTREAM_REPO=$(jq -r '.upstream_repo // "leopepe/gnunix"' "$MANIFEST")
 
 if [ -z "$RELEASE_TAG" ]; then
   case "$IMAGE" in
-    gnunix-base|gnunix-minimal) RELEASE_TAG="base-images-${VER}" ;;
+    gnunix-base|gnunix-minimal) RELEASE_TAG="gnunix-images-${VER}" ;;
     *)                          RELEASE_TAG="v${VER}" ;;
   esac
 fi
