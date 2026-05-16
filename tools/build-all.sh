@@ -11,6 +11,10 @@ REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}
 
 PHASE=${1:-gnunix-base}
 VERSION=$(jq -r .lfs_image_version "$REPO_ROOT/tools/manifest.json")
+# ADR-018 naming grammar: gnunix-<image>-<arch>[-<platform>]-<ver>.<ext>.
+# Manifest carries the canonical arch; default to aarch64 (the only supported
+# target per ADR-007) if the field is absent.
+ARCH=$(jq -r '.arch // "aarch64"' "$REPO_ROOT/tools/manifest.json")
 
 case "$PHASE" in
   gnunix-base)
