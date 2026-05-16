@@ -304,76 +304,77 @@
     "kmod": {
       "version": "31",
       "url": "https://mirrors.kernel.org/pub/linux/utils/kernel/kmod/kmod-31.tar.xz",
-      "sha256": ""
+      "sha256": "f5a6949043cc72c001b728d8c218609c5a15f3c33d75614b78c79418fcf00d80"
     },
     "procps-ng": {
       "version": "4.0.4",
       "url": "https://downloads.sourceforge.net/project/procps-ng/Production/procps-ng-4.0.4.tar.xz",
-      "sha256": ""
+      "sha256": "22870d6feb2478adb617ce4f09a787addaf2d260c5a8aa7b17d889a962c5e42e"
     },
     "psmisc": {
       "version": "23.7",
       "url": "https://downloads.sourceforge.net/project/psmisc/psmisc/psmisc-23.7.tar.xz",
-      "sha256": ""
+      "sha256": "58c55d9c1402474065adae669511c191de374b0871eec781239ab400b907c327"
     },
     "sysklogd": {
       "$note": "troglobit fork — same project Slackware 15.0 ships as its default syslog daemon.",
       "version": "2.6.1",
       "url": "https://github.com/troglobit/sysklogd/releases/download/v2.6.1/sysklogd-2.6.1.tar.gz",
-      "sha256": ""
+      "sha256": "e35d5c5f55019976302ac9818890bd6b6858db257506f0e9afaa718a8dee9cc3"
     },
     "pciutils": {
+      "$note": "kernel.org's /software/ path 404s; /pub/software/ on the edge mirror is the canonical path.",
       "version": "3.13.0",
-      "url": "https://mirrors.kernel.org/software/utils/pciutils/pciutils-3.13.0.tar.xz",
-      "sha256": ""
+      "url": "https://mirrors.edge.kernel.org/pub/software/utils/pciutils/pciutils-3.13.0.tar.xz",
+      "sha256": "77f11f78298502634d1af50308f15a5788629f6cf45cba376f5009aea4cb4926"
     },
     "dmidecode": {
       "version": "3.6",
       "url": "https://download.savannah.gnu.org/releases/dmidecode/dmidecode-3.6.tar.xz",
-      "sha256": ""
+      "sha256": "e40c65f3ec3dafe31ad8349a4ef1a97122d38f65004ed66575e1a8d575dd8bae"
     },
-    "$logrotate_stack_note": "popt is a build-dep of logrotate, dcron is the scheduler that makes logrotate functional. Slackware ships the same three.",
+    "$logrotate_stack_note": "popt is a build-dep of logrotate, cronie is the scheduler that makes logrotate functional. We switched from dcron to cronie because Dillon's original tarball is gone from every mirror we tried — cronie is actively maintained (Fedora/RHEL upstream) and has the same /etc/crontab + /etc/cron.d + crond paths Slackware-style cron consumers expect.",
     "popt": {
       "version": "1.19",
       "url": "http://ftp.rpm.org/popt/releases/popt-1.x/popt-1.19.tar.gz",
-      "sha256": ""
+      "sha256": "c25a4838fc8e4c1c8aacb8bd620edb3084a3d63bf8987fdad3ca2758c63240f9"
     },
-    "dcron": {
-      "$note": "Dillon's cron — what Slackware 15.0 ships. Mirror via Jim Pryor since Dillon's original site is intermittent.",
-      "version": "4.5",
-      "url": "https://www.jimpryor.net/linux/dcron-4.5.tar.gz",
-      "sha256": ""
+    "cronie": {
+      "$note": "Replaces dcron. cronie 1.7.2 — actively maintained Vixie-cron derivative used by Fedora/RHEL/Arch. Same `crond` binary, same /etc/crontab + /etc/cron.d + /var/spool/cron paths.",
+      "version": "1.7.2",
+      "url": "https://github.com/cronie-crond/cronie/releases/download/cronie-1.7.2/cronie-1.7.2.tar.gz",
+      "sha256": "f1da374a15ba7605cf378347f96bc8b678d3d7c0765269c8242cfe5b0789c571"
     },
     "logrotate": {
-      "$note": "Order matters: build after popt (links libpopt) and after dcron (so we know we have a scheduler).",
+      "$note": "Order matters: build after popt (links libpopt) and after cronie (so we know we have a scheduler).",
       "version": "3.21.0",
       "url": "https://github.com/logrotate/logrotate/releases/download/3.21.0/logrotate-3.21.0.tar.xz",
-      "sha256": ""
+      "sha256": "8fa12015e3b8415c121fc9c0ca53aa872f7b0702f543afda7e32b6c4900f6516"
     },
     "$usbutils_stack_note": "meson + ninja unlock USB introspection (usbutils needs meson at build) and also enable a follow-up that lets us finally build iputils (which has been deferred because of the meson dep).",
     "meson": {
       "$note": "Python-based build system. Installed via vendor-copy (cp mesonbuild + meson.py into /usr) — no pip bootstrap required.",
       "version": "1.5.0",
       "url": "https://github.com/mesonbuild/meson/releases/download/1.5.0/meson-1.5.0.tar.gz",
-      "sha256": ""
+      "sha256": "45d7b8653c1e5139df35b33be2dd5b2d040c5b2c6129f9a7c890d507e33312b8"
     },
     "ninja": {
       "$note": "Build via `python3 configure.py --bootstrap` then drop the binary in /usr/bin. No autotools.",
       "version": "1.12.1",
       "url": "https://github.com/ninja-build/ninja/archive/refs/tags/v1.12.1.tar.gz",
-      "sha256": ""
+      "sha256": "821bdff48a3f683bc4bb3b6f0b5fe7b2d647cf65d52aeb63328c91a6c6df285a"
     },
     "hwdata": {
       "$note": "Device ID database used by lspci / lsusb. Autotools.",
       "version": "0.391",
       "url": "https://github.com/vcrhonek/hwdata/archive/refs/tags/v0.391.tar.gz",
-      "sha256": ""
+      "sha256": "620fe1c22922a3d1bd1062424e9cc6b954acea2f83b72ff0cb45144981cb1975"
     },
     "usbutils": {
       "$note": "lsusb. Meson build; depends on hwdata for the device-name lookup tables.",
       "version": "018",
       "url": "https://www.kernel.org/pub/linux/utils/usb/usbutils/usbutils-018.tar.xz",
-      "sha256": ""
+      "sha256": "83f68b59b58547589c00266e82671864627593ab4362d8c807f50eea923cad93"
     }
   },
   "init_and_session": {

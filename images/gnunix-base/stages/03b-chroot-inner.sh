@@ -335,7 +335,7 @@ for entry in \
   iproute2 dhcpcd less vim e2fsprogs zlib expat \
   ncurses readline pam \
   kmod procps-ng psmisc sysklogd \
-  popt logrotate \
+  popt cronie logrotate \
   hwdata
 do
   pkg_skip "$entry" && continue
@@ -445,11 +445,12 @@ if ! pkg_skip ninja; then
   pkg_mark ninja
 fi
 
-# pciutils + dmidecode + dcron — Makefile-only (no ./configure), so
-# they don't fit the autotools loop. Hardware introspection +
-# scheduler (dcron is Dillon's cron, what Slackware ships; required
-# for logrotate to actually run periodically).
-for entry in pciutils dmidecode dcron; do
+# pciutils + dmidecode — Makefile-only (no ./configure), so they don't
+# fit the autotools loop. Hardware introspection.
+# (cronie was originally dcron in this block; we switched to cronie
+# upstream of here because its tarball mirrors are dead. cronie is
+# autotools, so it's now in the loop above.)
+for entry in pciutils dmidecode; do
   pkg_skip "$entry" && continue
   v=$(pkg_ver "$entry")
   url=$(pkg_url "$entry")
@@ -471,16 +472,6 @@ for entry in pciutils dmidecode dcron; do
       # dmidecode Makefile uses lowercase prefix.
       make -j$JOBS prefix=/usr
       make install prefix=/usr
-      ;;
-    dcron)
-      # dcron's Makefile predates PREFIX conventions. Pass install
-      # directories directly. SCRONTABS is the system crontab dir
-      # (/etc/cron.d for our convention); CRONTABS is per-user
-      # (/var/spool/cron/crontabs).
-      make -j$JOBS
-      install -d -m 0755 /usr/sbin /etc/cron.d /var/spool/cron/crontabs
-      install -m 0755 crond  /usr/sbin/crond
-      install -m 4755 crontab /usr/bin/crontab  # setuid for non-root user crontabs
       ;;
   esac
   cd /; rm -rf "$d"

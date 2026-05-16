@@ -1,5 +1,7 @@
 #!/bin/sh
-# /etc/rc.d/rc.crond — Dillon's cron daemon.
+# /etc/rc.d/rc.crond — cronie cron daemon (Vixie-cron derivative, what
+# Fedora/RHEL/Arch ship). We pivoted to cronie from dcron because the
+# dcron tarball mirrors went dark; see chore PR.
 #
 # Runs /etc/cron.{hourly,daily,weekly,monthly}/* on schedule and reads
 # system crontabs from /etc/cron.d/. Per-user crontabs live under
@@ -17,12 +19,11 @@ case "${1:-start}" in
       echo "[rc.crond] $CROND not found; skipping"
       exit 0
     fi
-    # -b daemonizes; -l notice sets log level; -L points logs at syslog.
-    # If syslog isn't running yet, crond falls back to stderr (which
-    # /dev/null'd by sysvinit's `respawn` line). That's fine — rc.M
-    # starts rc.syslogd before rc.crond so the normal path is logged.
-    "$CROND" -b -l notice -L /dev/log
-    pidof crond 2>/dev/null | awk '{print $1}' > "$PIDFILE" || true
+    # cronie daemonizes by default and writes its own pid to PIDFILE.
+    # It logs to syslog automatically when /dev/log exists — rc.M
+    # starts rc.syslogd before rc.crond, so the cron facility lands
+    # in /var/log/cron.
+    "$CROND"
     ;;
   stop)
     [ -f "$PIDFILE" ] && kill "$(cat "$PIDFILE")" 2>/dev/null
