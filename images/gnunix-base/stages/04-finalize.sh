@@ -18,9 +18,10 @@ install -Dm 0644 "$REPO_ROOT/images/gnunix-base/etc/fstab.template" "$LFS/etc/fs
 install -Dm 0644 "$REPO_ROOT/images/gnunix-base/etc/hostname"       "$LFS/etc/hostname"
 install -Dm 0644 "$REPO_ROOT/images/gnunix-base/etc/resolv.conf.tpl" "$LFS/etc/resolv.conf"
 install -Dm 0644 "$REPO_ROOT/images/gnunix-base/etc/profile"        "$LFS/etc/profile"
+install -Dm 0644 "$REPO_ROOT/images/gnunix-base/etc/syslog.conf"    "$LFS/etc/syslog.conf"
 
 mkdir -p "$LFS/etc/rc.d"
-for f in rc.S rc.M rc.K rc.6 rc.local rc.dbus rc.elogind rc.sshd rc.nix-daemon rc.network rc.modules; do
+for f in rc.S rc.M rc.K rc.6 rc.local rc.dbus rc.elogind rc.sshd rc.nix-daemon rc.network rc.modules rc.syslogd; do
   install -Dm 0755 "$REPO_ROOT/images/gnunix-base/etc/rc.d/$f" "$LFS/etc/rc.d/$f"
 done
 
@@ -59,7 +60,8 @@ echo "[finalize] enable services (chmod +x BSD-style)"
 # spams errors trying to start nonexistent binaries.
 chmod +x "$LFS/etc/rc.d/rc.sshd" \
          "$LFS/etc/rc.d/rc.nix-daemon" \
-         "$LFS/etc/rc.d/rc.network"
+         "$LFS/etc/rc.d/rc.network" \
+         "$LFS/etc/rc.d/rc.syslogd"
 chmod -x "$LFS/etc/rc.d/rc.dbus" "$LFS/etc/rc.d/rc.elogind" 2>/dev/null || true
 
 # dhcpcd drops privs to its own user (seeded in /etc/passwd) and chdirs to

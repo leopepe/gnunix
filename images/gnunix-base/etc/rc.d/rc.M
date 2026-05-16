@@ -20,6 +20,8 @@ run_if_enabled() {
 }
 
 # Order matters: dbus before elogind, network before sshd, nix-daemon last.
+# syslogd runs early so every later service's stderr can be captured.
+run_if_enabled rc.syslogd
 run_if_enabled rc.dbus
 run_if_enabled rc.elogind
 run_if_enabled rc.network

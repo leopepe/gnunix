@@ -325,10 +325,16 @@ fi
 # openssl omitted (built below with its custom ./config script).
 # iputils omitted: uses meson which requires Python (not bootstrapped); ping
 # can come via Nix userland or a later phase.
+#
+# Order matters for kmod: it must be built before eudev, so eudev's
+# ./configure --enable-kmod can find libkmod. The rest of the new
+# Slackware-parity additions (procps-ng / psmisc / sysklogd) only need
+# the base toolchain.
 for entry in \
   bash coreutils diffutils file findutils gawk grep gzip make patch sed tar xz \
   iproute2 dhcpcd less vim e2fsprogs zlib expat \
-  ncurses readline pam
+  ncurses readline pam \
+  kmod procps-ng psmisc sysklogd
 do
   pkg_skip "$entry" && continue
   v=$(pkg_ver "$entry")
@@ -390,10 +396,47 @@ for entry in sysvinit eudev; do
       make install
       ;;
     eudev)
-      ./configure --prefix=/usr --bindir=/usr/sbin --sysconfdir=/etc --enable-manpages --disable-static
+      # --enable-kmod: route MODALIAS coldplug through libkmod so eudev
+      # can actually autoload modules. Requires kmod built first (loop
+      # above). Closes the gap workaround'd in PR #15.
+      ./configure --prefix=/usr --bindir=/usr/sbin --sysconfdir=/etc \
+        --enable-manpages --disable-static --enable-kmod
       make -j$JOBS && make install
       ;;
   esac
+  pkg_mark "$entry"
+done
+
+# pciutils + dmidecode — Makefile-only (no ./configure), so they don't
+# fit the autotools loop. Both build straight from a small `make` +
+# `make install PREFIX=/usr` (pciutils) / `make install prefix=/usr`
+# (dmidecode). Hardware introspection — pairs with the kmod/procps-ng/
+# psmisc/sysklogd additions in this version for Slackware-parity.
+for entry in pciutils dmidecode; do
+  pkg_skip "$entry" && continue
+  v=$(pkg_ver "$entry")
+  url=$(pkg_url "$entry")
+  fname=$(basename "$url")
+  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
+  inner=$(ls "$d" | head -n1)
+  cd "$d/$inner"
+  echo "[chroot-inner] building $entry-$v"
+  hardening_export "$entry" native
+  case "$entry" in
+    pciutils)
+      # pciutils Makefile honours PREFIX (uppercase) and SBINDIR.
+      # SHARED=yes keeps libpci dynamic so future packages can link
+      # against it without a static-copy fight.
+      make -j$JOBS PREFIX=/usr SBINDIR=/usr/sbin SHARED=yes
+      make install install-lib PREFIX=/usr SBINDIR=/usr/sbin SHARED=yes
+      ;;
+    dmidecode)
+      # dmidecode Makefile uses lowercase prefix.
+      make -j$JOBS prefix=/usr
+      make install prefix=/usr
+      ;;
+  esac
+  cd /; rm -rf "$d"
   pkg_mark "$entry"
 done
 

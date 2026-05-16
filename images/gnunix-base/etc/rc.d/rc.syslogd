@@ -1,0 +1,36 @@
+#!/bin/sh
+# /etc/rc.d/rc.syslogd — system log daemon (sysklogd from troglobit fork;
+# same project Slackware 15.0 ships).
+#
+# sysklogd 2.x is the modern continuation of the BSD sysklogd. It
+# supervises both syslogd (the daemon reading /dev/log + UDP 514) and
+# klogd (kernel-ring-buffer collector). Both daemons fork and write
+# their pids to /run/syslogd.pid and /run/klogd.pid by default.
+#
+# Reads /etc/syslog.conf for routing rules.
+
+SYSLOGD=/usr/sbin/syslogd
+KLOGD=/usr/sbin/klogd
+SYSLOGD_PID=/run/syslogd.pid
+KLOGD_PID=/run/klogd.pid
+
+case "${1:-start}" in
+  start)
+    if [ ! -x "$SYSLOGD" ]; then
+      echo "[rc.syslogd] $SYSLOGD not found; skipping"
+      exit 0
+    fi
+    # Ensure /var/log exists (rc.S re-creates /run each boot but /var/log
+    # is persistent — covers a fresh rootfs that has no logs yet).
+    install -d -m 0755 /var/log
+    "$SYSLOGD"
+    # klogd may not exist on builds that disable it; tolerate.
+    [ -x "$KLOGD" ] && "$KLOGD"
+    ;;
+  stop)
+    [ -f "$KLOGD_PID" ]  && kill "$(cat "$KLOGD_PID")"  2>/dev/null
+    [ -f "$SYSLOGD_PID" ] && kill "$(cat "$SYSLOGD_PID")" 2>/dev/null
+    rm -f "$KLOGD_PID" "$SYSLOGD_PID"
+    ;;
+  *) echo "usage: $0 {start|stop}"; exit 1 ;;
+esac
