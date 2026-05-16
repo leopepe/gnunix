@@ -1,5 +1,5 @@
 # Assemble the four published GNUnix images for a tag, by fetching each one
-# from the maintainer's `base-images-<ver>` GH Release and re-uploading it as
+# from the maintainer's `gnunix-images-<ver>` GH Release and re-uploading it as
 # a workflow artifact for `release.yml` to attach to the user-facing draft.
 #
 # Per ADR-021, every job runs on a free GitHub-hosted runner. Per ADR-016,
@@ -11,8 +11,8 @@
 #
 # Today (PR-3b.1): all four jobs are FETCH jobs. The maintainer publishes
 #   `gnunix-{base,minimal,desktop,installer}-<arch>-<ver>.img.zst` to the
-#   `base-images-<ver>` GH Release from a Mac (via `tools/release-image.sh
-#   <image> --release-tag=base-images-<ver>`) before pushing the `v<ver>`
+#   `gnunix-images-<ver>` GH Release from a Mac (via `tools/release-image.sh
+#   <image> --release-tag=gnunix-images-<ver>`) before pushing the `v<ver>`
 #   tag. CI fetches and re-uploads. ADR-018's hot-CI-path diagram
 #   (rebuild desktop+installer in CI on top of fetched minimal) is
 #   temporarily deviated from — flagged in the runbook and in tracking
@@ -29,7 +29,7 @@
 #   * push tag v*       — artifacts retained 90d so release.yml can attach
 #                         them to the GH Release.
 #   * workflow_dispatch — manual rerun knob (e.g., re-fetch after the
-#                         maintainer re-uploaded a base-images asset).
+#                         maintainer re-uploaded a gnunix-images asset).
 #
 # Release publishing is not done here:
 #   `.github/workflows/release.yml` triggers on the same tag, waits for
@@ -62,7 +62,7 @@ jobs:
     outputs:
       version: ${{ steps.r.outputs.version }}
       arch:    ${{ steps.r.outputs.arch }}
-      base_images_tag: ${{ steps.r.outputs.base_images_tag }}
+      gnunix_images_tag: ${{ steps.r.outputs.gnunix_images_tag }}
     steps:
       - uses: actions/checkout@v4
       - id: r
@@ -73,11 +73,11 @@ jobs:
           {
             echo "version=$v"
             echo "arch=$a"
-            echo "base_images_tag=base-images-$v"
+            echo "gnunix_images_tag=gnunix-images-$v"
           } >> "$GITHUB_OUTPUT"
 
   # Each fetch-* job is a thin wrapper around tools/fetch-image.sh
-  # against the `base-images-<ver>` release. The image already exists
+  # against the `gnunix-images-<ver>` release. The image already exists
   # on that release because the maintainer published it from a Mac
   # before pushing the tag — see docs/runbooks/release.md.
   #
@@ -94,13 +94,13 @@ jobs:
       contains(github.event.inputs.images, 'gnunix-base')
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch gnunix-base from ${{ needs.meta.outputs.base_images_tag }}
+      - name: Fetch gnunix-base from ${{ needs.meta.outputs.gnunix_images_tag }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tools/fetch-image.sh gnunix-base \
             --no-import \
-            --release-tag=${{ needs.meta.outputs.base_images_tag }}
+            --release-tag=${{ needs.meta.outputs.gnunix_images_tag }}
       - uses: actions/upload-artifact@v4
         with:
           name: gnunix-base-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
@@ -117,13 +117,13 @@ jobs:
       contains(github.event.inputs.images, 'gnunix-minimal')
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch gnunix-minimal from ${{ needs.meta.outputs.base_images_tag }}
+      - name: Fetch gnunix-minimal from ${{ needs.meta.outputs.gnunix_images_tag }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tools/fetch-image.sh gnunix-minimal \
             --no-import \
-            --release-tag=${{ needs.meta.outputs.base_images_tag }}
+            --release-tag=${{ needs.meta.outputs.gnunix_images_tag }}
       - uses: actions/upload-artifact@v4
         with:
           name: gnunix-minimal-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
@@ -132,8 +132,8 @@ jobs:
           retention-days: ${{ startsWith(github.ref, 'refs/tags/v') && 90 || 30 }}
 
   # Until PR-3b.2 wires the qemu rebuild path, desktop is fetched from the
-  # same `base-images-<ver>` track. The maintainer publishes it there with
-  # `tools/release-image.sh gnunix-desktop --release-tag=base-images-<ver>`.
+  # same `gnunix-images-<ver>` track. The maintainer publishes it there with
+  # `tools/release-image.sh gnunix-desktop --release-tag=gnunix-images-<ver>`.
   fetch-desktop:
     needs: meta
     runs-on: ubuntu-22.04-arm
@@ -143,13 +143,13 @@ jobs:
       contains(github.event.inputs.images, 'gnunix-desktop')
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch gnunix-desktop from ${{ needs.meta.outputs.base_images_tag }}
+      - name: Fetch gnunix-desktop from ${{ needs.meta.outputs.gnunix_images_tag }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tools/fetch-image.sh gnunix-desktop \
             --no-import \
-            --release-tag=${{ needs.meta.outputs.base_images_tag }}
+            --release-tag=${{ needs.meta.outputs.gnunix_images_tag }}
       - uses: actions/upload-artifact@v4
         with:
           name: gnunix-desktop-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
@@ -170,7 +170,7 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch gnunix-installer from ${{ needs.meta.outputs.base_images_tag }}
+      - name: Fetch gnunix-installer from ${{ needs.meta.outputs.gnunix_images_tag }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -181,17 +181,17 @@ jobs:
           tools/fetch-image.sh gnunix-installer \
             --no-import \
             --form=iso \
-            --release-tag=${{ needs.meta.outputs.base_images_tag }}
+            --release-tag=${{ needs.meta.outputs.gnunix_images_tag }}
           rc=$?
           if [ "$rc" -ne 0 ]; then
             echo "[fetch-installer] no .iso asset — trying .img.zst"
             tools/fetch-image.sh gnunix-installer \
               --no-import \
-              --release-tag=${{ needs.meta.outputs.base_images_tag }}
+              --release-tag=${{ needs.meta.outputs.gnunix_images_tag }}
             rc=$?
           fi
           if [ "$rc" -ne 0 ]; then
-            echo "::warning title=Installer not published::no installer asset on ${{ needs.meta.outputs.base_images_tag }} — release.yml will skip the installer slot"
+            echo "::warning title=Installer not published::no installer asset on ${{ needs.meta.outputs.gnunix_images_tag }} — release.yml will skip the installer slot"
             exit 0
           fi
       - uses: actions/upload-artifact@v4

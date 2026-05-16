@@ -3,6 +3,12 @@
 **Status:** Proposed
 **Date:** 2026-05-15
 **Amends:** [ADR-008](ADR-008-renovate-and-release.md), [ADR-010](ADR-010-multi-arch-and-platforms.md)
+**Amended in-place 2026-05-16:** the staging-release track renamed from
+`base-images-<ver>` to `gnunix-images-<ver>`. The original name was a misnomer
+because the track has always carried base + minimal + desktop assets, and will
+add installer next. Existing `base-images-0.1.0` retained as a historical
+artifact (renaming a published GH Release tag is destructive and gains
+nothing); `0.1.1` onwards uses `gnunix-images-<ver>`.
 
 ## Context
 
@@ -111,7 +117,7 @@ as **versioned, published dependencies**, fetched into CI rather than
 rebuilt.
 
 ```
-Mac (local)              GH Release ("base-images" track)        CI (hosted)
+Mac (local)              GH Release ("gnunix-images" track)        CI (hosted)
 ────────────────         ───────────────────────────────         ────────────
 build gnunix-base   ───► gnunix-base-aarch64-<ver>.img.zst  ◄─── fetch-image.sh
 build gnunix-minimal ──► gnunix-minimal-aarch64-<ver>.img.zst ◄── fetch-image.sh
