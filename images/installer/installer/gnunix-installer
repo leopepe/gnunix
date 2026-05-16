@@ -12,6 +12,14 @@
 #   GNUNIX_TARGET_DISK=/dev/vdb GNUNIX_PROFILE=minimal
 #   GNUNIX_USER=user GNUNIX_HOSTNAME=gnunix GNUNIX_PASSWORD='hunter2'
 # and the TUI is skipped.
+#
+# Dry-run mode (for tests/installer/tui-interactions.sh): set
+# GNUNIX_INSTALLER_DRY_RUN=1 and the script exercises the TUI (or the
+# unattended branch), writes the gathered values as KEY=VALUE to
+# /tmp/gnunix-installer-choices.env (override via
+# GNUNIX_INSTALLER_DRY_RUN_OUT), and exits before partitioning. Used to
+# regression-test TUI interactions without touching disks; bypasses the
+# root + tool prerequisite checks because no disks are touched.
 
 set -euo pipefail
 
@@ -282,7 +290,35 @@ Remove the install medium and select Reboot from the next screen."
 # ----------------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------------
+do_dry_run_dump() {
+  # Caller asked us to exercise the gather_inputs_* path only, then dump
+  # the chosen values and exit. Tests parse the file.
+  local out=${GNUNIX_INSTALLER_DRY_RUN_OUT:-/tmp/gnunix-installer-choices.env}
+  cat > "$out" <<EOF
+TARGET_DISK=$TARGET_DISK
+PROFILE=$PROFILE
+HOSTNAME=$HOSTNAME
+USERNAME=$USERNAME
+PASSWORD=$PASSWORD
+EOF
+  echo "[installer] dry-run choices → $out"
+}
+
 main() {
+  if [ -n "${GNUNIX_INSTALLER_DRY_RUN:-}" ]; then
+    # No disk operations happen, so the heavy tool checks (sgdisk,
+    # mkfs.*, grub-install, …) and the root-required check don't apply.
+    # whiptail is the only hard prerequisite of the TUI path.
+    [ -n "${GNUNIX_INSTALL_UNATTENDED:-}" ] || require_tool whiptail
+    if [ -n "${GNUNIX_INSTALL_UNATTENDED:-}" ]; then
+      gather_inputs_unattended
+    else
+      gather_inputs_interactive
+    fi
+    do_dry_run_dump
+    exit 0
+  fi
+
   require_root
   for t in whiptail lsblk sgdisk partprobe mkfs.vfat mkfs.ext4 rsync \
            blkid findmnt mount umount chroot grub-install; do

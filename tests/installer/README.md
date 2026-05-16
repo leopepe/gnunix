@@ -12,6 +12,7 @@ These complement the upstream image tests:
 | `gnunix-minimal` | `tests/minimal-smoke.sh` |
 | `gnunix-desktop` | `tests/wayland-session.sh` |
 | `gnunix-installer` *output for each profile* | **`tests/installer/profile-*.sh`** |
+| `gnunix-installer` *TUI interactions* | **`tests/installer/tui-interactions.sh`** |
 
 ## How it works
 
@@ -120,15 +121,65 @@ ssh -i ~/.ssh/<key> root@$(tart ip gnunix-installed-<profile>)
 
 On success, both are removed automatically.
 
+## TUI-interaction tests (`tui-interactions.sh`)
+
+The `profile-*.sh` suite above asserts the *outcome* of an install by
+booting the installed disk and validating its rootfs — but it
+intentionally sets `GNUNIX_INSTALL_UNATTENDED=1` and bypasses the TUI.
+
+`tests/installer/tui-interactions.sh` covers the gap: it exercises the
+whiptail flow itself via `expect`, against the installer's
+`GNUNIX_INSTALLER_DRY_RUN=1` mode (drive `gather_inputs_*`, dump the
+chosen values to `/tmp/gnunix-installer-choices.env`, exit before
+partitioning). Host-side, no VM, no disks touched.
+
+Prereqs: `whiptail` (from `newt`) + `expect`.
+
+```sh
+# macOS dev box:
+brew install newt expect
+
+# Linux:
+sudo apt-get install -y whiptail expect
+```
+
+Run:
+
+```sh
+tests/installer/tui-interactions.sh            # all scenarios
+tests/installer/tui-interactions.sh minimal    # one scenario
+GNUNIX_TUI_LOG=1 tests/installer/tui-interactions.sh desktop-sway   # debug
+```
+
+Each scenario is a single `.exp` file under `tui-scenarios/` plus an
+expected-values row in `tui-interactions.sh`. Current scenarios:
+
+| Scenario | What it checks |
+|---|---|
+| `desktop-hyprland` | Accept-all-defaults path → desktop is default (ADR-019), hyprland is default (ADR-020), network warning fires for desktop |
+| `minimal` | Edition radiolist accepts non-default; minimal short-circuits past compositor screens; disk cursor + Enter selects the highlighted row |
+| `desktop-sway` | Compositor radiolist row 1 |
+| `desktop-labwc` | Compositor radiolist row 2 |
+| `desktop-labwc-nextspace` | Compositor radiolist row 3 |
+| `password-mismatch` | Mismatch shows the retry msgbox; the final (matching) password lands in the choices file |
+| `escape-cancels` | Esc on a dialog → installer exits cleanly with no choices file written |
+
+When to add a new scenario: any change that adds a TUI screen, changes
+a default selection, or changes the navigation between screens — the
+TUI test must cover it. Adding one is small:
+
+1. Drop `tui-scenarios/<name>.exp` (use an existing one as a template;
+   each helper is documented in `tui-scenarios/_lib.exp`).
+2. Add a row to the `scenarios` variable in `tui-interactions.sh` with
+   either the literal expected `key=value;…` string or `cancel`.
+
 ## What's *not* tested here
 
-- **Actual graphical session**. We assert binaries + configs + groups
-  are correct, but don't drive Sway/Hyprland/labwc to render a frame.
-  That's a separate testing problem (see ADR-009 "Out of scope" and
-  `docs/TODO.md` "Wayland framebuffer capture in CI").
-- **GUI flow of the TUI itself** (radiolist, password prompts).
-  Unattended mode bypasses the TUI; testing whiptail interactions
-  needs a tty harness (`expect`) which is deferred.
+- **Actual graphical session**. The profile-* suite asserts binaries +
+  configs + groups are correct, but doesn't drive Sway/Hyprland/labwc
+  to render a frame. That's a separate testing problem (see ADR-009
+  "Out of scope" and `docs/TODO.md` "Wayland framebuffer capture in
+  CI").
 - **Reinstall / upgrade-in-place**. The installer is single-shot for
   v1; reinstall-over-existing is an open question in ADR-015.
 - **Multi-disk / RAID / LUKS**. Out of scope for v1 per ADR-015.

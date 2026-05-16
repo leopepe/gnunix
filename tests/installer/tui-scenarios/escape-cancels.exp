@@ -1,0 +1,23 @@
+#!/usr/bin/env expect
+# tests/installer/tui-scenarios/escape-cancels.exp
+#
+# Pressing Esc on a TUI dialog must cancel the installer cleanly (non-
+# zero exit, "cancelled" on stderr, no choices file written). Catches
+# regressions where a future change to a ui_* helper swallows the
+# cancel signal and continues with empty values.
+#
+# Cancels on the disk menu. The runner asserts the script's exit code
+# is non-zero and that /tmp/gnunix-installer-choices.env was not
+# produced.
+
+source [file join [file dirname $argv0] _lib.exp]
+
+start_installer
+
+await_screen "Welcome to the GNUnix installer"
+press_enter
+
+await_screen "Target disk"
+cancel
+
+expect eof

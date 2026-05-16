@@ -1,0 +1,95 @@
+# tests/installer/tui-scenarios/_lib.exp
+# Shared expect helpers for gnunix-installer TUI scenarios.
+#
+# A scenario sources this lib, calls `start_installer`, then drives the
+# screens with `await_screen <unique-fragment>` + a key-sending helper.
+# When the installer exits, the runner (tests/installer/tui-interactions.sh)
+# inspects /tmp/gnunix-installer-choices.env to verify the choices.
+#
+# Two gotchas baked in here so individual scenarios don't have to think
+# about them:
+#
+# 1. Match on per-screen UNIQUE TEXT, never on the "GNUnix Installer"
+#    title — that string appears on every dialog and stale buffer
+#    contents would falsely match.
+# 2. Whiptail re-spawns between every dialog (each ui_* call is its own
+#    `whiptail` invocation). Sending input too fast between dialogs gets
+#    chars consumed by the wrong instance — use `send -s` with a small
+#    inter-char delay throughout.
+
+# Whiptail repaints fast; 10s leaves margin for slow CI runners.
+set timeout 10
+
+# Per-character delay for sends. 20ms is well under human typing speed
+# and large enough that whiptail re-spawn between dialogs settles before
+# the next chars arrive.
+set send_slow {1 .02}
+
+# By default suppress whiptail's terminal output (lots of ncurses noise).
+# GNUNIX_TUI_LOG=1 flips it on for debugging a scenario authoring pass.
+set ::log_level 0
+if {[info exists ::env(GNUNIX_TUI_LOG)] && $::env(GNUNIX_TUI_LOG) ne ""} {
+    set ::log_level 1
+}
+log_user $::log_level
+
+# Generous read buffer — whiptail repaints can stream a lot of ANSI.
+match_max 100000
+
+proc start_installer {} {
+    # Both globals matter: argv carries the installer path from the
+    # scenario invocation; spawn_id must be global so the toplevel
+    # `expect` after this proc returns can still read from the child.
+    global argv spawn_id
+    set installer [lindex $argv 0]
+    if {$installer eq ""} {
+        send_error "usage: scenario.exp <path-to-gnunix-installer>\n"
+        exit 2
+    }
+    spawn $installer
+}
+
+# Block until <fragment> appears on the current screen, or fail noisily.
+proc await_screen {fragment} {
+    expect {
+        -re $fragment {}
+        timeout {
+            send_error "TUI timeout waiting for screen fragment: $fragment\n"
+            exit 3
+        }
+        eof {
+            send_error "TUI installer exited unexpectedly while waiting for: $fragment\n"
+            exit 3
+        }
+    }
+}
+
+# Press OK / Enter on the currently focused button.
+proc press_enter {} { send -s -- "\r" }
+
+# Tab to OK and accept. Whiptail radiolists/menus keep the current
+# selection on Tab + Enter; this is the "accept default" gesture.
+proc accept_default_selection {} { send -s -- "\t\r" }
+
+# Move radiolist cursor down N times and select that row with space,
+# then tab to OK + Enter. Used to deviate from the default selection.
+proc radiolist_choose {steps_down} {
+    for {set i 0} {$i < $steps_down} {incr i} {
+        send -s -- "\033\[B"
+    }
+    send -s -- " "
+    send -s -- "\t\r"
+}
+
+# Type into an inputbox / passwordbox (or send Enter alone to accept
+# the default placeholder).
+proc type_text {value} { send -s -- "$value\r" }
+
+# Whiptail inputboxes pre-fill the placeholder with the cursor at the
+# end of the existing text — typing into them appends to the default.
+# Use this when the test wants to OVERWRITE the default: kill the line
+# with Ctrl-U, then type the new value.
+proc replace_text {value} { send -s -- "\025$value\r" }
+
+# Cancel a dialog (Esc). The installer prints "cancelled" and exits 1.
+proc cancel {} { send -s -- "\033" }

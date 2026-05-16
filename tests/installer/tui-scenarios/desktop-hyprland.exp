@@ -1,0 +1,50 @@
+#!/usr/bin/env expect
+# tests/installer/tui-scenarios/desktop-hyprland.exp
+#
+# Accept-every-default path. Verifies ADR-019's "desktop is default"
+# (radiolist ON marker) and ADR-020's "hyprland is default" reach the
+# user without them having to choose. Also confirms the network warning
+# msgbox fires for the desktop edition.
+#
+# Expected choices file:
+#   TARGET_DISK=/dev/vda      (first row of the mock lsblk)
+#   PROFILE=desktop-hyprland
+#   HOSTNAME=gnunix           (default placeholder)
+#   USERNAME=user             (default placeholder)
+#   PASSWORD=secret123
+
+source [file join [file dirname $argv0] _lib.exp]
+
+start_installer
+
+await_screen "Welcome to the GNUnix installer"
+press_enter
+
+await_screen "Target disk"
+press_enter
+
+await_screen "Edition:"
+accept_default_selection
+
+await_screen "NETWORK REQUIRED"
+press_enter
+
+await_screen "Wayland compositor:"
+accept_default_selection
+
+await_screen "Hostname:"
+press_enter
+
+await_screen "lowercase, no spaces"
+press_enter
+
+await_screen "Set password for"
+type_text "secret123"
+
+await_screen "Re-enter password"
+type_text "secret123"
+
+await_screen "Ready to install"
+press_enter
+
+expect eof
