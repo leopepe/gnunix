@@ -335,7 +335,8 @@ for entry in \
   iproute2 dhcpcd less vim e2fsprogs zlib expat \
   ncurses readline pam \
   kmod procps-ng psmisc sysklogd \
-  popt logrotate
+  popt logrotate \
+  hwdata
 do
   pkg_skip "$entry" && continue
   v=$(pkg_ver "$entry")
@@ -408,6 +409,42 @@ for entry in sysvinit eudev; do
   pkg_mark "$entry"
 done
 
+# meson — Python build system, vendored in (no pip bootstrap needed).
+# Copies mesonbuild/ into Python's site-packages and meson.py to
+# /usr/bin/meson. Slackware uses the same approach.
+if ! pkg_skip meson; then
+  v=$ver_meson
+  fname=$(pkg_file meson)
+  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
+  cd "$d/meson-$v"
+  echo "[chroot-inner] installing meson-$v (vendor-copy)"
+  # Resolve the Python lib dir dynamically so a future python bump
+  # doesn't silently miss its site-packages.
+  py_libdir=$(python3 -c 'import sys; print(f"/usr/lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages")')
+  install -d -m 0755 "$py_libdir"
+  cp -r mesonbuild "$py_libdir/"
+  install -m 0755 meson.py /usr/bin/meson
+  # Smoke-test
+  meson --version
+  cd /; rm -rf "$d"
+  pkg_mark meson
+fi
+
+# ninja — bootstrap via the project's own python3 configure.py.
+if ! pkg_skip ninja; then
+  v=$ver_ninja
+  fname=$(pkg_file ninja)
+  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
+  cd "$d/ninja-$v"
+  echo "[chroot-inner] bootstrapping ninja-$v"
+  hardening_export "ninja" native
+  python3 configure.py --bootstrap
+  install -m 0755 ninja /usr/bin/ninja
+  ninja --version
+  cd /; rm -rf "$d"
+  pkg_mark ninja
+fi
+
 # pciutils + dmidecode + dcron — Makefile-only (no ./configure), so
 # they don't fit the autotools loop. Hardware introspection +
 # scheduler (dcron is Dillon's cron, what Slackware ships; required
@@ -449,6 +486,25 @@ for entry in pciutils dmidecode dcron; do
   cd /; rm -rf "$d"
   pkg_mark "$entry"
 done
+
+# usbutils — meson build. Depends on hwdata being installed (above) so
+# lsusb can resolve vendor/product IDs to names; depends on libudev
+# from eudev for hotplug. /usr/share/hwdata/usb.ids is what hwdata's
+# install lays down.
+if ! pkg_skip usbutils; then
+  v=$ver_usbutils
+  fname=$(pkg_file usbutils)
+  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
+  cd "$d/usbutils-$v"
+  echo "[chroot-inner] building usbutils-$v (meson)"
+  hardening_export "usbutils" native
+  meson setup build --prefix=/usr --buildtype=release \
+    -Dsystemdshutdowndir=/usr/lib/systemd/system-shutdown    # /dev/null path; we have no systemd
+  meson compile -C build
+  meson install -C build
+  cd /; rm -rf "$d"
+  pkg_mark usbutils
+fi
 
 # openssh
 if ! pkg_skip openssh; then
