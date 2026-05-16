@@ -7,8 +7,9 @@ compositor to use** — without forcing the choice at download time.
 See [ADR-015](../../docs/adrs/ADR-015-installer-and-sessions.md) for
 the original design, [ADR-017](../../docs/adrs/ADR-017-live-iso-architecture.md)
 for the live-ISO architecture, [ADR-019](../../docs/adrs/ADR-019-image-lineage-and-installer-pivot.md)
-for the layering pivot, and [ADR-020](../../docs/adrs/ADR-020-compositor-switch-hyprland.md)
-for the default compositor.
+for the layering pivot, [ADR-020](../../docs/adrs/ADR-020-compositor-switch-hyprland.md)
+for the default compositor, and [ADR-022](../../docs/adrs/ADR-022-cosmic-installer-profile.md)
+for the COSMIC profile.
 
 ## TUI flow
 
@@ -18,9 +19,11 @@ for the default compositor.
 3. Edition       (*) minimal
                  ( ) desktop
 4. Compositor    (only if Edition=desktop)
-                 (*) hyprland    DEFAULT
+                 (*) hyprland          DEFAULT
                  ( ) sway
                  ( ) labwc
+                 ( ) labwc-nextspace
+                 ( ) cosmic            (ADR-022)
 5. Identity      hostname, user, password
 6. Confirm
 7. Execute       partition → rsync → chroot →
@@ -30,12 +33,14 @@ for the default compositor.
 
 ## Profiles
 
-| id                | Edition | Compositor | Style |
+| id                        | Edition | Compositor       | Style |
 |---|---|---|---|
-| `minimal`         | minimal | —          | CLI only |
-| `desktop-hyprland`| desktop | Hyprland   | Dynamic tiling + animations (DEFAULT) |
-| `desktop-sway`    | desktop | Sway       | Tiling, i3-style |
-| `desktop-labwc`   | desktop | labwc      | Stacking, Openbox-style |
+| `minimal`                 | minimal | —                | CLI only |
+| `desktop-hyprland`        | desktop | Hyprland         | Dynamic tiling + animations (DEFAULT) |
+| `desktop-sway`            | desktop | Sway             | Tiling, i3-style |
+| `desktop-labwc`           | desktop | labwc            | Stacking, Openbox-style |
+| `desktop-labwc-nextspace` | desktop | labwc            | Stacking + NeXTSTEP-inspired theme |
+| `desktop-cosmic`          | desktop | cosmic-comp      | System76 COSMIC desktop (ADR-022) |
 
 GNUnix is Wayland-only — X11/Xorg is out of scope (ADR-009/015).
 
@@ -66,9 +71,11 @@ installer/
   gnunix-installer        the whiptail TUI (bash)
   profiles/
     minimal.sh
-    desktop-hyprland.sh   (default)
+    desktop-hyprland.sh         (default)
     desktop-sway.sh
     desktop-labwc.sh
+    desktop-labwc-nextspace.sh
+    desktop-cosmic.sh           (ADR-022)
 ```
 
 ## Build
