@@ -1,7 +1,7 @@
 {
-  "$schema_note": "Pinned versions for the entire base image. Do not edit ad hoc \u2014 Renovate (ADR-008) opens PRs to bump these. The 'sha256' fields are SHA256 of the upstream tarball at the listed url. Empty sha256 means it must be filled in by the first run of tools/fetch-sources.sh, or pre-populated.",
+  "$schema_note": "Pinned versions for the entire base image. Do not edit ad hoc — Renovate (ADR-008) opens PRs to bump these. The 'sha256' fields are SHA256 of the upstream tarball at the listed url. Empty sha256 means it must be filled in by the first run of tools/fetch-sources.sh, or pre-populated.",
   "manifest_version": "0.1.0",
-  "lfs_image_version": "0.1.1",
+  "lfs_image_version": "0.1.0",
   "$upstream_repo_note": "Per ADR-018 release-dependency flow: when a fork's CI calls tools/fetch-image.sh and the fork's own GH Release doesn't have the asset, fetch-image.sh falls back to this upstream repo. Keep in sync with the canonical upstream.",
   "upstream_repo": "leopepe/gnunix",
   "$arch_note": "Multi-arch axis (ADR-010). 'active_arch' picks the current build target; 'archs' holds the per-arch toolchain pins, kernel arch name, GRUB target and Nix binary URL. The legacy top-level 'target_arch'/'target_triple'/'nix.binary_*' fields mirror archs[active_arch] for backwards compatibility with Phase 2-4 scripts.",
@@ -16,10 +16,12 @@
       "builder_grub_package": "grub-efi-arm64-bin",
       "nix_binary_url": "https://releases.nixos.org/nix/nix-2.24.10/nix-2.24.10-aarch64-linux.tar.xz",
       "nix_binary_sha256": "1d8cf1d0760a4ca70d3d5c0becef1183ad4d5c87b4afb0e77085da3fd88b0bfb",
-      "runner_labels": ["ubuntu-22.04-arm"]
+      "runner_labels": [
+        "ubuntu-22.04-arm"
+      ]
     },
     "x86_64": {
-      "$status_note": "Scaffolded per ADR-010 \u00a7 Phasing. Builds will fail until a Linux x86_64 runner exists and the gnunix-base stages consume the per-arch fields. Nix binary URL is the official upstream; sha256 must be pinned by first fetch.",
+      "$status_note": "Scaffolded per ADR-010 § Phasing. Builds will fail until a Linux x86_64 runner exists and the gnunix-base stages consume the per-arch fields. Nix binary URL is the official upstream; sha256 must be pinned by first fetch.",
       "target_triple": "x86_64-lfs-linux-gnu",
       "kernel_arch": "x86",
       "grub_target": "x86_64-efi",
@@ -28,19 +30,26 @@
       "builder_grub_package": "grub-efi-amd64-bin",
       "nix_binary_url": "https://releases.nixos.org/nix/nix-2.24.10/nix-2.24.10-x86_64-linux.tar.xz",
       "nix_binary_sha256": "",
-      "runner_labels": ["ubuntu-22.04"]
+      "runner_labels": [
+        "ubuntu-22.04"
+      ]
     }
   },
   "$platforms_note": "Per-platform image packagers (ADR-010). Each entry declares which archs it supports + the path to its package.sh. tools/package-platform.sh dispatches here.",
   "platforms": {
     "generic-uefi": {
-      "archs": ["aarch64", "x86_64"],
+      "archs": [
+        "aarch64",
+        "x86_64"
+      ],
       "packager": "images/variants/generic-uefi/package.sh",
       "output_format": "raw-img"
     },
     "rpi-native": {
       "$status_note": "Scaffolded; package.sh refuses to run until kernel_has_bcm_drivers=true and firmware.{version,url,sha256} are populated. See docs/TODO.md.",
-      "archs": ["aarch64"],
+      "archs": [
+        "aarch64"
+      ],
       "packager": "images/variants/rpi-native/package.sh",
       "output_format": "raw-img",
       "kernel_has_bcm_drivers": false,
@@ -52,16 +61,20 @@
     },
     "nuc-installer": {
       "$status_note": "Scaffolded; package.sh refuses to run until active_arch=x86_64 and a Linux runner is available. See docs/TODO.md.",
-      "archs": ["x86_64"],
+      "archs": [
+        "x86_64"
+      ],
       "packager": "images/variants/nuc-installer/package.sh",
       "output_format": "hybrid-iso"
     }
   },
-  "active_platforms": ["generic-uefi"],
+  "active_platforms": [
+    "generic-uefi"
+  ],
   "target_arch": "aarch64",
   "target_triple": "aarch64-lfs-linux-gnu",
   "host_distro_for_builder": {
-    "_note": "Prebuilt Tart-native Ubuntu image from cirruslabs. Chosen over the Debian netinst ISO so the builder can be provisioned non-interactively. The choice of builder OS does not affect the LFS target \u2014 any Debian-family host with gcc/make works.",
+    "_note": "Prebuilt Tart-native Ubuntu image from cirruslabs. Chosen over the Debian netinst ISO so the builder can be provisioned non-interactively. The choice of builder OS does not affect the LFS target — any Debian-family host with gcc/make works.",
     "name": "ubuntu",
     "source": "tart",
     "tart_image": "ghcr.io/cirruslabs/ubuntu:latest",
@@ -422,21 +435,49 @@
   },
   "hardening": {
     "$note": "Compile-time hardening per ADR-011. The native_* sets are exported by stage 03b onwards (final native build); the cross_* sets are exported by stages 01-02 (cross-toolchain + temp-tools). Per-package exclusions are merged in by lib/hardening.sh:hardening_export. CFLAGS use space-separated tokens so the helper can split on whitespace; never embed spaces inside a token.",
-    "native_cflags":   "-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fstack-clash-protection -fPIE -mbranch-protection=standard -fno-strict-overflow -fno-delete-null-pointer-checks -fno-strict-aliasing -ftrivial-auto-var-init=zero -Wformat -Wformat=2 -Werror=format-security",
+    "native_cflags": "-O2 -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -fstack-protector-strong -fstack-clash-protection -fPIE -mbranch-protection=standard -fno-strict-overflow -fno-delete-null-pointer-checks -fno-strict-aliasing -ftrivial-auto-var-init=zero -Wformat -Wformat=2 -Werror=format-security",
     "native_cxxflags_extra": "-D_GLIBCXX_ASSERTIONS",
-    "native_ldflags":  "-Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -Wl,--as-needed",
-    "cross_cflags":    "-O2",
-    "cross_ldflags":   "-Wl,-z,relro -Wl,-z,now",
+    "native_ldflags": "-Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -Wl,--as-needed",
+    "cross_cflags": "-O2",
+    "cross_ldflags": "-Wl,-z,relro -Wl,-z,now",
     "exclude": {
       "$note": "Per-package strip list. Values: a list of individual flag tokens to drop from CFLAGS+CXXFLAGS+LDFLAGS, OR the special sentinel ['ALL'] to drop every hardening flag for that package (kernel, GRUB).",
-      "glibc":    ["-D_FORTIFY_SOURCE=3", "-fstack-protector-strong", "-fPIE", "-pie", "-Werror=format-security"],
-      "linux":    ["ALL"],
-      "kernel":   ["ALL"],
-      "gcc":      ["-pie", "-fPIE", "-Werror=format-security"],
-      "grub":     ["-fPIE", "-pie", "-fstack-protector-strong", "-fstack-clash-protection", "-mbranch-protection=standard", "-Werror=format-security"],
-      "binutils": ["-D_FORTIFY_SOURCE=3", "-Werror=format-security"],
-      "bash":     ["-ftrivial-auto-var-init=zero"],
-      "gettext":  ["-ftrivial-auto-var-init=zero"]
+      "glibc": [
+        "-D_FORTIFY_SOURCE=3",
+        "-fstack-protector-strong",
+        "-fPIE",
+        "-pie",
+        "-Werror=format-security"
+      ],
+      "linux": [
+        "ALL"
+      ],
+      "kernel": [
+        "ALL"
+      ],
+      "gcc": [
+        "-pie",
+        "-fPIE",
+        "-Werror=format-security"
+      ],
+      "grub": [
+        "-fPIE",
+        "-pie",
+        "-fstack-protector-strong",
+        "-fstack-clash-protection",
+        "-mbranch-protection=standard",
+        "-Werror=format-security"
+      ],
+      "binutils": [
+        "-D_FORTIFY_SOURCE=3",
+        "-Werror=format-security"
+      ],
+      "bash": [
+        "-ftrivial-auto-var-init=zero"
+      ],
+      "gettext": [
+        "-ftrivial-auto-var-init=zero"
+      ]
     }
   }
 }
