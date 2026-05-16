@@ -50,6 +50,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends whiptail expect
 
       - name: Run TUI scenarios
+        # GitHub Actions runs `run:` steps under TERM=dumb by default; whiptail
+        # is ncurses-backed and bails on startup without an interactive
+        # terminfo entry. xterm is the smallest TERM that ncurses recognises
+        # and whiptail accepts. The expect-spawned child inherits this env.
+        env:
+          TERM: xterm
         run: tests/installer/tui-interactions.sh
 
       - name: Upload scenario logs on failure
