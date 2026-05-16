@@ -203,9 +203,13 @@ threads.
 ## License
 
 By contributing, you agree that your contribution is licensed under the
-[LICENSE](LICENSE) at the root of this repository (a one-clause BSD-style
-license, same as the SlackBuild scripts that inspired GNUnix's philosophy).
-No CLA, no copyright assignment — your commit metadata is your attribution.
+[LICENSE](LICENSE) at the root of this repository — **BSD 2-Clause**
+(SPDX: `BSD-2-Clause`), the OSI-canonical "Simplified BSD" text. See
+[`NOTICE.md`](NOTICE.md) for what the LICENSE covers (the GNUnix-authored
+glue) versus what it does not (upstream software like the Linux kernel,
+glibc, GRUB, Nix, nixpkgs, etc., each of which keeps its own upstream
+license). No CLA, no copyright assignment — your commit metadata is your
+attribution.
 
 ## Questions
 
