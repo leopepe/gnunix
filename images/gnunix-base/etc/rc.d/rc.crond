@@ -1,0 +1,32 @@
+#!/bin/sh
+# /etc/rc.d/rc.crond — Dillon's cron daemon.
+#
+# Runs /etc/cron.{hourly,daily,weekly,monthly}/* on schedule and reads
+# system crontabs from /etc/cron.d/. Per-user crontabs live under
+# /var/spool/cron/crontabs/<user> (set up by `crontab -e`).
+#
+# Logrotate runs daily from /etc/cron.d/logrotate (shipped in the base
+# rootfs by 04-finalize.sh).
+
+CROND=/usr/sbin/crond
+PIDFILE=/run/crond.pid
+
+case "${1:-start}" in
+  start)
+    if [ ! -x "$CROND" ]; then
+      echo "[rc.crond] $CROND not found; skipping"
+      exit 0
+    fi
+    # -b daemonizes; -l notice sets log level; -L points logs at syslog.
+    # If syslog isn't running yet, crond falls back to stderr (which
+    # /dev/null'd by sysvinit's `respawn` line). That's fine — rc.M
+    # starts rc.syslogd before rc.crond so the normal path is logged.
+    "$CROND" -b -l notice -L /dev/log
+    pidof crond 2>/dev/null | awk '{print $1}' > "$PIDFILE" || true
+    ;;
+  stop)
+    [ -f "$PIDFILE" ] && kill "$(cat "$PIDFILE")" 2>/dev/null
+    rm -f "$PIDFILE"
+    ;;
+  *) echo "usage: $0 {start|stop}"; exit 1 ;;
+esac

@@ -1,0 +1,22 @@
+# /etc/logrotate.d/syslog — rotate sysklogd's outputs.
+#
+# Targets match the routing in /etc/syslog.conf. After rotation,
+# sysklogd is HUP'd so it reopens its file handles (otherwise it
+# keeps writing to the renamed .old file).
+
+/var/log/messages
+/var/log/secure
+/var/log/maillog
+/var/log/cron
+/var/log/boot.log
+{
+    weekly
+    rotate 4
+    missingok
+    notifempty
+    compress
+    delaycompress
+    postrotate
+        [ -f /run/syslogd.pid ] && kill -HUP "$(cat /run/syslogd.pid)" 2>/dev/null || true
+    endscript
+}

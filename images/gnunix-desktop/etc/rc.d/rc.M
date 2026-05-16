@@ -29,6 +29,7 @@ run_if_enabled rc.elogind
 run_if_enabled rc.network
 run_if_enabled rc.sshd
 run_if_enabled rc.nix-daemon
+run_if_enabled rc.crond
 run_if_enabled rc.greetd
 
 [ -x /etc/rc.d/rc.local ] && /etc/rc.d/rc.local

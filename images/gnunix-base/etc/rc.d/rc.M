@@ -21,12 +21,15 @@ run_if_enabled() {
 
 # Order matters: dbus before elogind, network before sshd, nix-daemon last.
 # syslogd runs early so every later service's stderr can be captured.
+# crond runs after network so wall-clock-relative jobs (which may rely
+# on NTP) have a chance to settle.
 run_if_enabled rc.syslogd
 run_if_enabled rc.dbus
 run_if_enabled rc.elogind
 run_if_enabled rc.network
 run_if_enabled rc.sshd
 run_if_enabled rc.nix-daemon
+run_if_enabled rc.crond
 
 # Local customizations (always last)
 [ -x /etc/rc.d/rc.local ] && /etc/rc.d/rc.local

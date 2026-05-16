@@ -331,6 +331,24 @@
       "version": "3.6",
       "url": "https://download.savannah.gnu.org/releases/dmidecode/dmidecode-3.6.tar.xz",
       "sha256": ""
+    },
+    "$logrotate_stack_note": "popt is a build-dep of logrotate, dcron is the scheduler that makes logrotate functional. Slackware ships the same three.",
+    "popt": {
+      "version": "1.19",
+      "url": "http://ftp.rpm.org/popt/releases/popt-1.x/popt-1.19.tar.gz",
+      "sha256": ""
+    },
+    "dcron": {
+      "$note": "Dillon's cron — what Slackware 15.0 ships. Mirror via Jim Pryor since Dillon's original site is intermittent.",
+      "version": "4.5",
+      "url": "https://www.jimpryor.net/linux/dcron-4.5.tar.gz",
+      "sha256": ""
+    },
+    "logrotate": {
+      "$note": "Order matters: build after popt (links libpopt) and after dcron (so we know we have a scheduler).",
+      "version": "3.21.0",
+      "url": "https://github.com/logrotate/logrotate/releases/download/3.21.0/logrotate-3.21.0.tar.xz",
+      "sha256": ""
     }
   },
   "init_and_session": {
