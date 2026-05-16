@@ -349,6 +349,31 @@
       "version": "3.21.0",
       "url": "https://github.com/logrotate/logrotate/releases/download/3.21.0/logrotate-3.21.0.tar.xz",
       "sha256": ""
+    },
+    "$usbutils_stack_note": "meson + ninja unlock USB introspection (usbutils needs meson at build) and also enable a follow-up that lets us finally build iputils (which has been deferred because of the meson dep).",
+    "meson": {
+      "$note": "Python-based build system. Installed via vendor-copy (cp mesonbuild + meson.py into /usr) — no pip bootstrap required.",
+      "version": "1.5.0",
+      "url": "https://github.com/mesonbuild/meson/releases/download/1.5.0/meson-1.5.0.tar.gz",
+      "sha256": ""
+    },
+    "ninja": {
+      "$note": "Build via `python3 configure.py --bootstrap` then drop the binary in /usr/bin. No autotools.",
+      "version": "1.12.1",
+      "url": "https://github.com/ninja-build/ninja/archive/refs/tags/v1.12.1.tar.gz",
+      "sha256": ""
+    },
+    "hwdata": {
+      "$note": "Device ID database used by lspci / lsusb. Autotools.",
+      "version": "0.391",
+      "url": "https://github.com/vcrhonek/hwdata/archive/refs/tags/v0.391.tar.gz",
+      "sha256": ""
+    },
+    "usbutils": {
+      "$note": "lsusb. Meson build; depends on hwdata for the device-name lookup tables.",
+      "version": "018",
+      "url": "https://www.kernel.org/pub/linux/utils/usb/usbutils/usbutils-018.tar.xz",
+      "sha256": ""
     }
   },
   "init_and_session": {
