@@ -16,13 +16,13 @@
 #   <image>        gnunix-base | gnunix-minimal | gnunix-desktop | gnunix-installer
 #   --ver=         default: from tools/manifest.json:lfs_image_version
 #   --repo=        default: $(gh repo view --json nameWithOwner -q .nameWithOwner)
-#   --release-tag= default: `base-images-<ver>` for base/minimal,
+#   --release-tag= default: `gnunix-images-<ver>` for base/minimal,
 #                            `v<ver>` for desktop/installer.
-#                  (Two release tracks per ADR-018: base-images is the
+#                  (Two release tracks per ADR-018: gnunix-images is the
 #                   intermediate fetched by CI; v<ver> is the user-facing
 #                   release rolled by release.yml from CI outputs.)
 #   --draft        create the release as a draft (default for v<ver>,
-#                  flipped off for base-images by default)
+#                  flipped off for gnunix-images by default)
 #   --forms=       comma-separated subset of {img.zst, tart.zst, iso}
 #                  to upload (default: every form valid for the image
 #                  per ADR-018's matrix that exists in cache/artifacts/).
@@ -92,7 +92,7 @@ ARCH=$(jq -r '.active_arch // .target_arch' "$MANIFEST")
 # Resolve default release tag per ADR-018.
 if [ -z "$RELEASE_TAG" ]; then
   case "$IMAGE" in
-    gnunix-base|gnunix-minimal) RELEASE_TAG="base-images-${VER}" ;;
+    gnunix-base|gnunix-minimal) RELEASE_TAG="gnunix-images-${VER}" ;;
     *)                          RELEASE_TAG="v${VER}" ;;
   esac
 fi
@@ -171,10 +171,10 @@ if gh release view "$RELEASE_TAG" --repo "$REPO" >/dev/null 2>&1; then
   fi
 else
   echo "[release-image] creating release $RELEASE_TAG"
-  # base-images releases are NOT drafts by default (CI needs them visible);
+  # gnunix-images releases are NOT drafts by default (CI needs them visible);
   # v<ver> releases ARE drafts (per ADR-008, human reviews before publishing).
   case "$RELEASE_TAG" in
-    base-images-*) ;;
+    gnunix-images-*) ;;
     *)             [ -z "$DRAFT" ] && DRAFT="--draft" ;;
   esac
   # shellcheck disable=SC2086
