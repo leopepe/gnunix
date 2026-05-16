@@ -1,0 +1,42 @@
+#!/usr/bin/env expect
+# tests/installer/tui-scenarios/desktop-cosmic.exp
+#
+# Desktop + COSMIC (row 4 of the compositor radiolist, per ADR-022).
+# This is the last row added by ADR-022 — also verifies the cursor
+# walks the full 4 Down presses without stopping short.
+
+source [file join [file dirname $argv0] _lib.exp]
+
+start_installer
+
+await_screen "Welcome to the GNUnix installer"
+press_enter
+
+await_screen "Target disk"
+press_enter
+
+await_screen "Edition:"
+accept_default_selection
+
+await_screen "NETWORK REQUIRED"
+press_enter
+
+await_screen "Wayland compositor:"
+radiolist_choose 4
+
+await_screen "Hostname:"
+press_enter
+
+await_screen "lowercase, no spaces"
+press_enter
+
+await_screen "Set password for"
+type_text "cosmictest"
+
+await_screen "Re-enter password"
+type_text "cosmictest"
+
+await_screen "Ready to install"
+press_enter
+
+expect eof

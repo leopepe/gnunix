@@ -1,8 +1,9 @@
 # ADR-020: Switch reference compositor from Sway to Hyprland
 
-**Status:** Proposed
+**Status:** Proposed (amended by [ADR-022](ADR-022-cosmic-installer-profile.md))
 **Date:** 2026-05-15
 **Amends:** [ADR-009](ADR-009-wayland-stack.md)
+**Amended:** 2026-05-16 — ADR-022 adds `desktop-cosmic` as a fourth optional installer compositor; Hyprland remains the reference and the pre-baked default in `gnunix-desktop`.
 
 ## Context
 

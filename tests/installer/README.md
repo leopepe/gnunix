@@ -92,6 +92,19 @@ are in `scripts/validate-installed.sh <profile> <vm>`.
 | `~/.config/labwc/autostart` executable + launches waybar | status bar autostart |
 | user in Wayland groups | same as sway |
 
+### `desktop-cosmic` (ADR-022)
+
+| Check | Why |
+|---|---|
+| `$SP/bin/cosmic-comp` exists | profile script pulled `nixpkgs.cosmic-comp` |
+| `$SP/bin/start-cosmic` exists | `cosmic-session` package's launcher shim is present (it `dbus-run-session`s `cosmic-session`) |
+| `start-wayland-session.sh` execs `start-cosmic` | wrapper points at the launcher, not the raw compositor |
+| `/usr/local/share/wayland-sessions/cosmic.desktop` exists | tuigreet can list "cosmic" as a session |
+| `xdg-desktop-portal-cosmic` present | screen-sharing / file pickers (warn-only) |
+| `~/.config/cosmic/` skeleton seeded | starter user config (output_scale=1.0 for virtio-gpu) |
+| `cosmic-greeter` NOT installed | ADR-022 keeps tuigreet as the greeter (ADR-009) |
+| user in Wayland groups | same as sway |
+
 ## Running
 
 Prereqs: `gnunix-installer-<ver>` Tart VM exists (build it first).
@@ -161,6 +174,7 @@ expected-values row in `tui-interactions.sh`. Current scenarios:
 | `desktop-sway` | Compositor radiolist row 1 |
 | `desktop-labwc` | Compositor radiolist row 2 |
 | `desktop-labwc-nextspace` | Compositor radiolist row 3 |
+| `desktop-cosmic` | Compositor radiolist row 4 (ADR-022) |
 | `password-mismatch` | Mismatch shows the retry msgbox; the final (matching) password lands in the choices file |
 | `escape-cancels` | Esc on a dialog → installer exits cleanly with no choices file written |
 
