@@ -19,9 +19,11 @@ run_if_enabled() {
   fi
 }
 
-# Order matters: dbus before elogind (login1 API); network before sshd;
-# nix-daemon before greetd (the greetd session may invoke Nix-installed
-# binaries); greetd last so it owns the foreground TTY.
+# Order matters: syslogd first so later services' stderr can be captured;
+# dbus before elogind (login1 API); network before sshd; nix-daemon before
+# greetd (the greetd session may invoke Nix-installed binaries); greetd
+# last so it owns the foreground TTY.
+run_if_enabled rc.syslogd
 run_if_enabled rc.dbus
 run_if_enabled rc.elogind
 run_if_enabled rc.network
