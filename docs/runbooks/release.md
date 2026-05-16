@@ -6,7 +6,7 @@ Three workflows participate, each with a single responsibility:
 | Workflow | File | Trigger | What it does |
 |---|---|---|---|
 | Tag on version bump | `.github/workflows/tag-on-version-bump.yml` | push to `main` touching `tools/manifest.json` | If `lfs_image_version` changed, create + push `v<version>` tag |
-| Build | `.github/workflows/build.yml` | push (`main` + tags) / PR / dispatch | Build + smoke-test all images; upload disk + platform artifacts |
+| Build | `.github/workflows/build.yml` | push tag `v*` / dispatch | Fetch each image from `base-images-<ver>` and re-upload as a workflow artifact for `release.yml` to attach (per PR-3b.1; rebuild path returns in PR-3b.2 — issue #20) |
 | Release | `.github/workflows/release.yml` | push tag `v*` / dispatch | Wait for Build, download artifacts, draft a GH Release |
 
 ## The happy path
@@ -26,13 +26,14 @@ Three workflows participate, each with a single responsibility:
                                                │
                               ┌────────────────┴────────────────┐
                               ▼                                 ▼
-                ┌────────────────────────┐         ┌──────────────────────────┐
-                │ build.yml @ vX.Y.Z     │         │ release.yml @ vX.Y.Z     │
-                │  gnunix-base           │         │  polls for build.yml run │
-                │   → gnunix-minimal         │         │   on same SHA            │
-                │     → gnunix-desktop   │         │  downloads artifacts     │
-                │       → package matrix │         │  creates DRAFT release   │
-                └────────────────────────┘         └──────────────────────────┘
+                ┌─────────────────────────────┐     ┌──────────────────────────┐
+                │ build.yml @ vX.Y.Z          │     │ release.yml @ vX.Y.Z     │
+                │  fetch-base                 │     │  polls for build.yml run │
+                │  fetch-minimal              │     │   on same SHA            │
+                │  fetch-desktop              │     │  downloads artifacts     │
+                │  fetch-installer (soft)     │     │  creates DRAFT release   │
+                │ ← base-images-<ver> release │     │                          │
+                └─────────────────────────────┘     └──────────────────────────┘
                               │                                 ▲
                               └─────────────────────────────────┘
                                   upload-artifact   gh run download
@@ -40,6 +41,36 @@ Three workflows participate, each with a single responsibility:
 
 End state: a **draft** release on the GitHub Releases tab. A human reviews
 the asset list and clicks **Publish**.
+
+## Prerequisite — publish to `base-images-<ver>` first
+
+Until PR-3b.2 lands the qemu+KVM rebuild path (tracking issue #20), `build.yml`
+**does not rebuild** any image. It fetches them from the intermediate
+`base-images-<ver>` release. The maintainer must populate that release from
+a Mac before pushing the `v<ver>` tag:
+
+```sh
+# On the maintainer's Mac, after a successful local rebuild:
+tools/build-all.sh gnunix-base       # ~6–10h (skip if pins didn't change)
+tools/build-all.sh gnunix-minimal
+tools/build-all.sh gnunix-desktop
+tools/build-all.sh gnunix-installer  # optional; soft-fails in CI if absent
+
+# Publish all four to the SAME tag (note --release-tag override for
+# desktop/installer, whose default would otherwise be v<ver>):
+V=$(jq -r .lfs_image_version tools/manifest.json)
+tools/release-image.sh gnunix-base
+tools/release-image.sh gnunix-minimal
+tools/release-image.sh gnunix-desktop   --release-tag=base-images-$V
+tools/release-image.sh gnunix-installer --release-tag=base-images-$V
+
+# Now push the user-facing tag — the rest of the pipeline runs in CI.
+git push origin v$V
+```
+
+When PR-3b.2 lands, the desktop/installer rows above become unnecessary —
+CI will rebuild them on top of fetched minimal. The base/minimal rows stay,
+since ADR-021 keeps base off the hosted-runner path forever.
 
 ## What ships per release
 
@@ -114,8 +145,11 @@ gh workflow run release.yml -f tag=v0.2.0
 | `build.yml` hasn't started yet on the tag SHA | Polls for up to 8h, then fails the release workflow |
 | Tag value disagrees with `tools/manifest.json:lfs_image_version` | Fails before downloading anything |
 
-The 8h timeout matches the worst-case `gnunix-base` build budget on M-series
-hardware (see `build.yml` § `gnunix-base` job).
+The 8h poll-for-build-run timeout in `release.yml` was originally sized for
+the worst-case `gnunix-base` build on M-series hardware. After PR-3b.1 the
+fetch jobs finish in minutes; the long timeout is intentionally kept so the
+same workflow accommodates PR-3b.2's qemu rebuild jobs without further
+tuning.
 
 ## Untrigger / abort
 
@@ -149,8 +183,10 @@ violated it (e.g., hand-pushed a `v0.2.0` tag while the manifest still says
 - **Manifest is the single source of truth for the version.** Renovate
   already bumps `tools/manifest.json`; the auto-tagger just turns that bump
   into the tag we'd otherwise type by hand.
-- **Build and release are separate workflows.** Build is heavy (Tart + the
-  macOS arm64 runner, ~hours) and re-runs are expensive. Release is light
+- **Build and release are separate workflows.** Build assembles the
+  artifact set on a hosted runner — today by fetching from
+  `base-images-<ver>` (PR-3b.1); in PR-3b.2 by fetching base+minimal and
+  rebuilding desktop+installer via qemu+KVM. Release is light
   (`gh release create`, seconds) and can be re-run without rebuilding.
 - **Draft, not auto-publish.** Single-maintainer audience (ADR-005); one
   click is cheaper than rolling back a broken auto-publish.
