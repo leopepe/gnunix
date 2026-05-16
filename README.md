@@ -4,6 +4,27 @@
 
 # GNUnix
 
+<p align="center">
+  <a href="https://github.com/leopepe/gnunix/releases/latest">
+    <img alt="Latest release" src="https://img.shields.io/github/v/release/leopepe/gnunix?include_prereleases&sort=semver&logo=github">
+  </a>
+  <a href="https://github.com/leopepe/gnunix/blob/main/LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/leopepe/gnunix?logo=github">
+  </a>
+  <a href="https://github.com/leopepe/gnunix/commits/main">
+    <img alt="Last commit" src="https://img.shields.io/github/last-commit/leopepe/gnunix?logo=github">
+  </a>
+  <a href="https://github.com/leopepe/gnunix/actions/workflows/pr-lint.yml">
+    <img alt="PR lint" src="https://github.com/leopepe/gnunix/actions/workflows/pr-lint.yml/badge.svg?branch=main">
+  </a>
+  <a href="https://github.com/leopepe/gnunix/actions/workflows/installer-tui-test.yml">
+    <img alt="Installer TUI tests" src="https://github.com/leopepe/gnunix/actions/workflows/installer-tui-test.yml/badge.svg?branch=main">
+  </a>
+  <a href="https://github.com/leopepe/gnunix/actions/workflows/build.yml">
+    <img alt="Build images" src="https://github.com/leopepe/gnunix/actions/workflows/build.yml/badge.svg?branch=main">
+  </a>
+</p>
+
 Custom Linux distribution for developer workstations on Apple Silicon.
 
 The name is a pun: **GNU**'s-Not-Unix meets **Nix**. The base layer is built
