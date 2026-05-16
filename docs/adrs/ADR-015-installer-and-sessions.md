@@ -1,8 +1,9 @@
 # ADR-015: Live installer + multiple graphical session choices
 
-**Status:** Proposed (amended by [ADR-017](ADR-017-live-iso-architecture.md), [ADR-019](ADR-019-image-lineage-and-installer-pivot.md))
+**Status:** Proposed (amended by [ADR-017](ADR-017-live-iso-architecture.md), [ADR-019](ADR-019-image-lineage-and-installer-pivot.md), [ADR-022](ADR-022-cosmic-installer-profile.md))
 **Date:** 2026-05-14
 **Amended:** 2026-05-15 — ADR-017 replaces the raw `.img` artifact with a proper hybrid EFI live ISO (squashfs + overlayfs + custom initramfs). ADR-019 pivots the installer to layer on `gnunix-minimal` instead of `gnunix-desktop` (text-only live env), reshapes the TUI to "edition → compositor → identity", and removes the greetd session menu from the live image.
+**Amended:** 2026-05-16 — ADR-022 adds `desktop-cosmic` as a fourth optional compositor profile (System76 COSMIC, init-agnostic). TUI mechanism + pre-baked default unchanged; profile set grows from 4 to 5.
 
 ## Context
 
