@@ -334,7 +334,8 @@ for entry in \
   bash coreutils diffutils file findutils gawk grep gzip make patch sed tar xz \
   iproute2 dhcpcd less vim e2fsprogs zlib expat \
   ncurses readline pam \
-  kmod procps-ng psmisc sysklogd
+  kmod procps-ng psmisc sysklogd \
+  popt logrotate
 do
   pkg_skip "$entry" && continue
   v=$(pkg_ver "$entry")
@@ -407,12 +408,11 @@ for entry in sysvinit eudev; do
   pkg_mark "$entry"
 done
 
-# pciutils + dmidecode — Makefile-only (no ./configure), so they don't
-# fit the autotools loop. Both build straight from a small `make` +
-# `make install PREFIX=/usr` (pciutils) / `make install prefix=/usr`
-# (dmidecode). Hardware introspection — pairs with the kmod/procps-ng/
-# psmisc/sysklogd additions in this version for Slackware-parity.
-for entry in pciutils dmidecode; do
+# pciutils + dmidecode + dcron — Makefile-only (no ./configure), so
+# they don't fit the autotools loop. Hardware introspection +
+# scheduler (dcron is Dillon's cron, what Slackware ships; required
+# for logrotate to actually run periodically).
+for entry in pciutils dmidecode dcron; do
   pkg_skip "$entry" && continue
   v=$(pkg_ver "$entry")
   url=$(pkg_url "$entry")
@@ -434,6 +434,16 @@ for entry in pciutils dmidecode; do
       # dmidecode Makefile uses lowercase prefix.
       make -j$JOBS prefix=/usr
       make install prefix=/usr
+      ;;
+    dcron)
+      # dcron's Makefile predates PREFIX conventions. Pass install
+      # directories directly. SCRONTABS is the system crontab dir
+      # (/etc/cron.d for our convention); CRONTABS is per-user
+      # (/var/spool/cron/crontabs).
+      make -j$JOBS
+      install -d -m 0755 /usr/sbin /etc/cron.d /var/spool/cron/crontabs
+      install -m 0755 crond  /usr/sbin/crond
+      install -m 4755 crontab /usr/bin/crontab  # setuid for non-root user crontabs
       ;;
   esac
   cd /; rm -rf "$d"

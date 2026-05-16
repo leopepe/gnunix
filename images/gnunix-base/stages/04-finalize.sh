@@ -19,9 +19,12 @@ install -Dm 0644 "$REPO_ROOT/images/gnunix-base/etc/hostname"       "$LFS/etc/ho
 install -Dm 0644 "$REPO_ROOT/images/gnunix-base/etc/resolv.conf.tpl" "$LFS/etc/resolv.conf"
 install -Dm 0644 "$REPO_ROOT/images/gnunix-base/etc/profile"        "$LFS/etc/profile"
 install -Dm 0644 "$REPO_ROOT/images/gnunix-base/etc/syslog.conf"    "$LFS/etc/syslog.conf"
+install -Dm 0644 "$REPO_ROOT/images/gnunix-base/etc/logrotate.conf" "$LFS/etc/logrotate.conf"
+install -Dm 0644 "$REPO_ROOT/images/gnunix-base/etc/logrotate.d/syslog" "$LFS/etc/logrotate.d/syslog"
+install -Dm 0644 "$REPO_ROOT/images/gnunix-base/etc/cron.d/logrotate"   "$LFS/etc/cron.d/logrotate"
 
 mkdir -p "$LFS/etc/rc.d"
-for f in rc.S rc.M rc.K rc.6 rc.local rc.dbus rc.elogind rc.sshd rc.nix-daemon rc.network rc.modules rc.syslogd; do
+for f in rc.S rc.M rc.K rc.6 rc.local rc.dbus rc.elogind rc.sshd rc.nix-daemon rc.network rc.modules rc.syslogd rc.crond; do
   install -Dm 0755 "$REPO_ROOT/images/gnunix-base/etc/rc.d/$f" "$LFS/etc/rc.d/$f"
 done
 
@@ -61,7 +64,8 @@ echo "[finalize] enable services (chmod +x BSD-style)"
 chmod +x "$LFS/etc/rc.d/rc.sshd" \
          "$LFS/etc/rc.d/rc.nix-daemon" \
          "$LFS/etc/rc.d/rc.network" \
-         "$LFS/etc/rc.d/rc.syslogd"
+         "$LFS/etc/rc.d/rc.syslogd" \
+         "$LFS/etc/rc.d/rc.crond"
 chmod -x "$LFS/etc/rc.d/rc.dbus" "$LFS/etc/rc.d/rc.elogind" 2>/dev/null || true
 
 # dhcpcd drops privs to its own user (seeded in /etc/passwd) and chdirs to

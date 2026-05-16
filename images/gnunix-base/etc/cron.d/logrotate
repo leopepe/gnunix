@@ -1,0 +1,8 @@
+# /etc/cron.d/logrotate — daily log rotation.
+#
+# dcron reads /etc/cron.d/* for system crontabs. Five fields are
+# minute / hour / day-of-month / month / day-of-week, then the user
+# the command runs as, then the command.
+#
+# 02:00 daily, every day of the year, as root.
+0 2 * * *  root  /usr/sbin/logrotate /etc/logrotate.conf
