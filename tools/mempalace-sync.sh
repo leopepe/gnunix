@@ -20,7 +20,11 @@ set -eu
 
 REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WING=${WING:-gnunix}
-CLAUDE_PROJECT_DIR=${CLAUDE_PROJECT_DIR:-"$HOME/.claude/projects/-Users-pepe-Workspace-lfs-nix-distro"}
+# Claude Code stores transcripts under ~/.claude/projects/<encoded-path>/,
+# where <encoded-path> is the repo's absolute path with every `/`
+# replaced by `-`. Derive it from $REPO_ROOT so the script works for
+# any user / clone location.
+CLAUDE_PROJECT_DIR=${CLAUDE_PROJECT_DIR:-"$HOME/.claude/projects/$(printf '%s' "$REPO_ROOT" | sed 's|/|-|g')"}
 
 if ! command -v mempalace >/dev/null 2>&1; then
   echo "mempalace not installed."
