@@ -10,7 +10,7 @@
 set -u
 REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}
 
-PROFILES="minimal desktop-sway desktop-hyprland desktop-labwc"
+PROFILES="minimal desktop-sway desktop-hyprland desktop-labwc desktop-cosmic"
 PASSED=""
 FAILED=""
 

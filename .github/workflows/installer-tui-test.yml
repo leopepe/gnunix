@@ -1,0 +1,62 @@
+# Run the installer TUI-interaction test suite on every PR/push that
+# touches a file capable of changing the TUI's behaviour. Host-side
+# test (whiptail + expect, no VM) — runs in seconds on a hosted runner
+# and is the fastest signal we have that the installer's user-facing
+# flow isn't broken.
+#
+# Image-level tests (boot-smoke, minimal-smoke, wayland-session,
+# profile-*) live in `tests/` but cannot run here yet: they require
+# the qemu+KVM driver in `scripts/vm-helpers.sh` (PR-3b.2). When that
+# lands, those tests get their own workflow / matrix; this one stays
+# focused on the cheap, host-side TUI check.
+#
+# Per ADR-021, hosted runners only. `ubuntu-22.04` is fine for
+# whiptail+expect — no arm64 specificity required.
+
+name: Installer TUI tests
+
+on:
+  pull_request:
+    paths:
+      - 'images/installer/installer/gnunix-installer'
+      - 'images/installer/installer/profiles/**'
+      - 'tests/installer/tui-scenarios/**'
+      - 'tests/installer/tui-interactions.sh'
+      - '.github/workflows/installer-tui-test.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'images/installer/installer/gnunix-installer'
+      - 'images/installer/installer/profiles/**'
+      - 'tests/installer/tui-scenarios/**'
+      - 'tests/installer/tui-interactions.sh'
+      - '.github/workflows/installer-tui-test.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: installer-tui-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tui-interactions:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install whiptail + expect
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends whiptail expect
+
+      - name: Run TUI scenarios
+        run: tests/installer/tui-interactions.sh
+
+      - name: Upload scenario logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tui-scenario-logs
+          path: cache/tui-test/*.log
+          if-no-files-found: ignore
+          retention-days: 7

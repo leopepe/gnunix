@@ -64,6 +64,7 @@ minimal|TARGET_DISK=/dev/vdb;PROFILE=minimal;HOSTNAME=tiny;USERNAME=op;PASSWORD=
 desktop-sway|TARGET_DISK=/dev/vda;PROFILE=desktop-sway;HOSTNAME=gnunix;USERNAME=user;PASSWORD=swaytest
 desktop-labwc|TARGET_DISK=/dev/vda;PROFILE=desktop-labwc;HOSTNAME=gnunix;USERNAME=user;PASSWORD=labwctest
 desktop-labwc-nextspace|TARGET_DISK=/dev/vda;PROFILE=desktop-labwc-nextspace;HOSTNAME=gnunix;USERNAME=user;PASSWORD=nextspacetest
+desktop-cosmic|TARGET_DISK=/dev/vda;PROFILE=desktop-cosmic;HOSTNAME=gnunix;USERNAME=user;PASSWORD=cosmictest
 password-mismatch|TARGET_DISK=/dev/vda;PROFILE=minimal;HOSTNAME=gnunix;USERNAME=user;PASSWORD=correct-on-retry
 escape-cancels|cancel
 "

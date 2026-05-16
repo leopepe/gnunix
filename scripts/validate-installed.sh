@@ -205,6 +205,44 @@ case "$PROFILE" in
       echo "[validate-installed] desktop-labwc PASS"
     '
     ;;
+  desktop-cosmic)
+    echo "[validate-installed] running desktop-cosmic-specific asserts (ADR-022)"
+    tart_ssh "$VM" root env EXP_USER="$USER" sh -c '
+      set -e
+      SP=/nix/var/nix/profiles/system
+      [ -x /etc/rc.d/rc.greetd ] \
+        || { echo "FAIL: rc.greetd not enabled"; exit 30; }
+      # COSMIC core: cosmic-comp is the compositor, start-cosmic is the
+      # launcher cosmic-session ships in nixpkgs (it execs dbus-run-session
+      # + cosmic-session — see ADR-022 § Context).
+      [ -x "$SP/bin/cosmic-comp" ] \
+        || { echo "FAIL: $SP/bin/cosmic-comp missing — nix-env install failed?"; exit 31; }
+      [ -x "$SP/bin/start-cosmic" ] \
+        || { echo "FAIL: $SP/bin/start-cosmic missing — cosmic-session install failed?"; exit 32; }
+      # Wrapper execs start-cosmic, not cosmic-comp directly.
+      grep -q "exec .*start-cosmic" /usr/local/bin/start-wayland-session.sh \
+        || { echo "FAIL: start-wayland-session.sh does not exec start-cosmic"; exit 33; }
+      # Session file installed where tuigreet picks it up.
+      test -f /usr/local/share/wayland-sessions/cosmic.desktop \
+        || { echo "FAIL: /usr/local/share/wayland-sessions/cosmic.desktop missing"; exit 34; }
+      # xdg-desktop-portal-cosmic pulled (screen-sharing, file-pickers).
+      [ -x "$SP/libexec/xdg-desktop-portal-cosmic" ] \
+        || [ -x "$SP/bin/xdg-desktop-portal-cosmic" ] \
+        || echo "WARN: xdg-desktop-portal-cosmic not detected"
+      # Per-user config seeded.
+      test -d "/home/$EXP_USER/.config/cosmic" \
+        || { echo "FAIL: /home/$EXP_USER/.config/cosmic skeleton not seeded"; exit 35; }
+      groups=$(id -nG "$EXP_USER")
+      for g in video input render seat; do
+        echo "$groups" | tr " " "\n" | grep -qx "$g" \
+          || { echo "FAIL: $EXP_USER not in $g group (have: $groups)"; exit 36; }
+      done
+      # ADR-022 § "Why exclude cosmic-greeter": tuigreet is greeter.
+      [ ! -x "$SP/bin/cosmic-greeter" ] \
+        || { echo "FAIL: cosmic-greeter installed — ADR-022 keeps tuigreet"; exit 37; }
+      echo "[validate-installed] desktop-cosmic PASS"
+    '
+    ;;
   *)
     echo "FAIL: unknown profile $PROFILE"
     exit 2
