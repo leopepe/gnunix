@@ -132,19 +132,30 @@ while IFS=$'\t' read -r url sha; do
   [ -z "$url" ] && continue
   fetch_one "$url" "$sha"
 done < <(jq -r '
+  # `select(type=="object") | select(.url)` guards skip the documentation
+  # keys like "$schema_note", "$slackware_parity_note" that ship as string
+  # values inside otherwise-object-only sections. Without these guards jq
+  # errors out on the first such key, the `while` reader gets EOF, and the
+  # script silently reports "all sources present" with exit 0. Always
+  # apply both guards everywhere a section may grow doc-style keys.
   [
     (.toolchain         | to_entries[] | .value | select(type=="object") | select(.url) | {url, sha256: (.sha256 // "")}),
-    (.toolchain.gcc_prereqs | to_entries[] | .value | {url, sha256: (.sha256 // "")}),
+    (.toolchain.gcc_prereqs | to_entries[] | .value | select(type=="object") | select(.url) | {url, sha256: (.sha256 // "")}),
     (.kernel            | {url, sha256: (.sha256 // "")}),
-    (.base_packages     | to_entries[] | .value | {url, sha256: (.sha256 // "")}),
-    (.init_and_session  | to_entries[] | .value | {url, sha256: (.sha256 // "")}),
-    (.bootloader        | to_entries[] | .value | {url, sha256: (.sha256 // "")}),
+    (.base_packages     | to_entries[] | .value | select(type=="object") | select(.url) | {url, sha256: (.sha256 // "")}),
+    (.init_and_session  | to_entries[] | .value | select(type=="object") | select(.url) | {url, sha256: (.sha256 // "")}),
+    (.bootloader        | to_entries[] | .value | select(type=="object") | select(.url) | {url, sha256: (.sha256 // "")}),
     # Phase 3: the Nix binary tarball used by images/gnunix-minimal/install-gnunix-minimal.sh.
     # Same sha256-pinned, mirror-fallback download path as base packages.
     {url: .nix.binary_url, sha256: .nix.binary_sha256}
   ]
   | .[] | "\(.url)\t\(.sha256)"
 ' "$MANIFEST")
+
+# jq runs in process substitution above; a jq failure does NOT propagate
+# through `set -e`, and an empty read would silently report success. Run
+# the same filter again to catch a jq error this time at status check.
+jq -e '.base_packages' "$MANIFEST" >/dev/null || { echo "[fetch] manifest schema broke during enumeration" >&2; exit 1; }
 
 if [ ${#FAILED_URLS[@]} -gt 0 ]; then
   echo "[fetch] ${#FAILED_URLS[@]} URL(s) exhausted all mirrors:"
