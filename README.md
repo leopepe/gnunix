@@ -12,7 +12,7 @@
     <img alt="Latest tag" src="https://img.shields.io/github/v/tag/leopepe/gnunix?sort=semver&logo=github">
   </a>
   <a href="https://github.com/leopepe/gnunix/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/leopepe/gnunix?logo=github">
+    <img alt="License: BSD-2-Clause" src="https://img.shields.io/badge/license-BSD--2--Clause-blue?logo=github">
   </a>
   <a href="https://github.com/leopepe/gnunix/commits/main">
     <img alt="Last commit" src="https://img.shields.io/github/last-commit/leopepe/gnunix?logo=github">
