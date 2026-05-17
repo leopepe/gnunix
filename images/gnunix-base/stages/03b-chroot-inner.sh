@@ -243,9 +243,33 @@ if ! pkg_skip libxcrypt; then
   pkg_mark libxcrypt
 fi
 
+# zlib — pulled out of the main autotools loop and built BEFORE python
+# so Python's configure detects zlib at build time and compiles its
+# zlibmodule extension. Without this, `import zlib` (and transitively
+# `import gzip`, `import tarfile`) fails inside Python — which kills
+# `meson --version` (mesonbuild.mdist imports gzip on startup) and
+# anything else that relies on Python's compression stdlib.
+# Discovered live during 0.1.1 chroot (PR #45 era) when meson's
+# vendor-install smoke-test died on `ModuleNotFoundError: No module
+# named 'zlib'`. zlib also has no compile-time deps on anything later
+# in the loop, so moving it earlier is free.
+if ! pkg_skip zlib; then
+  v=$ver_zlib
+  fname=$(pkg_file zlib)
+  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
+  cd "$d"/zlib-$v
+  echo "[chroot-inner] building zlib-$v"
+  hardening_export "zlib" native
+  ./configure --prefix=/usr
+  make -j$JOBS && make install
+  cd /; rm -rf "$d"
+  pkg_mark zlib
+fi
+
 # Python — required by GRUB's configure (mandatory). Built AFTER libxcrypt
 # so Python's _crypt extension finds crypt() at link time (glibc 2.40 no
-# longer ships crypt; libxcrypt provides it).
+# longer ships crypt; libxcrypt provides it). Also AFTER zlib (see block
+# above) so Python's configure finds zlib.h and builds zlibmodule.
 # Python's _uuidmodule.c calls uuid_generate_time_safe via configure-time
 # autodetect, but our libuuid <uuid/uuid.h> doesn't declare the prototype
 # in this build. C11 treats the implicit declaration as a hard error.
@@ -332,7 +356,7 @@ fi
 # the base toolchain.
 for entry in \
   bash coreutils diffutils file findutils gawk grep gzip make patch sed tar xz \
-  iproute2 dhcpcd less vim e2fsprogs zlib expat \
+  iproute2 dhcpcd less vim e2fsprogs expat \
   ncurses readline pam \
   kmod procps-ng psmisc sysklogd \
   popt cronie logrotate \
