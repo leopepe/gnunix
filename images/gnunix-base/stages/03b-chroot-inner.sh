@@ -323,6 +323,39 @@ fi
 # util-linux — needs flags to disable optional features (liblastlog2 wants
 # sqlite3, pylibmount wants python, etc.). Same flags as the temp-tools
 # build but with --docdir set. LFS book chapter 8.13.
+# bzip2 — block-sorting compression utility + libbz2. Built before the
+# main autotools loop because (a) the temp-tools tar was configured
+# with lbzip2 on PATH and hardcodes it as the bz2 decompressor, so any
+# .tar.bz2 extraction inside the chroot fails with `lbzip2: Cannot
+# exec` until bzip2 is on the rootfs PATH; (b) the loop below extracts
+# libusb (.tar.bz2) and passes --use-compress-program=bzip2, which
+# requires bzip2 to be live by the time that iteration runs.
+# bzip2 is Makefile-only (no ./configure), so it gets its own block
+# rather than slotting into the autotools loop.
+if ! pkg_skip bzip2; then
+  v=$ver_bzip2
+  fname=$(pkg_file bzip2)
+  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
+  cd "$d/bzip2-$v"
+  echo "[chroot-inner] building bzip2-$v"
+  hardening_export "bzip2" native
+  # Patch the shared-library Makefile to honour the hardening LDFLAGS
+  # we just exported. Upstream's Makefile-libbz2_so hardcodes the link
+  # line; sed in -Wl,--as-needed -Wl,-z,relro etc. so libbz2.so ships
+  # with the same RELRO+BIND_NOW posture as the rest of the base.
+  sed -i 's|^all: \(.*\)|LDFLAGS += '"$LDFLAGS"'\nall: \1|' Makefile-libbz2_so
+  make -f Makefile-libbz2_so
+  make clean
+  make -j$JOBS
+  make PREFIX=/usr install
+  install -Dm 0755 libbz2.so.1.0.8 /usr/lib/libbz2.so.1.0.8
+  ln -sf libbz2.so.1.0.8 /usr/lib/libbz2.so.1.0
+  ln -sf libbz2.so.1.0   /usr/lib/libbz2.so.1
+  ln -sf libbz2.so.1     /usr/lib/libbz2.so
+  cd /; rm -rf "$d"
+  pkg_mark bzip2
+fi
+
 if ! pkg_skip util-linux; then
   v=$ver_util_linux
   fname=$(pkg_file util-linux)
@@ -368,7 +401,15 @@ do
   url=$(pkg_url "$entry")
   fname=$(basename "$url")
   d=$(mktemp -d)
-  tar -xf "$SOURCES/$fname" -C "$d"
+  # tar in the rootfs was built with lbzip2 autodetected on the
+  # builder host's PATH and hardcodes it as the .bz2 decompressor —
+  # but lbzip2 isn't in the final rootfs. For *.tar.bz2 sources
+  # (libusb, today), force bzip2 (built in its own block above)
+  # via --use-compress-program. Other formats use tar's native path.
+  case "$fname" in
+    *.tar.bz2) tar --use-compress-program=bzip2 -xf "$SOURCES/$fname" -C "$d" ;;
+    *)         tar -xf "$SOURCES/$fname" -C "$d" ;;
+  esac
   inner=$(ls "$d" | head -n1)
   cd "$d/$inner"
   echo "[chroot-inner] building $entry-$v"
