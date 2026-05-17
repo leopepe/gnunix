@@ -349,10 +349,30 @@ do
   cd "$d/$inner"
   echo "[chroot-inner] building $entry-$v"
   hardening_export "$entry" native
+  # Per-package configure flag overrides. Keep the list small — the
+  # default `./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var`
+  # is right for the vast majority. Add a case here only when a package
+  # genuinely needs a different invocation.
+  extra_flags=""
+  case "$entry" in
+    procps-ng|psmisc)
+      # The base ncurses install in this rootfs predates `--enable-pc-files`
+      # so anything that probes for ncurses via pkg-config fails to find
+      # `ncursesw.pc` / `ncurses.pc`. procps-ng (`top`) and psmisc
+      # (`pstree --color`) both go through that path. `--without-ncurses`
+      # builds the non-TUI subset (`ps`, `free`, `uptime`, `pstree`
+      # without color/cursor). Real TUI tools come back via Nix
+      # (`nix-env -iA nixpkgs.htop`). Proper fix is to rebuild ncurses
+      # with --enable-pc-files; tracked as follow-up.
+      extra_flags="--without-ncurses"
+      ;;
+  esac
   if [ -x ./configure ]; then
-    ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var || true
+    # shellcheck disable=SC2086
+    ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var $extra_flags || true
   elif [ -x ./autogen.sh ]; then
-    ./autogen.sh && ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var || true
+    # shellcheck disable=SC2086
+    ./autogen.sh && ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var $extra_flags || true
   fi
   make -j$JOBS
   make install
