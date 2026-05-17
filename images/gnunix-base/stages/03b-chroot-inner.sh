@@ -533,8 +533,13 @@ if ! pkg_skip usbutils; then
   cd "$d/usbutils-$v"
   echo "[chroot-inner] building usbutils-$v (meson)"
   hardening_export "usbutils" native
-  meson setup build --prefix=/usr --buildtype=release \
-    -Dsystemdshutdowndir=/usr/lib/systemd/system-shutdown    # /dev/null path; we have no systemd
+  # usbutils v018 dropped all project options — there is no
+  # meson_options.txt and `meson.build` declares no `option(...)`. The
+  # earlier `-Dsystemdshutdowndir=...` flag now triggers
+  # `ERROR: Unknown options: "systemdshutdowndir"`. Vanilla `meson
+  # setup` is sufficient; v018 builds lsusb/lsusb.py/usbhid-dump
+  # without any systemd-shutdown integration.
+  meson setup build --prefix=/usr --buildtype=release
   meson compile -C build
   meson install -C build
   cd /; rm -rf "$d"
