@@ -12,7 +12,7 @@
     <img alt="Latest tag" src="https://img.shields.io/github/v/tag/leopepe/gnunix?sort=semver&logo=github">
   </a>
   <a href="https://github.com/leopepe/gnunix/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/leopepe/gnunix?logo=github">
+    <img alt="License: BSD-2-Clause" src="https://img.shields.io/badge/license-BSD--2--Clause-blue?logo=github">
   </a>
   <a href="https://github.com/leopepe/gnunix/commits/main">
     <img alt="Last commit" src="https://img.shields.io/github/last-commit/leopepe/gnunix?logo=github">
@@ -54,51 +54,38 @@ idea that the computer should do its job and then get out of your way so
 you can pursue Slack. We are stealing that idea with both hands and a
 getaway car. Praise "Bob."
 
-- **GNU coreutils, the way grandma made them.** `ls`, `cat`, `grep`,
-  `coreutils`, glibc, GCC — the GNU stack, compiled from source, doing
-  exactly the thing it has done well for thirty years. No `busybox`
-  shrink-ray, no Rust rewrite of `cp` with telemetry. The Conspiracy
-  would love for you to need sixteen background services to print a
-  directory listing; we refuse.
-- **`sysvinit` + `/etc/rc.d/` shell scripts, because PID 1 should be
-  boring.** Slackware-style not by accident: Volkerding named his distro
-  after Slack and then proved that an init system you can read in an
-  afternoon is the most Slack-maximizing thing on the disk. If you can
-  read `sh`, you can read our boot path. No D-Bus in PID 1, no unit
-  files, no "declarative supervision tree." There is `rc.S`, `rc.M`,
-  `rc.K`, and a directory full of `chmod +x`-toggled scripts. That's
-  the whole show. "Bob" would approve.
-- **Nix for everything that moves.** The base layer is a museum exhibit;
-  the userland is a hardware store. Editors, browsers, language
-  toolchains, the Wayland compositor itself — all of it lives in
-  `/nix/store`, pinned, reproducible, blow-away-able. Break your config?
-  `nix profile rollback`. Try a new compositor? `nix shell nixpkgs#river`.
-  Hate the result? Close the terminal. Reproducibility is just Slack
-  with receipts.
-- **Wayland, not X11.** We picked the modern display server, not the one
-  that remembers when monitors were beige. The compositor isn't bundled,
-  because the compositor is *your* business: pick `sway`, `river`,
-  `hyprland`, `niri`, whatever ships in nixpkgs this week. We just
-  guarantee `seatd`/`elogind`, `dbus`, and the portals work.
-- **No desktop environment shipped, on purpose.** GNUnix is a chassis,
-  not a car. We do not ship GNOME. We do not ship KDE. We ship a working
-  TTY, a working Nix, and a working Wayland substrate, and we hand you
-  the keys. You want a tiling WM and `foot`? Great. You want a full DE
-  somebody else maintains? Also great — it's three lines of
-  home-manager away. Less for us to maintain is more Slack for everyone
-  involved.
-- **The old where it still works, the new where it actually helps.**
-  `sysvinit` is forty years old and still boots a computer in under a
-  second. Nix is fifteen years old and solved dependency hell. Wayland
-  is younger than half our contributors' beards and finally fixed screen
-  tearing. We took the parts that aged well and skipped the parts that
-  didn't.
-- **Simple, direct, objective.** Each piece does one thing. Each
-  decision has an ADR explaining why we made it and what we rejected.
-  If a future maintainer asks "why is `dbus` started by `rc.dbus` and
-  not by an `@reboot` cron entry?", the answer is a one-page Markdown
-  file, not folklore. X-Day is coming; you do not want to be debugging
-  a unit file when it gets here.
+The base is GNU and stays GNU. `coreutils`, glibc, GCC, `bash`,
+`binutils` — compiled from source, doing exactly the thing they've done
+well for thirty years. No `busybox` shrink-ray. No Rust rewrite of `cp`
+that phones home to four telemetry endpoints before it can copy a file.
+The Conspiracy would love for you to need sixteen background services
+to print a directory listing; we refuse on principle.
+
+PID 1 is `sysvinit` because PID 1 should be boring. There is `rc.S`,
+`rc.M`, and a directory of `chmod +x`-toggled shell scripts, and that
+is the whole show. No unit files. No D-Bus in init. No declarative
+supervision tree. If you can read `sh`, you can read our boot path.
+Volkerding worked this out in 1993 and "Bob" has not, to our knowledge,
+sent a memo retracting it.
+
+Everything that moves lives in `/nix/store`. Editors, browsers, language
+toolchains, the Wayland compositor itself — pinned, reproducible,
+blow-away-able. Break your config? `nix profile rollback`. Try a new
+compositor? `nix shell nixpkgs#river`. Hate the result? Close the
+terminal. Reproducibility is just Slack with receipts.
+
+We ship Wayland, not X11 — substrate, not policy. `seatd`/`elogind`,
+`dbus`, portals: yes. A compositor: pick your own (`sway`, `hyprland`,
+`river`, `niri`, whatever nixpkgs has this week). A desktop environment:
+no. GNUnix is a chassis, not a car. You want tiling and `foot`? Great.
+You want a full DE somebody else maintains? Three lines of home-manager
+away. Less for us to maintain is more Slack for everyone involved.
+
+Every load-bearing decision has an ADR explaining why we made it and
+what we rejected. When a future maintainer asks "why is `dbus` started
+by `rc.dbus` and not by an `@reboot` cron entry?", the answer is a
+one-page Markdown file, not folklore. X-Day is coming; you do not want
+to be debugging a unit file when it gets here.
 
 Think of GNUnix as Slackware that read the Nix paper and decided
 reproducibility was, in fact, also Slack — or as NixOS that read the
