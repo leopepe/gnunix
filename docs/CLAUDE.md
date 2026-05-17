@@ -16,6 +16,7 @@ This repository contains reference documentation organized by topic. Load the re
 
 ### Loading Strategy
 
+0. **MemPalace first for searches.** If the question can be answered with a focused excerpt rather than a whole-file load (*"what does ADR-NNN say about X?"*, *"where is Y documented?"*, *"find references to Z"*), query the MemPalace MCP server (`mcp__mempalace__*` tools) before opening any file. The palace is a local index of `docs/` (ADRs, runbooks, architecture) plus the CLAUDE.md hierarchy; one query returns a ~600–900-token excerpt instead of pulling whole ADRs into the context window. Fall back to file `Read` only when the answer truly needs whole-file context, when you already know the exact path, or when you need the *current* state rather than the last-synced snapshot. See `CLAUDE.md § Searching documentation with MemPalace` for the full guidance.
 1. **Start minimal.** Do not preload all documentation. Identify the topic of the user's request first.
 2. **Match the topic** to the table above and load only the files needed.
 3. **Cross-topic requests:** If a request spans multiple topics (e.g., "why does the deploy runbook do X?"), load files from each relevant topic (the runbook + the related ADR + `architecture.md` if needed).
