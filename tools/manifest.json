@@ -370,6 +370,12 @@
       "url": "https://github.com/vcrhonek/hwdata/archive/refs/tags/v0.391.tar.gz",
       "sha256": "620fe1c22922a3d1bd1062424e9cc6b954acea2f83b72ff0cb45144981cb1975"
     },
+    "bzip2": {
+      "$note": "Block-sorting compression utility + libbz2. Needed in base because (a) the temp-tools tar was configured with lbzip2 on PATH and hardcodes it as the bz2 decompressor — the rootfs has neither lbzip2 nor bzip2, so any .tar.bz2 extraction fails with `lbzip2: Cannot exec`; and (b) libusb (below) only ships .tar.bz2. The autotools loop in 03b-chroot-inner.sh passes --use-compress-program=bzip2 to tar for any *.tar.bz2 source so the chroot doesn't depend on tar's compile-time autodetect.",
+      "version": "1.0.8",
+      "url": "https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz",
+      "sha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"
+    },
     "libusb": {
       "$note": "Userspace USB API. usbutils' lsusb links libusb-1.0 to enumerate devices via /dev/bus/usb/* — the procfs path was removed from modern kernels years ago. Must build before usbutils.",
       "version": "1.0.29",
