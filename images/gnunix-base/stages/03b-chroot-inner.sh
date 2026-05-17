@@ -360,7 +360,7 @@ for entry in \
   ncurses readline pam \
   kmod procps-ng psmisc sysklogd \
   popt cronie logrotate \
-  hwdata
+  hwdata libusb
 do
   pkg_skip "$entry" && continue
   v=$(pkg_ver "$entry")
