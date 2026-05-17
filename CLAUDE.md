@@ -327,6 +327,36 @@ Issues:
   do* above.
 - Don't bundle a version bump with an unrelated change (ADR-008).
 
+## Searching documentation with MemPalace
+
+The repo is indexed into [**MemPalace**](https://github.com/mempalace/mempalace)
+— a local, file-based document index populated by `tools/mempalace-sync.sh`.
+The `gnunix` wing carries ~3,000 drawers across `technical`, `architecture`,
+`decisions`, `runbooks`, and `planning` rooms. Wiring is per-developer:
+`claude mcp add mempalace -- mempalace-mcp` registers the MCP server with
+Claude Code; `mcp__mempalace__*` tools become available the next session.
+
+**Reach for MemPalace first when the question requires searching `docs/`
+or cross-cutting project documentation.** Typical triggers: *"what does
+ADR-NNN say about X?"*, *"where do we document Y?"*, *"find references
+to Z across the runbooks"*, *"what's the rationale behind &lt;decision&gt;?"*.
+A single query returns a focused excerpt (~600–900 tokens) rather than
+reading whole ADRs into the context window.
+
+**Use direct `Read` instead when:**
+
+- The exact file path is already known — `Read` is faster and exact.
+- The answer needs the *current* state of a file (the palace is a snapshot
+  of the last `tools/mempalace-sync.sh` run; pre-merge or in-flight changes
+  won't be there yet).
+- The target is source code, CI workflows, or scripts — `grep`/Explore
+  handle those better. MemPalace is for narrative docs (ADRs, runbooks,
+  architecture, CLAUDE.md hierarchy).
+
+**Keep the index honest.** After substantive changes to ADRs, runbooks,
+`architecture.md`, or any top-level CLAUDE.md, re-run
+`tools/mempalace-sync.sh` so the next session starts from a fresh index.
+
 ## External tooling on the host (macOS)
 
 - `tart` — VM lifecycle.
