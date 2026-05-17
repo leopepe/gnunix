@@ -370,8 +370,14 @@
       "url": "https://github.com/vcrhonek/hwdata/archive/refs/tags/v0.391.tar.gz",
       "sha256": "620fe1c22922a3d1bd1062424e9cc6b954acea2f83b72ff0cb45144981cb1975"
     },
+    "libusb": {
+      "$note": "Userspace USB API. usbutils' lsusb links libusb-1.0 to enumerate devices via /dev/bus/usb/* — the procfs path was removed from modern kernels years ago. Must build before usbutils.",
+      "version": "1.0.29",
+      "url": "https://github.com/libusb/libusb/releases/download/v1.0.29/libusb-1.0.29.tar.bz2",
+      "sha256": "5977fc950f8d1395ccea9bd48c06b3f808fd3c2c961b44b0c2e6e29fc3a70a85"
+    },
     "usbutils": {
-      "$note": "lsusb. Meson build; depends on hwdata for the device-name lookup tables.",
+      "$note": "lsusb. Meson build; depends on libusb-1.0 (above) + hwdata for the device-name lookup tables.",
       "version": "018",
       "url": "https://www.kernel.org/pub/linux/utils/usb/usbutils/usbutils-018.tar.xz",
       "sha256": "83f68b59b58547589c00266e82671864627593ab4362d8c807f50eea923cad93"
