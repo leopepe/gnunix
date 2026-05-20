@@ -30,7 +30,7 @@ This calls `images/gnunix-minimal/build.sh`, which:
 ## Smoke test
 
 ```sh
-tests/minimal-smoke.sh gnunix-minimal-0.1.0
+tests/minimal/minimal-smoke.sh gnunix-minimal-0.1.0
 ```
 
 Boots the image, ssh's in as root, validates:

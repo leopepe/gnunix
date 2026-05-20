@@ -179,7 +179,7 @@ in addition to the base.
    REUSE_BUILDER=1 tools/build-all.sh lfs-core   # re-runs stage 04
    ```
 
-7. `tests/boot-smoke.sh lfs-core-0.1.0` — must still pass (DHCP +
+7. `tests/base/boot-smoke.sh lfs-core-0.1.0` — must still pass (DHCP +
    sshd up means VIRTIO_NET was auto-loaded by eudev).
 8. Re-layer Nix and Wayland on top.
 

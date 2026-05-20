@@ -1,11 +1,11 @@
-# ADR-016: CI strategy — split build (local Tart) and validation/release (GitHub-hosted Linux)
+# ADR-016: CI runs everything on hosted `ubuntu-22.04-arm`
 
-**Status:** Accepted (amended by [ADR-021](ADR-021-no-self-hosted-runners.md))
+**Status:** Superseded by [ADR-021](ADR-021-hosted-runners-only.md)
 **Date:** 2026-05-15
 **Amends:** [ADR-008](ADR-008-renovate-and-release.md)
-**Amended:** 2026-05-16 — ADR-021 removes the self-hosted Mac runner option entirely. ADR-016's split (local Mac for `gnunix-base` rebuild → hosted Linux for routine validation) survives; the local Mac is reaffirmed as an *unmanaged developer machine*, not a self-hosted runner.
+**Superseded:** 2026-05-19 — ADR-021 collapses the "local Mac / hosted Linux" split. The LFS build runs in CI on `ubuntu-22.04-arm` via chroot (no Tart needed). ADR-016's split was based on the mistaken assumption that the LFS build required Tart.
 
-## Context
+## Context (historical)
 
 ADR-008 set the CI runner to "macOS arm64 runner under
 `.github/workflows/build.yml`" with the implicit assumption that
@@ -23,12 +23,13 @@ are not, and won't be soon:
   `runs-on: [self-hosted, macOS, arm64, tart]` queues forever, blocking
   every PR merge.
 
-We need a CI strategy that works on **free** GitHub-hosted runners
-while still producing the same artifacts (raw `.img.zst` pendrive
-images, hybrid `.iso` for x86_64 NUCs, signed GitHub Releases) the
-project needs.
+This ADR was written when the LFS build was assumed to require Tart.
+ADR-021 later demonstrated that the LFS build is a chroot process and
+does not need Virtualization.framework. The hosted `ubuntu-22.04-arm`
+runner (a Graviton instance with native arm64 Linux) can chroot, compile,
+and produce the same artifacts.
 
-## Hard constraints
+## Hard constraints (from ADR-016's original intent)
 
 - **Full `gnunix-base` build ≈ 6–10 h** on Apple Silicon w/ native
   virtualization. The hosted-runner free-tier job timeout is 6 h. A
@@ -41,184 +42,44 @@ project needs.
 - GitHub-hosted **arm64 Linux runners** (`ubuntu-22.04-arm`,
   `ubuntu-24.04-arm`) are **free for public repos** as of 2024–2025.
 
-## Decision
+## Decision (as superseded by ADR-021)
 
-Split CI into two streams that share the **same entrypoint scripts**:
+ADR-016 originally split CI into two streams. ADR-021 collapsed that
+split into one:
 
-### Local dev (developer's Mac)
+> Free GitHub-hosted runners do everything. The LFS base build runs on
+> `ubuntu-22.04-arm` via chroot, split into four cacheable stages
+> (cross-toolchain, temp-tools, chroot, finalize) so the 6–10 hour
+> total doesn't hit the 6-hour per-job timeout.
 
-- Driver: **Tart** (Apple Virtualization.framework, native arm64).
-- Used for: full `gnunix-base` build (when toolchain pins change),
-  fast dev iteration on downstream layers.
-- Default: `tools/build-all.sh <image>` autodetects macOS and uses
-  Tart. No env var needed.
+The implementation details are in [ADR-021](ADR-021-hosted-runners-only.md).
 
-### GitHub-hosted CI
+## What was preserved from ADR-016
 
-- Runner: `ubuntu-22.04-arm` (or newer arm64 hosted variant).
-- Driver: **qemu-system-aarch64 + KVM accel**.
-- Used for: lint, layering (nix/desktop/installer), boot smokes,
-  installer-test matrix, package matrix, release assembly.
-- `gnunix-base` is treated as a **vendored input**: the maintainer
-  publishes a `gnunix-base-disk-<ver>.img.zst` to GitHub Releases
-  when toolchain pins change (kernel, glibc, binutils, gcc, sysvinit,
-  eudev, dbus, elogind, GRUB — the "human review required" list
-  in [ADR-008](ADR-008-renovate-and-release.md)). CI consumes it via
-  `gh release download`.
+- The **stage-split** concept (splitting the LFS build into cacheable
+  stages to avoid the 6-hour timeout). ADR-021 adopted this and made
+  it the core of the pipeline.
+- The **qemu+KVM for tests** approach. ADR-021 kept this unchanged.
+- The **free for public repos** model. ADR-021 kept this unchanged.
+- The **one scripts API** (same `tools/`, `tests/`, `scripts/` commands
+  work in both environments). ADR-021 simplified this: there is now
+  only one environment (hosted CI), and the local Mac path is a
+  development convenience, not a CI requirement.
 
-## Implementation
+## Why ADR-016 is superseded
 
-### VM-driver abstraction
+ADR-016's split ("local Mac for base, hosted Linux for validation") was
+based on the assumption that the LFS build required Tart. ADR-021
+demonstrated that assumption was wrong: the LFS build is a chroot
+process and runs on any arm64 Linux, including the hosted
+`ubuntu-22.04-arm` runner. The split was a workaround for a misread
+constraint, not an architectural necessity.
 
-A new shim lets the same scripts drive Tart locally and qemu in CI:
+## Remediation for the stuck branch-protection PR (historical)
 
-```
-scripts/vm-helpers.sh        # autodetects driver; exports vm_* API
-  ├── if uname=Darwin  or VM_DRIVER=tart:  source scripts/tart-helpers.sh
-  └── else (Linux)     or VM_DRIVER=qemu:  source scripts/qemu-helpers.sh
-```
-
-API surface (mirrors what `tart-helpers.sh` already provides):
-
-```
-vm_exists <name>
-vm_clone <src> <dst>
-vm_delete <name>
-vm_run_detached <name> [--disk <path>:<opts>...]
-vm_wait_ssh <name> <user>
-vm_ssh <name> <user> [-- <cmd>...]
-vm_ip <name>
-vm_stop <name>
-vm_export_raw_img <name> <out.img>
-```
-
-### Existing entrypoints UNCHANGED
-
-- `tools/build-all.sh <image>`
-- `tools/package-platform.sh <image> <arch> <platform>`
-- `tools/promote.sh`
-- `tests/boot-smoke.sh`, `tests/minimal-smoke.sh`, `tests/wayland-session.sh`
-- `tests/installer/profile-*.sh`, `tests/installer/run-all.sh`
-- `scripts/run-installer-test.sh`, `scripts/validate-installed.sh`
-
-Internal call sites migrate `tart_*` → `vm_*`. Driver autodetect picks
-the right backend at source time.
-
-### Three-PR migration plan
-
-1. **PR: `vm-helpers` abstraction.** Introduce `scripts/vm-helpers.sh`.
-   Rename internal call sites (`tart_clone` → `vm_clone`, etc.). Pure
-   refactor; CI behavior identical. Adds a path filter to `build.yml`
-   so docs-only PRs don't trigger the heavy build jobs.
-2. **PR: qemu driver.** Add `scripts/qemu-helpers.sh` implementing the
-   `vm_*` API via `qemu-system-aarch64 -machine virt -accel kvm`. Add
-   `VM_DRIVER=qemu` env override. Local Mac users still default to
-   Tart. Add `tools/get-base-image.sh` to fetch a published
-   `gnunix-base` artifact (or use a local Tart VM if present).
-3. **PR: migrate CI jobs.** Move `gnunix-minimal`, `gnunix-desktop`,
-   `gnunix-installer`, `installer-test`, `package`, and `release.yml`
-   off `[self-hosted, macOS, arm64, tart]` and onto
-   `ubuntu-22.04-arm`. Mark `gnunix-base` job as
-   `workflow_dispatch`-only (manual toolchain-bump rebuild), drop it
-   from the required-status-checks ruleset. Self-hosted Mac runner
-   becomes optional, used only when the maintainer manually triggers
-   a full base rebuild.
-
-## What changes from ADR-008
-
-ADR-008's pipeline shape line "GH Actions: build affected images on
-macOS arm64 runner → run boot-smoke + wayland-session tests inside
-Tart" is **superseded for routine CI**. The new shape is:
-
-```
-PR / push:
-  Renovate or developer PR
-    → ubuntu-latest:    lint (shellcheck, actionlint, gitleaks, manifest-schema)
-    → ubuntu-22.04-arm: layer images (nix, desktop, installer) under qemu+KVM
-                        run boot-smoke + minimal-smoke + wayland-session
-                        run installer-test matrix
-                        run package matrix
-    → on green: auto-merge userland bumps (ADR-008 unchanged here)
-  push tag v*:
-    → ubuntu-latest: release.yml assembles + publishes (ADR-008 unchanged)
-
-Toolchain-pin bump (kernel/glibc/gcc/binutils/sysvinit/eudev/dbus/
-                    elogind/GRUB — the "human review required" set):
-  Maintainer (locally on Mac):
-    → tools/build-all.sh gnunix-base   (~6–10 h with Tart)
-    → tools/promote-base.sh            (uploads .img.zst to GH Release)
-  PR validation then proceeds normally.
-```
-
-The rest of ADR-008 stands: Renovate as the bump source, auto-merge
-userland but human-review base, GitHub Releases as the artifact host,
-`tools/manifest.json` as the pin map.
-
-**ADR-008 is amended, not superseded** — the runner topology and the
-treatment of `gnunix-base` change; the dependency-update and release
-model do not. A back-pointer is added to ADR-008.
-
-## Consequences
-
-- **PR feedback loop unblocks**: lint + layering + tests all run on
-  free hosted runners. Wall clock ~30 min per PR vs. ~7 h for a
-  from-scratch base build.
-- **Base rebuilds become explicit release events**: when Renovate
-  proposes a kernel/glibc/gcc/etc. bump, the maintainer runs
-  `tools/build-all.sh gnunix-base` locally, runs `tools/promote-base.sh`
-  (new), and the new base lands as a GH Release that downstream CI
-  consumes.
-- **Cross-OS dev story improves**: a Linux contributor can
-  `VM_DRIVER=qemu tools/build-all.sh gnunix-minimal` locally without
-  needing a Mac. Tart stops being a hard requirement for development;
-  it's just the fastest local backend on Apple Silicon.
-- **No paid infra**. Free public-repo arm64 hosted runners cover
-  routine CI; the maintainer's Mac covers base builds.
-- **One scripts API** keeps cognitive load low: same `tools/`,
-  `tests/`, `scripts/` commands work in both environments.
-- **Hybrid still possible**: if a self-hosted Mac runner gets
-  provisioned later, the `gnunix-base` job can re-enable on PR. The
-  abstraction doesn't preclude that.
-
-## Out of scope
-
-- Funding a self-hosted Mac runner. If the project audience grows
-  and full-on-every-PR base rebuild becomes valuable, revisit
-  (e.g., MacStadium ~$60/month per M2 mini, or hosted self-hosted
-  M2 runners on GitHub at ~$0.16/min).
-- Cross-arch CI (x86_64). The hosted arm64 runners are arm64-only.
-  When `nuc-installer` x86_64 path comes online per
-  [ADR-010](ADR-010-multi-arch-and-platforms.md) Phase 5, a separate
-  Linux x86_64 runner is needed (also free for public repos).
-- **Visual smoke** (capture a rendered Wayland frame). Same
-  out-of-scope status as in [ADR-009](ADR-009-wayland-stack.md).
-  Tracked in `docs/TODO.md`.
-
-## Revisit when
-
-- A self-hosted Mac runner becomes available (re-enable
-  `gnunix-base` as a PR-gated job).
-- `qemu-system-aarch64 -accel kvm` ceases to be available on
-  GitHub-hosted arm64 runners (unlikely; documented for the future
-  reader).
-- x86_64 path goes live and needs its own runner story.
-
-## Remediation for the stuck branch-protection PR
-
-The bootstrap PR for the `main-protection` ruleset (PR #1) is
-blocked by the very rules it sets up. Two paths to unblock:
-
-1. **One-time admin bypass** to merge PR #1
-   (`current_user_can_bypass: pull_requests_only` in the ruleset).
-2. **After this ADR is merged**, update the ruleset's
-   `required_status_checks` to drop `gnunix-base`, `gnunix-minimal`,
-   `gnunix-desktop`, `gnunix-installer` (none of which have a
-   working runner) and add the new hosted-runner checks once the
-   migration PRs land:
-   - `installer-test (minimal)`
-   - `installer-test (desktop-sway)`
-   - `package (gnunix-minimal / aarch64 / generic-uefi)`
-   - `package (gnunix-desktop / aarch64 / generic-uefi)`
-
-Order of operations: bypass-merge PR #1 → merge this ADR → land the
-three migration PRs → tighten the ruleset with the new check names.
+The bootstrap PR for the `main-protection` ruleset (PR #1) was
+blocked by the very rules it sets up. The path described below
+(bypass-merge PR #1 → merge this ADR → land the migration PRs) was
+part of ADR-016's original plan. ADR-021 inherits the same
+remediation path but with a simpler pipeline to wire up (one runner,
+one model).

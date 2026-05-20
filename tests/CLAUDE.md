@@ -68,10 +68,7 @@ tests/
 │   ├── profile-sway.sh
 │   ├── profile-hyprland.sh
 │   └── profile-labwc.sh
-│
-├── boot-smoke.sh        ──▶ base/boot-smoke.sh           (compat symlink)
-├── minimal-smoke.sh     ──▶ minimal/minimal-smoke.sh     (compat symlink)
-└── wayland-session.sh   ──▶ desktop/wayland-session.sh   (compat symlink)
+└── installer/                   gnunix-installer per-profile gate (Phase 5)
 ```
 
 **Conventions captured in the layout:**
@@ -88,14 +85,8 @@ tests/
   thin. Heavy logic (VM lifecycle, SSH waits, chrooted asserts) lives
   under `scripts/`; the entry-point's job is to be the *stable name*
   a reviewer or a workflow file references.
-- **Compat symlinks at the old top-level paths** keep `tests/boot-smoke.sh`,
-  `tests/minimal-smoke.sh`, and `tests/wayland-session.sh` working for
-  the many ADRs, runbooks, build-script echo lines, PR/issue
-  templates, and `docs/architecture.md` references that still point
-  at the pre-refactor names. **These symlinks are transitional**;
-  they exist purely to keep the rename's blast radius small. Tracked
-  for removal in the follow-up GitHub issue (see
-  *Transitional compat symlinks* below).
+- **No compat symlinks.** The pre-refactor top-level test scripts have
+   been removed; all callers use the canonical paths.
 - **A `README.md` inside a test-set directory is optional.** Add one
   only when the per-set workflow needs it — see
   [*Per-set `README.md` — when and what*](#per-set-readmemd--when-and-what).
@@ -130,9 +121,7 @@ Rules (in addition to the project-wide shell conventions in the root
 
   Existing scripts under `installer/` follow this. The three
   per-image scripts (`base/`, `minimal/`, `desktop/`) also need a
-  POSIX symlink-resolving preamble so they keep working when invoked
-  through the transitional compat symlinks at the old top-level
-  paths — see [*Transitional compat symlinks*](#transitional-compat-symlinks) below for the canonical snippet.
+  paths — the preamble was removed when the compat symlinks were deleted.
 - **Exit non-zero with a one-line reason on failure.** The image
   validators echo `FAIL: <reason>` and exit; reviewers and CI logs
   rely on that single line. The root `CLAUDE.md` makes this an
@@ -251,11 +240,7 @@ REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}
 exec "$REPO_ROOT/scripts/<validator>.sh" "<args>"
 ```
 
-If the entry point is *also* reachable through a transitional compat
-symlink at an older path, insert the symlink-resolving preamble
-shown under [*Transitional compat symlinks*](#transitional-compat-symlinks).
-New tests added after this refactor do **not** need the preamble —
-they have no legacy callers to keep working.
+New tests do **not** need a symlink-resolving preamble — the canonical paths are real files, not symlinks.
 
 ### Rules for the GWT block
 
@@ -308,10 +293,7 @@ tests/base/boot-smoke.sh           gnunix-base-0.1.0
 tests/minimal/minimal-smoke.sh     gnunix-minimal-0.2.0
 tests/desktop/wayland-session.sh   gnunix-desktop-0.2.0
 
-# The compat symlinks still work (used by older docs and ADRs):
-tests/boot-smoke.sh                gnunix-base-0.1.0
-tests/minimal-smoke.sh             gnunix-minimal-0.2.0
-tests/wayland-session.sh           gnunix-desktop-0.2.0
+
 
 # Installer: single profile, then all profiles:
 tests/installer/profile-minimal.sh
@@ -398,62 +380,8 @@ pull requests*).
 
 ## Transitional compat symlinks
 
-The three pre-refactor top-level entry points are kept as **relative
-symbolic links** so existing references in ADRs, runbooks, the PR
-template, `docs/architecture.md`, and the per-image `build.sh` echo
-lines continue to resolve:
-
-```
-tests/boot-smoke.sh        ─▶  base/boot-smoke.sh
-tests/minimal-smoke.sh     ─▶  minimal/minimal-smoke.sh
-tests/wayland-session.sh   ─▶  desktop/wayland-session.sh
-```
-
-These exist to **reduce the blast radius** of the rename. They are
-not a load-bearing feature; once every caller has been migrated to
-the canonical `tests/<set>/<scenario>.sh` form, the symlinks come
-out. This is tracked in a follow-up GitHub issue linked from the PR
-that introduced the refactor — search the issue tracker for *compat
-symlinks* if you need the live link.
-
-Because POSIX shells leave `$0` as the *invocation* path (symlinks
-are not resolved automatically), the canonical scripts behind a
-compat symlink **must** resolve `$0` before computing `REPO_ROOT`,
-or they'll mis-locate the repo root when called through the old
-name. The canonical snippet (copy verbatim):
-
-```sh
-set -eu
-
-# Resolve $0 through the compat symlink at the old path so REPO_ROOT
-# computes correctly whether we were invoked as tests/<scenario>.sh
-# or as tests/<set>/<scenario>.sh. POSIX-safe; `readlink` without `-f`
-# works on both macOS and Linux.
-SCRIPT=$0
-while [ -L "$SCRIPT" ]; do
-  TARGET=$(readlink "$SCRIPT")
-  case "$TARGET" in
-    /*) SCRIPT=$TARGET ;;
-    *)  SCRIPT=$(dirname "$SCRIPT")/$TARGET ;;
-  esac
-done
-REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$SCRIPT")/../.." && pwd)}
-```
-
-Rules:
-
-- **Do not add new compat symlinks** for tests created after this
-  refactor. They exist only to bridge the rename of the three
-  pre-existing top-level scripts.
-- **Do not promote a canonical test path to a symlink.** The
-  canonical entry point is the real file at `tests/<set>/<scenario>.sh`.
-  The symlinks at the top level point *at* it, not the other way
-  around.
-- **Removing the symlinks** is a separate PR. The conditions are:
-  every reference in `docs/`, `.github/`, `runbook.md`, and the
-  `images/*/build.sh` echo lines has been switched to the canonical
-  path; the follow-up issue is the gate.
-- **Until removed**, the symlink-resolving preamble stays on the
-  three migrated scripts. Once the symlinks are gone, the preamble
-  collapses back to the standard one-liner shown in the GWT
-  template.
+**Removed.** The three pre-refactor top-level entry points have been
+deleted; all references now use the canonical
+`tests/<set>/<scenario>.sh` form. The symlink-resolving preambles in
+the three migrated scripts were also removed — the canonical paths
+are real files, not symlinks.

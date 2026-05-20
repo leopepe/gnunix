@@ -103,7 +103,7 @@ never via interactive `nix-env`.
   - `etc/rc.d/rc.dbus`, `rc.elogind`, `rc.greetd`, `rc.M`
   - `etc/greetd/config.toml`, `etc/sway/config`, `etc/pam.d/greetd`
 - `rc.M` gains `run_if_enabled rc.greetd` after `rc.nix-daemon`.
-- `tests/wayland-session.sh` validates: dbus + elogind daemons present and
+- `tests/desktop/wayland-session.sh` validates: dbus + elogind daemons present and
   running, greetd binary on PATH, rc scripts enabled, user `user` exists,
   `virtio-gpu` DRM device present.
 - Architecture doc updated: the dbus/elogind row is annotated "sourced from

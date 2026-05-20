@@ -8,9 +8,9 @@ These complement the upstream image tests:
 
 | Image | Test |
 |---|---|
-| `gnunix-base` | `tests/boot-smoke.sh` (boots, ssh, dbus, nix-daemon) |
-| `gnunix-minimal` | `tests/minimal-smoke.sh` |
-| `gnunix-desktop` | `tests/wayland-session.sh` |
+| `gnunix-base` | `tests/base/boot-smoke.sh` (boots, ssh, dbus, nix-daemon) |
+| `gnunix-minimal` | `tests/minimal/minimal-smoke.sh` |
+| `gnunix-desktop` | `tests/desktop/wayland-session.sh` |
 | `gnunix-installer` *output for each profile* | **`tests/installer/profile-*.sh`** |
 | `gnunix-installer` *TUI interactions* | **`tests/installer/tui-interactions.sh`** |
 

@@ -15,7 +15,7 @@ This runbook indexes the in-depth runbooks under `docs/runbooks/`.
 | Bootstrap `gnunix-builder`, fetch sources, build `gnunix-base`, package as Tart image | [`docs/runbooks/build.md`](docs/runbooks/build.md) |
 | Smoke-test a built `gnunix-base-<ver>` Tart image | [`docs/runbooks/test-image.md`](docs/runbooks/test-image.md) |
 
-The pipeline produces a bootable `gnunix-base-0.1.0` Tart VM that passes `tests/boot-smoke.sh` (SSH + default route). `dbus`/`elogind` are deferred to a later phase.
+The pipeline produces a bootable `gnunix-base-0.1.0` Tart VM that passes `tests/base/boot-smoke.sh` (SSH + default route). `dbus`/`elogind` are deferred to a later phase.
 
 ## Phase 3 — adding the Nix layer ✓ complete
 
@@ -26,7 +26,7 @@ The pipeline produces a bootable `gnunix-base-0.1.0` Tart VM that passes `tests/
 
 ```sh
 tools/build-all.sh gnunix-minimal             # ~5-15 min; clones gnunix-base, scp+install Nix
-tests/minimal-smoke.sh gnunix-minimal-0.1.0       # verifies nix + daemon + nixbld users
+tests/minimal/minimal-smoke.sh gnunix-minimal-0.1.0       # verifies nix + daemon + nixbld users
 ```
 
 ## Phase 4 — Wayland session bring-up ✓ scaffolded
@@ -39,7 +39,7 @@ tests/minimal-smoke.sh gnunix-minimal-0.1.0       # verifies nix + daemon + nixb
 
 ```sh
 tools/build-all.sh gnunix-desktop             # ~10-25 min; clones gnunix-minimal, installs system Nix profile
-tests/wayland-session.sh gnunix-desktop-0.1.0 # verifies dbus + elogind + greetd + user
+tests/desktop/wayland-session.sh gnunix-desktop-0.1.0 # verifies dbus + elogind + greetd + user
 ```
 
 The Phase 4 v1 smoke test asserts components are installed and supervised.
@@ -105,18 +105,18 @@ tools/phase2.sh
 tools/bootstrap-builder.sh                   # one-time: produce gnunix-builder:base (auto-installs SSH key)
 tools/fetch-sources.sh                       # pre-fetch tarballs to cache/sources/ (host network)
 tools/build-all.sh gnunix-base                  # build + mkimage + tart-import → gnunix-base-<ver>
-tests/boot-smoke.sh gnunix-base-0.1.0           # acceptance test
+tests/base/boot-smoke.sh gnunix-base-0.1.0           # acceptance test
 
 # Resume a failed Phase 2 build, preserving completed in-VM stages (cross, etc.):
 REUSE_BUILDER=1 tools/build-all.sh gnunix-base
 
 # Phase 3: layer Nix on top of the Phase 2 image.
 tools/build-all.sh gnunix-minimal                   # → gnunix-minimal-<ver>
-tests/minimal-smoke.sh gnunix-minimal-0.1.0
+tests/minimal/minimal-smoke.sh gnunix-minimal-0.1.0
 
 # Phase 4: layer dbus/elogind/greetd/sway on top of the Phase 3 image.
 tools/build-all.sh gnunix-desktop               # → gnunix-desktop-<ver>
-tests/wayland-session.sh gnunix-desktop-0.1.0
+tests/desktop/wayland-session.sh gnunix-desktop-0.1.0
 
 # Retrofit SSH key into a bootstrapped-but-keyless builder snapshot:
 tools/install-builder-key.sh

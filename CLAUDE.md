@@ -131,8 +131,7 @@ tests/        — image acceptance / smoke tests, one directory per image:
               —   tests/desktop/  gnunix-desktop (Phase 4: wayland session)
               —   tests/installer/ gnunix-installer (Phase 5: profiles)
               — See `tests/CLAUDE.md` for layout rules, GWT scenario
-              — format, and the transitional compat symlinks at the old
-              — top-level paths.
+               — format. The transitional compat symlinks have been removed.
 runbook.md    — index of other runbooks in `docs/runbooks/`
 ```
 
@@ -186,13 +185,8 @@ nice but not sufficient. Each image has a dedicated test set under
 - **`gnunix-desktop` / Wayland change** → `tests/desktop/wayland-session.sh <vm>` must pass (greetd → session → compositor on virtio-gpu → terminal opens).
 - **`gnunix-installer` change** → `tests/installer/profile-<name>.sh` must pass for the affected profile(s); `tests/installer/run-all.sh` runs all four.
 
-The three older entry points `tests/boot-smoke.sh`,
-`tests/minimal-smoke.sh`, and `tests/wayland-session.sh` still work as
-**transitional compat symlinks** pointing at the canonical paths
-above. New work should call the canonical paths; the symlinks are
-slated for removal once every reference (ADRs, runbooks, PR/issue
-templates, `build.sh` echo lines) has migrated.
-
+- The compat symlinks at the old top-level test paths have been
+  `tests/<set>/<scenario>.sh` form.
 ### Authoring or modifying tests
 
 Whenever the task involves creating, deleting, restructuring, or
@@ -254,7 +248,7 @@ When the user asks to build, resume, or test `gnunix-base`, use these entry poin
 ## Updates and release flow (ADR-008)
 
 - Pinned versions live in `tools/manifest.json`, `bundles/*.nix`, and image build scripts. **Don't** bump pins ad hoc.
-- Renovate opens version-bump PRs. CI (macOS arm64 runner under `.github/workflows/build.yml`) rebuilds affected images and runs `tests/base/boot-smoke.sh` + `tests/desktop/wayland-session.sh` (the legacy `tests/boot-smoke.sh` / `tests/wayland-session.sh` compat symlinks still resolve — see `tests/CLAUDE.md`).
+- Renovate opens version-bump PRs. CI (`.github/workflows/build.yml` on `ubuntu-22.04-arm`) rebuilds affected images and runs `tests/base/boot-smoke.sh` + `tests/desktop/wayland-session.sh`.
 - **Auto-merge:** userland bumps (nixpkgs, bundles) that pass CI.
 - **Human review required:** kernel, glibc, binutils, gcc, sysvinit, eudev, dbus, elogind, GRUB.
 - Releases publish Tart images (`*.tart.tar.zst`) + `manifest.json` as GitHub Release artifacts via `tools/promote.sh`.
@@ -319,9 +313,7 @@ Issues:
   any claim about a locked decision. Don't paraphrase the rationale; link
   to it.
 - Validation evidence must be real. If you didn't run
-  `tests/base/boot-smoke.sh` (or the legacy compat symlink
-  `tests/boot-smoke.sh`), don't tick its box. Note what you ran
-  instead under *Other* or *Reviewer notes*.
+    `tests/base/boot-smoke.sh`, don't tick its box.
 - Don't open meta-PRs that rewrite `README.md`, `CLAUDE.md`, or
   `CONTRIBUTING.md` for style. Fix factual errors only, per *What NOT to
   do* above.

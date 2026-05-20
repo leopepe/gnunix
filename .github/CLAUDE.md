@@ -22,9 +22,9 @@ your change touches a locked decision:
 | [ADR-008](../docs/adrs/ADR-008-renovate-and-release.md) | Renovate is the bump source. GitHub Releases is the artifact host. `tools/manifest.json:lfs_image_version` drives the release tag (auto-tagged by `tag-on-version-bump.yml`). Userland bumps auto-merge on green CI; base/toolchain bumps require human review. |
 | [ADR-010](../docs/adrs/ADR-010-multi-arch-and-platforms.md) | The CI matrix axis is `(arch, image, platform)`. Active arch is `aarch64`; x86_64 is scaffolded. |
 | [ADR-014](../docs/adrs/ADR-014-ai-pr-review.md) | Two-workflow split: `pr-lint.yml` (deterministic, **blocks**) vs `ai-review.yml` (advisory, **opt-in**, provider-agnostic via OpenAI-compatible API). |
-| [ADR-016](../docs/adrs/ADR-016-ci-split-build-and-validation.md) | Routine CI runs on free hosted `ubuntu-22.04-arm` with qemu+KVM. `gnunix-base` rebuilds happen on a developer's Mac and ship as release artifacts that CI fetches. |
+| [ADR-016](../docs/adrs/ADR-016-ci-split-build-and-validation.md) | Superseded by ADR-021; see ADR-021 for the current model. |
 | [ADR-018](../docs/adrs/ADR-018-artifact-taxonomy.md) | Artifact naming grammar: `gnunix-<image>-<arch>[-<platform>]-<ver>.<ext>`. Three forms: `.img.zst`, `.iso`, `.tart.zst`. `gnunix-minimal` is the release-dependency anchor. |
-| [ADR-021](../docs/adrs/ADR-021-no-self-hosted-runners.md) | **No self-hosted runners.** Ever. Every job in this repo runs on free hosted runners. `actionlint`'s `self-hosted-runner:` block exists only to catalogue hosted-runner labels the pinned actionlint version doesn't know yet — never to allow real self-hosted labels. |
+| [ADR-021](../docs/adrs/ADR-021-hosted-runners-only.md) | **Hosted runners only — LFS build runs in CI.** The `gnunix-base` rebuild (6–10 h) runs on `ubuntu-22.04-arm` via chroot, split into four cacheable stages (cross-toolchain, temp-tools, chroot, finalize). Self-hosted runners forbidden. `actionlint`'s `self-hosted-runner:` block exists only to catalogue hosted-runner labels the pinned actionlint version doesn't know yet — never to allow real self-hosted labels. |
 
 If your proposed change conflicts with any of these, **stop** and write
 an ADR (or amend an existing one) before editing the workflow.

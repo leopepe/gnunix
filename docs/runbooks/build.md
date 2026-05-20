@@ -24,7 +24,7 @@ This runs four stages in order, each idempotent and individually re-runnable:
 1. **Stage 0 — pre-fetch sources to `cache/sources/`** (`tools/fetch-sources.sh`). 5–15 min over your host's network. Mirror fallback handles `ftp.gnu.org` flakiness.
 2. **Stage 1 — bootstrap `gnunix-builder:base`** (`tools/bootstrap-builder.sh`). 10–25 min, one-time. Pulls cirruslabs Ubuntu, runs `provision.sh`, installs your SSH key, snapshots.
 3. **Stage 2 — build the gnunix-base image** (`tools/build-all.sh gnunix-base`). The long stage. Drives every LFS book chapter from inside `gnunix-builder-build`, then packages the result with `mkimage.sh` and imports it as `gnunix-base-<version>` via `tart create --linux` + disk swap (`tart-import.sh`).
-4. **Stage 3 — smoke test** (`tests/boot-smoke.sh gnunix-base-0.1.0`). Boots the new VM, validates SSH + default route, warns (but doesn't fail) on deferred services.
+4. **Stage 3 — smoke test** (`tests/base/boot-smoke.sh gnunix-base-0.1.0`). Boots the new VM, validates SSH + default route, warns (but doesn't fail) on deferred services.
 
 On success: `tart list` shows `gnunix-base-0.1.0`, and `tart run gnunix-base-0.1.0` boots a working LFS arm64 system.
 
@@ -72,7 +72,7 @@ REUSE_BUILDER=1 tools/build-all.sh gnunix-base
 
 ## Acceptance criteria (Phase 2 milestone)
 
-`tests/boot-smoke.sh gnunix-base-0.1.0` PASSes when:
+`tests/base/boot-smoke.sh gnunix-base-0.1.0` PASSes when:
 
 - VM gets a DHCP lease on virtio-net within ~30s.
 - `sshd` accepts the host's ed25519 key as root, with `pidof sshd` returning a PID.

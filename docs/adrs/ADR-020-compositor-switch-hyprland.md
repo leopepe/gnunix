@@ -113,7 +113,7 @@ its compositor-specific package list + config-file seed.
 
 ### Reference-session tests
 
-`tests/wayland-session.sh` (validates `gnunix-desktop`'s out-of-
+`tests/desktop/wayland-session.sh` (validates `gnunix-desktop`'s out-of-
 box session) updates:
 
 | Before | After |
@@ -165,7 +165,7 @@ around explicit sync and damage tracking. Two concrete defenses:
   is what most reliably breaks on weak GPUs; turning it off ships
   a smoother out-of-box experience. Users with capable hardware
   flip it on by editing one line.
-- `tests/wayland-session.sh` runs against Tart on every PR. If
+- `tests/desktop/wayland-session.sh` runs against Tart on every PR. If
   Hyprland regresses on virtio-gpu, the test catches it before
   shipping.
 
@@ -177,12 +177,12 @@ This ADR is implemented as a single PR (PR-5 in the refactor stack):
   package names.
 - Write the starter `/etc/hypr/hyprland.conf` (~50 lines).
 - Edit `start-wayland-session.sh`: one line.
-- Update `tests/wayland-session.sh`: ~6 line changes.
+- Update `tests/desktop/wayland-session.sh`: ~6 line changes.
 - Rewrite `desktop-sway.sh` profile to pull-at-install (mirrors
   `desktop-hyprland.sh`'s existing structure).
 - Extract `desktop-common.sh` helper from the three profile
   scripts.
-- Rebuild `gnunix-desktop` and verify `tests/wayland-session.sh`
+- Rebuild `gnunix-desktop` and verify `tests/desktop/wayland-session.sh`
   passes against Hyprland.
 
 No kernel rebuild required (Hyprland uses the same drm/virtio-gpu

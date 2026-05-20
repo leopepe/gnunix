@@ -50,7 +50,7 @@ This calls `images/gnunix-desktop/build.sh`, which:
 ## Smoke test
 
 ```sh
-tests/wayland-session.sh gnunix-desktop-0.1.0
+tests/desktop/wayland-session.sh gnunix-desktop-0.1.0
 ```
 
 Boots the image, ssh's in as root, validates:

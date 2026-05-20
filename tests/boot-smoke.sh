@@ -1,1 +1,0 @@
-base/boot-smoke.sh

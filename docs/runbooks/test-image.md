@@ -5,7 +5,7 @@ After `tools/build-all.sh gnunix-base` (or `tools/phase2.sh`) produces `gnunix-b
 ## Smoke test (automated)
 
 ```sh
-tests/boot-smoke.sh gnunix-base-0.1.0
+tests/base/boot-smoke.sh gnunix-base-0.1.0
 ```
 
 Returns 0 on pass; non-zero with a one-line failure reason otherwise. Driven by `scripts/validate-boot.sh`.

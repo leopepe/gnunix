@@ -53,7 +53,7 @@ Scope:
 - `tools/manifest.json` keys referencing `gnunix-nix`
 - `.github/workflows/build.yml` job names, artifact names, asset paths
 - `.github/workflows/release.yml` body text and globs
-- `tests/nix-smoke.sh` → `tests/minimal-smoke.sh`
+- `tests/minimal/minimal-smoke.sh` → `tests/minimal-smoke.sh`
 - `docs/architecture.md` lineage diagram + phase table
 - `CLAUDE.md` references in the "Phase status" section
 - `images/installer/*.sh` and `images/installer/README.md` strings

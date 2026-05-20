@@ -189,7 +189,7 @@ hot C++** with `_GLIBCXX_ASSERTIONS`. Acceptable.
 1. Land the manifest schema + `lib/hardening.sh` helper (no rebuild needed
    yet — it's dead code until stage scripts call it).
 2. Modify one stage at a time (cross-toolchain first, then temp-tools, then
-   chroot-inner). Each step: rebuild, run `tests/boot-smoke.sh`. If the
+   chroot-inner). Each step: rebuild, run `tests/base/boot-smoke.sh`. If the
    build breaks, the exclusion list grows by one row in the manifest.
 3. Once `lfs-core-0.2.0` boots clean with the full set, tag it and let
    Phase 3/4 inherit (they don't recompile anything — they layer on top).

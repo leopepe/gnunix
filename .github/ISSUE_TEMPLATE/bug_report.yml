@@ -60,7 +60,7 @@ body:
     id: expected
     attributes:
       label: What did you expect to happen?
-      placeholder: gnunix-base-0.1.0 builds and passes `tests/boot-smoke.sh`.
+      placeholder: gnunix-base-0.1.0 builds and passes `tests/base/boot-smoke.sh`.
     validations:
       required: true
 

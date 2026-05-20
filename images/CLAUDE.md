@@ -65,12 +65,12 @@ lineage, packaging, and release:
 | [ADR-011](../docs/adrs/) | Compile-time hardening flags |
 | [ADR-012](../docs/adrs/) | Module-first kernel |
 | [ADR-015](../docs/adrs/) | Live installer + 4 Wayland profiles |
-| [ADR-016](../docs/adrs/) | CI split (ubuntu-22.04-arm + local Mac) |
+| [ADR-016](../docs/adrs/) | Superseded by ADR-021; see ADR-021 for the current model |
 | [ADR-017](../docs/adrs/) | Live-ISO architecture (squashfs + overlayfs + initramfs) |
 | [ADR-018](../docs/adrs/) | Artifact types + naming grammar; `gnunix-minimal` as CI anchor |
 | [ADR-019](../docs/adrs/) | Image lineage roles + installer pivot |
 | [ADR-020](../docs/adrs/) | Hyprland as reference compositor |
-| [ADR-021](../docs/adrs/) | No self-hosted CI runners |
+| [ADR-021](../docs/adrs/) | Hosted runners only; LFS build runs in CI on `ubuntu-22.04-arm` via chroot, split into four cacheable stages |
 
 (Confirm the exact filename in `docs/adrs/` before linking from a PR
 body; the list above is the authoritative index of *which* ADRs apply
@@ -102,7 +102,7 @@ Per-directory roles:
   snapshotted, reused. Source of `gnunix-builder:base` tag.
 - `images/gnunix-base/` — LFS-ARM root with `sysvinit` + GNU userland
   + GRUB. Boring on purpose; do not put policy here. **Rebuild cost:
-  6–10 h on a Mac.** Per ADR-021, this rebuild runs on the
+  6–10 h total, split into four cacheable stages.** Per ADR-021, the CI pipeline runs on `ubuntu-22.04-arm` via chroot; the local Mac path (Tart) remains for development iteration.
   maintainer's local Mac (not CI) and ships as a GH Release artifact;
   downstream layers fetch it via `tools/fetch-image.sh`.
 - `images/gnunix-minimal/` — adds the multi-user Nix daemon and
@@ -195,15 +195,15 @@ All current scripts do this; new ones must too.
 Boot tests are the gate. Type-checking and shell linting are nice
 but not sufficient.
 
-- **Base / minimal image change** → `tests/boot-smoke.sh <image>`
+- **Base / minimal image change** → `tests/base/boot-smoke.sh <image>`
   must pass: boot, DHCP, TTY login, `dbus` running, `nix-daemon`
   responsive.
-- **Wayland / desktop change** → `tests/wayland-session.sh` must
+- **Wayland / desktop change** → `tests/desktop/wayland-session.sh` must
   pass: `greetd` → session → compositor on `virtio-gpu` → terminal
   opens.
 - **Installer change** → boot the ISO, run the whiptail TUI to
   completion against a scratch disk image, then boot the installed
-  system and re-run `tests/boot-smoke.sh` against it (ADR-015,
+  system and re-run `tests/base/boot-smoke.sh` against it (ADR-015,
   ADR-017, ADR-019).
 
 PR bodies must only tick the smoke-test boxes that actually ran.
@@ -215,14 +215,13 @@ Don't tick what you didn't run (root `CLAUDE.md` → *Content rules*).
   image build scripts. **Do not** bump pins ad hoc.
 - Renovate opens version-bump PRs. CI rebuilds affected images on
   free GitHub-hosted runners (`ubuntu-22.04-arm` for arm64 jobs) and
-  runs `tests/boot-smoke.sh` + `tests/wayland-session.sh`.
+  runs `tests/base/boot-smoke.sh` + `tests/desktop/wayland-session.sh`.
 - **Auto-merge:** userland bumps (nixpkgs, bundles) that pass CI.
 - **Human review required:** kernel, glibc, binutils, gcc,
   `sysvinit`, `eudev`, `dbus`, `elogind`, GRUB.
-- `gnunix-base` rebuilds (6–10 h) happen on the maintainer's local
-  Mac with Tart and ship as GH Release artifacts; CI fetches them via
-  `tools/fetch-image.sh` rather than rebuilding (ADR-016, ADR-021).
-  There is **no** self-hosted runner — ever.
+- `gnunix-base` rebuilds (6–10 h, split into four cacheable stages)
+  run on `ubuntu-22.04-arm` via chroot in CI (ADR-021). The local
+  Mac path (Tart) remains for development iteration.
 - Releases publish images (`.iso` / `.img.zst` / `.tart.zst`) +
   `manifest.json` as GitHub Release artifacts via
   `tools/promote.sh` / `tools/release-image.sh`.
@@ -239,14 +238,14 @@ next human action; see [`../runbook.md`](../runbook.md) and
 ## External tooling on the host (macOS)
 
 These are required on the maintainer's Mac (or any local builder).
-CI uses a different stack — see ADR-016 / ADR-021.
+CI uses a different stack — see ADR-021.
 
-- `tart` — VM lifecycle. Mandatory for the local `gnunix-base`
-  rebuild and for any local boot smoke test.
+- `tart` — VM lifecycle. For the local `gnunix-base` rebuild and
+  local boot smoke tests.
 - `nix` (host install, optional) — for cross-builds and local Nix
   experimentation.
 - `qemu` (optional) — fallback for non-arm64 emulation, and the
-  driver used by CI under `scripts/vm-helpers.sh` (ADR-016).
+  driver used by CI under `scripts/vm-helpers.sh` (ADR-021).
 
 The host Mac is for orchestration. Real builds happen inside
 `gnunix-builder` or downstream VMs — never directly on the host.
