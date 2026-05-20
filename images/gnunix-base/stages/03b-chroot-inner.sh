@@ -131,99 +131,19 @@ EOF
 # $LFS/usr/bin (gcc, cc, ar, as, ld, ...) so the chroot has a working
 # compiler. LFS book chapter 6.17 and 6.18.
 
-# Bison + Flex — yacc/lex parser+lexer generators. Used by iproute2 (and
-# many others). Not bootstrapped in temp-tools; built native in chroot.
-# LFS book chapter 7.7 (bison) + 7.6 (flex).
-if ! pkg_skip bison; then
-  v=$ver_bison
-  fname=$(pkg_file bison)
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  cd "$d/bison-$v"
-  echo "[chroot-inner] building bison-$v"
-  hardening_export "bison" native
-  ./configure --prefix=/usr --docdir=/usr/share/doc/bison-$v
-  make -j$JOBS
-  make install
-  cd /; rm -rf "$d"
-  pkg_mark bison
-fi
-
-if ! pkg_skip flex; then
-  v=$ver_flex
-  fname=$(pkg_file flex)
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  cd "$d/flex-$v"
-  echo "[chroot-inner] building flex-$v"
-  hardening_export "flex" native
-  ./configure --prefix=/usr --docdir=/usr/share/doc/flex-$v --disable-static
-  make -j$JOBS
-  make install
-  ln -sfv flex /usr/bin/lex
-  cd /; rm -rf "$d"
-  pkg_mark flex
-fi
-
-# gperf — perfect-hash generator; required by eudev (and a few others).
-if ! pkg_skip gperf; then
-  v=$ver_gperf
-  fname=$(pkg_file gperf)
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  cd "$d/gperf-$v"
-  echo "[chroot-inner] building gperf-$v"
-  hardening_export "gperf" native
-  ./configure --prefix=/usr --docdir=/usr/share/doc/gperf-$v
-  make -j$JOBS
-  make install
-  cd /; rm -rf "$d"
-  pkg_mark gperf
-fi
+# Bison + Flex — yacc/lex parser+lexer generators. SKIPPED: bind-mounted
+# from apt (provision.sh) via /usr/bin/lfs-tools. LFS book ch. 7.7 + 7.6.
 
 
+# gperf — perfect-hash generator. SKIPPED: bind-mounted from apt
+# (provision.sh). Available in chroot via /usr/bin/lfs-tools.
 
-# pkgconf — pkg-config implementation; required by dbus (and many others).
-# LFS book chapter 7.10. We install both pkgconf and a pkg-config symlink
-# so packages that explicitly ask for "pkg-config" find it.
-if ! pkg_skip pkgconf; then
-  v=$ver_pkgconf
-  fname=$(pkg_file pkgconf)
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  cd "$d/pkgconf-$v"
-  echo "[chroot-inner] building pkgconf-$v"
-  hardening_export "pkgconf" native
-  ./configure --prefix=/usr --disable-static --docdir=/usr/share/doc/pkgconf-$v
-  make -j$JOBS
-  make install
-  ln -sfv pkgconf /usr/bin/pkg-config
-  ln -sfv pkgconf.1 /usr/share/man/man1/pkg-config.1
-  cd /; rm -rf "$d"
-  pkg_mark pkgconf
-fi
 
-# Perl — required by libxcrypt's configure (uses Perl 5.14.0+) and many
-# other later builds. Build with the standard LFS chapter 7.13 invocation.
-# Configure uses sh-driven Configure (not autoconf), so flag style differs.
-# Pinned to 5.38.2 — 5.40.0 hit a locale.c codegen bug in our chroot env.
-if ! pkg_skip perl; then
-  v=$ver_perl
-  fname=$(pkg_file perl)
-  perl_majmin=$(echo "$v" | awk -F. '{print $1"."$2}')   # e.g. 5.38
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  cd "$d/perl-$v"
-  echo "[chroot-inner] building perl-$v"
-  hardening_export "perl" native
-  sh Configure -des \
-    -Dprefix=/usr -Dvendorprefix=/usr -Duseshrplib \
-    -Dprivlib=/usr/lib/perl5/$perl_majmin/core_perl \
-    -Darchlib=/usr/lib/perl5/$perl_majmin/core_perl \
-    -Dsitelib=/usr/lib/perl5/$perl_majmin/site_perl \
-    -Dsitearch=/usr/lib/perl5/$perl_majmin/site_perl \
-    -Dvendorlib=/usr/lib/perl5/$perl_majmin/vendor_perl \
-    -Dvendorarch=/usr/lib/perl5/$perl_majmin/vendor_perl
-  make -j$JOBS
-  make install
-  cd /; rm -rf "$d"
-  pkg_mark perl
-fi
+# pkgconf — pkg-config implementation. SKIPPED: bind-mounted from apt
+# (provision.sh). Available in chroot via /usr/bin/lfs-tools.
+
+# Perl — required by libxcrypt configure. SKIPPED: bind-mounted from
+# apt (provision.sh). Available in chroot via /usr/bin/lfs-tools.
 
 # libxcrypt — provides crypt() which glibc-2.40 no longer ships. Needed by
 # shadow (and anything else with password hashing). LFS book chapter 8 uses
@@ -243,30 +163,8 @@ if ! pkg_skip libxcrypt; then
   pkg_mark libxcrypt
 fi
 
-# Python — required by GRUB's configure (mandatory). Built AFTER libxcrypt
-# so Python's _crypt extension finds crypt() at link time (glibc 2.40 no
-# longer ships crypt; libxcrypt provides it).
-# Python's _uuidmodule.c calls uuid_generate_time_safe via configure-time
-# autodetect, but our libuuid <uuid/uuid.h> doesn't declare the prototype
-# in this build. C11 treats the implicit declaration as a hard error.
-# Prepend both the include and an explicit extern declaration so the
-# call type-checks; libuuid still provides the symbol at link time.
-if ! pkg_skip python; then
-  v=$ver_python
-  fname=$(pkg_file python)
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  cd "$d"/Python-$v
-  echo "[chroot-inner] building python-$v"
-  hardening_export "python" native
-  { printf '#include <uuid/uuid.h>\nextern int uuid_generate_time_safe(unsigned char *out);\n'; \
-    cat Modules/_uuidmodule.c; } > /tmp/_uuidmodule.c.new
-  mv /tmp/_uuidmodule.c.new Modules/_uuidmodule.c
-  ./configure --prefix=/usr --enable-shared --without-ensurepip
-  make -j$JOBS
-  make install
-  cd /; rm -rf "$d"
-  pkg_mark python
-fi
+# Python — required by GRUB configure. SKIPPED: bind-mounted from apt
+# (provision.sh). Available in chroot via /usr/bin/lfs-tools.
 
 # shadow — LFS book chapter 8.5 needs --without-libbsd (avoids libbsd
 # dependency for readpassphrase) and a few other specific flags + seds.
@@ -331,7 +229,7 @@ fi
 # Slackware-parity additions (procps-ng / psmisc / sysklogd) only need
 # the base toolchain.
 for entry in \
-  bash coreutils diffutils file findutils gawk grep gzip make patch sed tar xz \
+  bash coreutils diffutils file findutils gawk grep gzip sed tar xz \
   iproute2 dhcpcd less vim e2fsprogs zlib expat \
   ncurses readline pam \
   kmod procps-ng psmisc sysklogd \
@@ -429,41 +327,11 @@ for entry in sysvinit eudev; do
   pkg_mark "$entry"
 done
 
-# meson — Python build system, vendored in (no pip bootstrap needed).
-# Copies mesonbuild/ into Python's site-packages and meson.py to
-# /usr/bin/meson. Slackware uses the same approach.
-if ! pkg_skip meson; then
-  v=$ver_meson
-  fname=$(pkg_file meson)
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  cd "$d/meson-$v"
-  echo "[chroot-inner] installing meson-$v (vendor-copy)"
-  # Resolve the Python lib dir dynamically so a future python bump
-  # doesn't silently miss its site-packages.
-  py_libdir=$(python3 -c 'import sys; print(f"/usr/lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages")')
-  install -d -m 0755 "$py_libdir"
-  cp -r mesonbuild "$py_libdir/"
-  install -m 0755 meson.py /usr/bin/meson
-  # Smoke-test
-  meson --version
-  cd /; rm -rf "$d"
-  pkg_mark meson
-fi
+# meson — Python build system. SKIPPED: bind-mounted from apt
+# (provision.sh). Available in chroot via /usr/bin/lfs-tools.
 
-# ninja — bootstrap via the project's own python3 configure.py.
-if ! pkg_skip ninja; then
-  v=$ver_ninja
-  fname=$(pkg_file ninja)
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  cd "$d/ninja-$v"
-  echo "[chroot-inner] bootstrapping ninja-$v"
-  hardening_export "ninja" native
-  python3 configure.py --bootstrap
-  install -m 0755 ninja /usr/bin/ninja
-  ninja --version
-  cd /; rm -rf "$d"
-  pkg_mark ninja
-fi
+# ninja — build system generator. SKIPPED: bind-mounted from apt
+# (provision.sh). Available in chroot via /usr/bin/lfs-tools.
 
 # pciutils + dmidecode — Makefile-only (no ./configure), so they don't
 # fit the autotools loop. Hardware introspection.

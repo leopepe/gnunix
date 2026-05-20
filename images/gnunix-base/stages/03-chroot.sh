@@ -23,14 +23,32 @@ mount -vt sysfs  sysfs   "$LFS/sys"
 mount -vt tmpfs  tmpfs   "$LFS/run"
 [ -h "$LFS/dev/shm" ] && install -v -d -m 1777 "$LFS$(realpath /dev/shm)" || mount -t tmpfs -o nosuid,nodev tmpfs "$LFS/dev/shm"
 
+# Bind-mount apt-installed build tools into chroot (issue #44: skip from-source
+# builds for build-only deps available on the builder). The builder VM has
+# bison, flex, gperf, m4, make, patch, pkgconf installed via apt (provision.sh);
+# make these available inside the chroot so 03b-chroot-inner.sh can skip them.
+LFS_TOOLS="$LFS/usr/bin/lfs-tools"
+mkdir -p "$LFS_TOOLS"
+for tool in bison flex gperf make patch pkgconf; do
+  ln -sfv "/usr/bin/$tool" "$LFS_TOOLS/$tool"
+done
+# m4 lives in /usr/local/bin on apt-installed Debian
+if [ -x /usr/local/bin/m4 ]; then
+  ln -sfv "/usr/local/bin/m4" "$LFS_TOOLS/m4"
+elif [ -x /usr/bin/m4 ]; then
+  ln -sfv "/usr/bin/m4" "$LFS_TOOLS/m4"
+fi
+mount --bind "$LFS_TOOLS" "$LFS_TOOLS"
+
 cleanup() {
   set +e
+  mountpoint -q "$LFS_TOOLS" && umount "$LFS_TOOLS"
   mountpoint -q "$LFS/dev/pts" && umount "$LFS/dev/pts"
   mountpoint -q "$LFS/dev/shm" && umount "$LFS/dev/shm"
   mountpoint -q "$LFS/dev"     && umount "$LFS/dev"
-  mountpoint -q "$LFS/run"     && umount "$LFS/run"
-  mountpoint -q "$LFS/proc"    && umount "$LFS/proc"
-  mountpoint -q "$LFS/sys"     && umount "$LFS/sys"
+  mountpoint -q "$LFS/run"       && umount "$LFS/run"
+  mountpoint -q "$LFS/proc"      && umount "$LFS/proc"
+  mountpoint -q "$LFS/sys"       && umount "$LFS/sys"
 }
 trap cleanup EXIT
 

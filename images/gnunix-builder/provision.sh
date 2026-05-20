@@ -22,7 +22,14 @@ apt-get install -y --no-install-recommends \
   parted dosfstools e2fsprogs gdisk \
   grub-efi-arm64-bin grub-common \
   qemu-utils \
-  sudo openssh-server
+  sudo openssh-server \
+  gperf pkgconf meson ninja-build
+
+# meson from apt may be an older version; we install it below from pip
+# to get a known-good version. ninja-build provides /usr/bin/ninja.
+# gperf, pkgconf, bison, flex are all from the Ubuntu archive and
+# produce binaries compatible with the LFS build (they follow GNU
+# conventions; no special flags needed).
 
 echo "[provision] create lfs user and mount point"
 if ! id "$LFS_USER" >/dev/null 2>&1; then
