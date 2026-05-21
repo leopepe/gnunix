@@ -131,7 +131,7 @@ One blocking check runs on every push to your branch:
 - **`PR lint`** (blocking) — shellcheck, actionlint, gitleaks,
   `manifest.json` schema. If this fails, fix the findings and push again.
 Image builds **do not run in PR CI** (per
-[ADR-021](docs/adrs/ADR-021-no-self-hosted-runners.md)): there are no
+[ADR-021](docs/adrs/ADR-021-hosted-runners-only.md)): there are no
 self-hosted macOS runners. `gnunix-base` rebuilds happen on the
 maintainer's Mac and ship as GitHub Release artifacts; downstream images
 fetch them via `tools/fetch-image.sh`. The `Build images` workflow only
