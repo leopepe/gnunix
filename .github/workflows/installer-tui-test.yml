@@ -5,7 +5,7 @@
 # flow isn't broken.
 #
 # Image-level tests (boot-smoke, minimal-smoke, wayland-session,
-# profile-*) live in `tests/` but cannot run here yet: they require
+# profile-*) live in `tests/` subdirectories but cannot run here yet: they require
 # the qemu+KVM driver in `scripts/vm-helpers.sh` (PR-3b.2). When that
 # lands, those tests get their own workflow / matrix; this one stays
 # focused on the cheap, host-side TUI check.

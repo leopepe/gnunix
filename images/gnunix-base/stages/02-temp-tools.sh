@@ -50,10 +50,9 @@ case $(uname -m) in
   aarch64) [ -d "$LFS/lib64" ] || mkdir -v "$LFS/lib64" ;;
 esac
 
-# m4
-build_pkg m4 "$(PKG_VER m4)" tar.xz \
-  bash -c "./configure --prefix=/usr --host=$LFS_TGT --build=\$(build-aux/config.guess) && \
-           make -j$JOBS && make DESTDIR=$LFS install"
+# m4 — SKIP: bind-mounted from apt (provision.sh). The apt version is
+# compatible with the LFS build; no need to compile from source.
+echo "[temp-tools] m4 skipped (bind-mounted from apt)"
 
 # ncurses
 # Two compat tweaks vs the upstream LFS book recipe:
@@ -108,8 +107,9 @@ build_pkg coreutils "$(PKG_VER coreutils)" tar.xz \
            mv -fv $LFS/usr/share/man/man1/chroot.1 $LFS/usr/share/man/man8/chroot.8 && \
            sed -i 's/\"1\"/\"8\"/' $LFS/usr/share/man/man8/chroot.8"
 
-# diffutils, file, findutils, gawk, grep, gzip, make, patch, sed, tar, xz
-for p in diffutils file findutils gawk grep gzip make patch sed tar xz; do
+# diffutils, file, findutils, gawk, grep, gzip, patch, sed, tar, xz
+# make skipped (bind-mounted from apt)
+for p in diffutils file findutils gawk grep gzip patch sed tar xz; do
   v=$(jq -r ".base_packages.\"$p\".version // empty" "$MANIFEST")
   [ -z "$v" ] && continue
   ext=$(jq -r ".base_packages.\"$p\".url" "$MANIFEST" | sed 's/.*\.\(tar\.[a-z]*\)$/\1/')
