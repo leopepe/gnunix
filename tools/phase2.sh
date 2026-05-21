@@ -6,6 +6,9 @@
 # burn 12h of CPU. Set AUTO=1 to skip prompts (for CI or repeat runs).
 #
 # Re-runnable: stages 1 and 2 are themselves idempotent.
+#
+# Per ADR-021: this script drives the *local Mac* path (Tart).
+# The CI path is the stage-split pipeline in build.yml.
 
 set -euo pipefail
 
@@ -24,10 +27,10 @@ cat <<EOF
  Phase 2 pipeline → gnunix-base $VERSION
 ============================================
  Stages:
-   0. Pre-fetch sources on host    (~5-15 min, network bound)
-   1. Bootstrap gnunix-builder:base   (~10-25 min, network bound)
-   2. Build gnunix-base                (~6-12 h,   compute bound)
-   3. Smoke test gnunix-base-$VERSION  (~2 min)
+    0. Pre-fetch sources on host     (~5-15 min, network bound)
+    1. Bootstrap gnunix-builder:base    (~10-25 min, network bound)
+    2. Build gnunix-base                 (~6-12 h,   compute bound)
+    3. Smoke test gnunix-base-$VERSION   (~2 min)
 
  Pre-fetching on the host avoids the in-VM network bottleneck (the VM's
  NAT'd virtio-net link to ftp.gnu.org is the usual source of timeouts).
@@ -35,29 +38,32 @@ cat <<EOF
  builder before the in-VM 'fetch' stage, which becomes a sha256 no-op.
 
  Pass AUTO=1 to skip the prompts between stages.
+
+ Per ADR-021: this script drives the local Mac (Tart) path.
+ The CI path is the stage-split pipeline in build.yml.
 EOF
 echo
 
 if confirm "Run stage 0 (pre-fetch sources on host)?"; then
-  "$REPO_ROOT/tools/fetch-sources.sh"
+   "$REPO_ROOT/tools/fetch-sources.sh"
 else
   echo "[phase2] stage 0 skipped — VM will fetch everything itself"
 fi
 
 if confirm "Run stage 1 (bootstrap-builder)?"; then
-  "$REPO_ROOT/tools/bootstrap-builder.sh"
+   "$REPO_ROOT/tools/bootstrap-builder.sh"
 else
   echo "[phase2] stage 1 skipped"
 fi
 
 if confirm "Run stage 2 (build-all gnunix-base — MULTIPLE HOURS)?"; then
-  "$REPO_ROOT/tools/build-all.sh" gnunix-base
+   "$REPO_ROOT/tools/build-all.sh" gnunix-base
 else
   echo "[phase2] stage 2 skipped"; exit 0
 fi
 
 if confirm "Run stage 3 (boot-smoke on gnunix-base-$VERSION)?"; then
-  "$REPO_ROOT/tests/boot-smoke.sh" "gnunix-base-$VERSION"
+   "$REPO_ROOT/tests/base/boot-smoke.sh" "gnunix-base-$VERSION"
 else
   echo "[phase2] stage 3 skipped"; exit 0
 fi

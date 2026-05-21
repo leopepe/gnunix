@@ -19,7 +19,9 @@ ROOTFS_GB=$(jq -r .image_packaging.rootfs_size_gb "$REPO_ROOT/tools/manifest.jso
 EFI_MB=$(jq -r .image_packaging.boot_partition_mb "$REPO_ROOT/tools/manifest.json")
 
 WORK=$(mktemp -d)
-IMG=/tmp/gnunix-base-disk.img
+# Output to $LFS/.. (the ubuntu rootfs at /mnt) so the build.yml
+# can find it at $LFS/../gnunix-base-disk.img.
+IMG=${LFS:-/mnt/lfs}/../gnunix-base-disk.img
 TOTAL_MB=$(( ROOTFS_GB * 1024 + EFI_MB + 64 ))
 
 require() { command -v "$1" >/dev/null || { echo "[mkimage] missing tool: $1" >&2; exit 1; }; }

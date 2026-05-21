@@ -66,7 +66,7 @@ The CI matrix and `tools/package-platform.sh` dispatcher are in place; what's le
 
 ### `nuc-installer` (Intel NUC + generic x86_64 UEFI) — Phase 5
 
-- ~~**Provision a self-hosted Linux x86_64 runner**~~ — **superseded by [ADR-021](adrs/ADR-021-no-self-hosted-runners.md)**. No self-hosted runners. Phase 5 x86_64 builds either use hosted `ubuntu-22.04` + qemu+KVM (via the `scripts/vm-helpers.sh` qemu driver — PR-3b's scope), or stay as a local-developer build that ships via `tools/release-image.sh`.
+- ~~**Provision a self-hosted Linux x86_64 runner**~~ — **superseded by [ADR-021](adrs/ADR-021-hosted-runners-only.md)**. No self-hosted runners. Phase 5 x86_64 builds either use hosted `ubuntu-22.04` + qemu+KVM (via the `scripts/vm-helpers.sh` qemu driver — PR-3b's scope), or stay as a local-developer build that ships via `tools/release-image.sh`.
 - [ ] **Cross-build gnunix-base for x86_64**: thread `manifest.json:archs.x86_64.*` through the ~12 files audited in ADR-010 § discussion — `images/gnunix-base/build.sh` (`LFS_TGT`), the stages (kernel ARCH, GRUB target, lib64 handling), `images/gnunix-base/packaging/mkimage.sh` (GRUB target + EFI loader name), `images/gnunix-builder/provision.sh` (GRUB package name).
 - [ ] **Split `images/gnunix-base/kernel.config`** into per-arch files or use conditional fragments — x86_64 needs `CONFIG_MICROCODE_INTEL`, `CONFIG_DRM_I915`, `CONFIG_E1000E`, `CONFIG_IWLWIFI`, `CONFIG_BLK_DEV_NVME`, `CONFIG_ATA_AHCI`, `CONFIG_MMC_REALTEK_PCI`.
 - [ ] **Ship microcode + linux-firmware in the static base** (x86_64 only): `intel-ucode` loaded via `EFI_EARLY_LOAD_MICROCODE` from a prepended initrd cpio.
