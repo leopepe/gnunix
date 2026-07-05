@@ -14,24 +14,16 @@
 # Each stage caches its LFS tree. A cancelled or timed-out job
 # resumes from the last completed stage on the next run.
 #
+# LFS cache sharing: the LFS tree (5-25GB) is shared across the
+# four base stages via actions/cache. Downstream images (minimal,
+# desktop, installer) do NOT share the LFS tree — they work from
+# the base artifact (`.img.zst`) via loop-mount. This means the
+# LFS cache miss for downstream images does not trigger a rebuild
+# of the base system.
+#
 # Trigger model:
 #   push tag v*     — build all four images + tests + package
 #   workflow_dispatch — build selected images (input: images=)
-#
-# !! STAGED DELIVERY — this is PR-3b.2. !!
-#
-# Today (PR-3b.1): all four jobs are FETCH jobs. The maintainer publishes
-#     `gnunix-{base,minimal,desktop,installer}-<arch>-<ver>.img.zst` to the
-#     `gnunix-images-<ver>` GH Release from a Mac (via `tools/release-image.sh
-#     <image> --release-tag=gnunix-images-<ver>`) before pushing the `v<ver>`
-#   tag. CI fetches and re-uploads.
-#
-# Next (PR-3b.2): the `gnunix-base` job becomes a real build.
-#   The LFS stages (cross-toolchain, temp-tools, chroot, finalize)
-#   run on `ubuntu-22.04-arm` via chroot. The downstream jobs
-#   (fetch-minimal, fetch-desktop, fetch-installer) pivot from
-#   FETCH to true rebuild — layering on the fetched `gnunix-minimal`.
-#   The `package` and `installer-test` matrices come back at the same time.
 
 name: Build images
 
@@ -55,43 +47,43 @@ env:
   SOURCES: /mnt/lfs/sources
 
 jobs:
-    # Resolve version + arch once, share via artifacts.
+  # Resolve version + arch once, share via outputs.
   meta:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
       version: ${{ steps.r.outputs.version }}
-      arch:     ${{ steps.r.outputs.arch }}
+      arch: ${{ steps.r.outputs.arch }}
       gnunix_images_tag: ${{ steps.r.outputs.gnunix_images_tag }}
     steps:
-       - uses: actions/checkout@v4
-       - id: r
-         run: |
+      - uses: actions/checkout@v4
+      - id: r
+        run: |
           set -eu
           v=$(jq -r .lfs_image_version "$REPO_ROOT/tools/manifest.json")
           a=$(jq -r '.active_arch // .target_arch' "$REPO_ROOT/tools/manifest.json")
-           {
+          {
             echo "version=$v"
             echo "arch=$a"
             echo "gnunix_images_tag=gnunix-images-$v"
-           } >> "$GITHUB_OUTPUT"
+          } >> "$GITHUB_OUTPUT"
 
-    # === gnunix-base: stage-split LFS build ===
-    #
-    # Per ADR-021: the LFS build runs on `ubuntu-22.04-arm` via chroot.
-    # Split into four cacheable stages to avoid the 6-hour job timeout.
-    # Each stage caches its LFS tree; a cancelled job resumes from
-    # the last completed stage on the next run.
-    #
-    # Cache strategy: each stage has a cache key that includes the
-    # version and a hash of the stage script. When a script changes,
-    # its cache key changes, forcing a rebuild. A `restore-keys` prefix
-    # falls back to the previous stage's cache if the exact key misses.
-    #
-    # LFS tree size: ~5-10GB after cross-toolchain, ~15-25GB after
-    # chroot. GitHub's 10GB/cache limit means we accept cache misses
-    # when scripts change; the rebuild is fast because the LFS tree
-    # from the previous stage is restored.
+  # === gnunix-base: stage-split LFS build ===
+  #
+  # Per ADR-021: the LFS build runs on `ubuntu-22.04-arm` via chroot.
+  # Split into four cacheable stages to avoid the 6-hour job timeout.
+  # Each stage caches its LFS tree; a cancelled job resumes from
+  # the last completed stage on the next run.
+  #
+  # Cache strategy: each stage has a cache key that includes the
+  # version and a hash of the stage script. When a script changes,
+  # its cache key changes, forcing a rebuild. A `restore-keys` prefix
+  # falls back to the previous stage's cache if the exact key misses.
+  #
+  # LFS tree size: ~5-10GB after cross-toolchain, ~15-25GB after
+  # chroot. GitHub's 10GB/cache limit means we accept cache misses
+  # when scripts change; the rebuild is fast because the LFS tree
+  # from the previous stage is restored.
 
   cross-toolchain:
     needs: meta
@@ -101,41 +93,43 @@ jobs:
       github.event_name != 'workflow_dispatch' ||
       contains(github.event.inputs.images, 'gnunix-base')
     steps:
-       - uses: actions/checkout@v4
-       - name: Compute cache key
-         id: cachekey
-         run: |
+      - uses: actions/checkout@v4
+      - name: Compute cache key
+        id: cachekey
+        run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
           HASH=$(sha256sum images/gnunix-base/stages/01-cross-toolchain.sh | awk '{print $1}')
           echo "key=lfs-cross-${VER}-${HASH}" >> "$GITHUB_OUTPUT"
           echo "restore=lfs-cross-${VER}-" >> "$GITHUB_OUTPUT"
-       - name: Restore LFS cache
-         uses: actions/cache/restore@v4
-         with:
+      - name: Restore LFS cache
+        uses: actions/cache/restore@v4
+        id: lfs-cache
+        with:
           key: ${{ steps.cachekey.outputs.key }}
           restore-keys: ${{ steps.cachekey.outputs.restore }}
           path: ${{ env.LFS }}
-       - name: Provision LFS rootfs
-         run: |
+      - name: Provision LFS rootfs
+        if: steps.lfs-cache.outputs.cache-hit != 'true'
+        run: |
           set -eu
           sudo mkdir -p "$LFS"
           sudo chmod 755 "$LFS"
-            # Download cirruslabs Ubuntu arm64 rootfs
+          # Download cirruslabs Ubuntu arm64 rootfs
           echo "[provision] fetching cirruslabs Ubuntu arm64 rootfs"
           curl -fsSL "https://github.com/cirruslabs/ubuntu/releases/download/latest/ubuntu-arm64-rootfs.tar" \
               | sudo tar xf - -C "$LFS"
-            # Create lfs user
+          # Create lfs user
           sudo useradd -m -s /bin/bash lfs
           sudo chown -R lfs:lfs "$LFS"
-       - name: Build cross-toolchain
-         run: |
+      - name: Build cross-toolchain
+        run: |
           set -eu
           sudo bash images/gnunix-base/stages/01-cross-toolchain.sh
-       - name: Save LFS cache
-         uses: actions/cache/save@v4
-         if: steps.cachekey.outputs.key != ''
-         with:
+      - name: Save LFS cache
+        uses: actions/cache/save@v4
+        if: steps.cachekey.outputs.key != ''
+        with:
           key: ${{ steps.cachekey.outputs.key }}
           path: ${{ env.LFS }}
 
@@ -147,29 +141,30 @@ jobs:
       github.event_name != 'workflow_dispatch' ||
       contains(github.event.inputs.images, 'gnunix-base')
     steps:
-       - uses: actions/checkout@v4
-       - name: Compute cache key
-         id: cachekey
-         run: |
+      - uses: actions/checkout@v4
+      - name: Compute cache key
+        id: cachekey
+        run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
           HASH=$(sha256sum images/gnunix-base/stages/02-temp-tools.sh | awk '{print $1}')
           echo "key=lfs-temp-${VER}-${HASH}" >> "$GITHUB_OUTPUT"
           echo "restore=lfs-temp-${VER}-" >> "$GITHUB_OUTPUT"
-       - name: Restore LFS cache
-         uses: actions/cache/restore@v4
-         with:
+      - name: Restore LFS cache
+        uses: actions/cache/restore@v4
+        id: lfs-cache
+        with:
           key: ${{ steps.cachekey.outputs.key }}
           restore-keys: ${{ steps.cachekey.outputs.restore }}
           path: ${{ env.LFS }}
-       - name: Build temp-tools
-         run: |
+      - name: Build temp-tools
+        run: |
           set -eu
           sudo bash images/gnunix-base/stages/02-temp-tools.sh
-       - name: Save LFS cache
-         uses: actions/cache/save@v4
-         if: steps.cachekey.outputs.key != ''
-         with:
+      - name: Save LFS cache
+        uses: actions/cache/save@v4
+        if: steps.cachekey.outputs.key != ''
+        with:
           key: ${{ steps.cachekey.outputs.key }}
           path: ${{ env.LFS }}
 
@@ -181,29 +176,30 @@ jobs:
       github.event_name != 'workflow_dispatch' ||
       contains(github.event.inputs.images, 'gnunix-base')
     steps:
-       - uses: actions/checkout@v4
-       - name: Compute cache key
-         id: cachekey
-         run: |
+      - uses: actions/checkout@v4
+      - name: Compute cache key
+        id: cachekey
+        run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
           HASH=$(sha256sum images/gnunix-base/stages/03-chroot.sh | awk '{print $1}')
           echo "key=lfs-chroot-${VER}-${HASH}" >> "$GITHUB_OUTPUT"
           echo "restore=lfs-chroot-${VER}-" >> "$GITHUB_OUTPUT"
-       - name: Restore LFS cache
-         uses: actions/cache/restore@v4
-         with:
+      - name: Restore LFS cache
+        uses: actions/cache/restore@v4
+        id: lfs-cache
+        with:
           key: ${{ steps.cachekey.outputs.key }}
           restore-keys: ${{ steps.cachekey.outputs.restore }}
           path: ${{ env.LFS }}
-       - name: Build chroot system
-         run: |
+      - name: Build chroot system
+        run: |
           set -eu
           sudo bash images/gnunix-base/stages/03-chroot.sh
-       - name: Save LFS cache
-         uses: actions/cache/save@v4
-         if: steps.cachekey.outputs.key != ''
-         with:
+      - name: Save LFS cache
+        uses: actions/cache/save@v4
+        if: steps.cachekey.outputs.key != ''
+        with:
           key: ${{ steps.cachekey.outputs.key }}
           path: ${{ env.LFS }}
 
@@ -215,19 +211,19 @@ jobs:
       github.event_name != 'workflow_dispatch' ||
       contains(github.event.inputs.images, 'gnunix-base')
     steps:
-       - uses: actions/checkout@v4
-       - name: Restore LFS cache
-         uses: actions/cache/restore@v4
-         with:
+      - uses: actions/checkout@v4
+      - name: Restore LFS cache
+        uses: actions/cache/restore@v4
+        with:
           key: lfs-chroot-${{ needs.meta.outputs.version }}-
           restore-keys: lfs-chroot-${{ needs.meta.outputs.version }}-
           path: ${{ env.LFS }}
-       - name: Finalize + pack
-         run: |
+      - name: Finalize + pack
+        run: |
           set -eu
           sudo bash images/gnunix-base/stages/04-finalize.sh
-       - name: Compress disk image
-         run: |
+      - name: Compress disk image
+        run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
@@ -235,17 +231,17 @@ jobs:
           mkdir -p "$OUT"
           zstd -10 -f -k "$LFS/../gnunix-base-disk.img" \
               -o "$OUT/gnunix-base-${ARCH}-${VER}.img.zst"
-       - name: Upload base artifact
-         uses: actions/upload-artifact@v4
-         with:
+      - name: Upload base artifact
+        uses: actions/upload-artifact@v4
+        with:
           name: gnunix-base-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/gnunix-base-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}.img.zst
           if-no-files-found: error
           retention-days: ${{ startsWith(github.ref, 'refs/tags/v') && 90 || 30 }}
 
-    # === Downstream images ===
-    # Per ADR-018: gnunix-minimal is the release-dependency anchor.
-    # Downstream layers fetch it, they do not rebuild it.
+  # === Downstream images ===
+  # Per ADR-018: gnunix-minimal is the release-dependency anchor.
+  # Downstream layers fetch it, they do not rebuild it.
 
   build-minimal:
     needs: [meta, finalize]
@@ -255,26 +251,27 @@ jobs:
       github.event_name != 'workflow_dispatch' ||
       contains(github.event.inputs.images, 'gnunix-minimal')
     steps:
-       - uses: actions/checkout@v4
-       - name: Download base image
-         uses: actions/download-artifact@v4
-         with:
+      - uses: actions/checkout@v4
+      - name: Download base image
+        uses: actions/download-artifact@v4
+        with:
           name: gnunix-base-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
-         run: |
+      - name: Rename artifact
+        run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The build scripts expect the .img.zst extension.
-          mv "cache/artifacts/gnunix-base-${ARCH}-${VER}" \
-              "cache/artifacts/gnunix-base-${ARCH}-${VER}.img.zst"
-       - name: Build gnunix-minimal
-         run: |
+          ART="cache/artifacts/gnunix-base-${ARCH}-${VER}"
+          # download-artifact names the file after the artifact name (no ext).
+          # The build scripts expect the .img.zst extension.
+          [ -f "$ART" ] || { echo "[build-minimal] artifact not found: $ART" >&2; exit 1; }
+          mv "$ART" "${ART}.img.zst"
+      - name: Build gnunix-minimal
+        run: |
           sudo bash images/gnunix-minimal/build.sh --ci
-       - name: Compress + upload
-         run: |
+      - name: Compress + upload
+        run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
@@ -282,9 +279,9 @@ jobs:
           mkdir -p "$OUT"
           zstd -10 -f -k "$OUT/gnunix-minimal-${ARCH}-${VER}.img" \
               -o "$OUT/gnunix-minimal-${ARCH}-${VER}.img.zst"
-       - name: Upload minimal artifact
-         uses: actions/upload-artifact@v4
-         with:
+      - name: Upload minimal artifact
+        uses: actions/upload-artifact@v4
+        with:
           name: gnunix-minimal-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/gnunix-minimal-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}.img.zst
           if-no-files-found: error
@@ -298,26 +295,27 @@ jobs:
       github.event_name != 'workflow_dispatch' ||
       contains(github.event.inputs.images, 'gnunix-desktop')
     steps:
-       - uses: actions/checkout@v4
-       - name: Download minimal image
-         uses: actions/download-artifact@v4
-         with:
+      - uses: actions/checkout@v4
+      - name: Download minimal image
+        uses: actions/download-artifact@v4
+        with:
           name: gnunix-minimal-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
-         run: |
+      - name: Rename artifact
+        run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The build scripts expect the .img.zst extension.
-          mv "cache/artifacts/gnunix-minimal-${ARCH}-${VER}" \
-              "cache/artifacts/gnunix-minimal-${ARCH}-${VER}.img.zst"
-       - name: Build gnunix-desktop
-         run: |
+          ART="cache/artifacts/gnunix-minimal-${ARCH}-${VER}"
+          # download-artifact names the file after the artifact name (no ext).
+          # The build scripts expect the .img.zst extension.
+          [ -f "$ART" ] || { echo "[build-desktop] artifact not found: $ART" >&2; exit 1; }
+          mv "$ART" "${ART}.img.zst"
+      - name: Build gnunix-desktop
+        run: |
           sudo bash images/gnunix-desktop/build.sh --ci
-       - name: Compress + upload
-         run: |
+      - name: Compress + upload
+        run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
@@ -325,9 +323,9 @@ jobs:
           mkdir -p "$OUT"
           zstd -10 -f -k "$OUT/gnunix-desktop-${ARCH}-${VER}.img" \
               -o "$OUT/gnunix-desktop-${ARCH}-${VER}.img.zst"
-       - name: Upload desktop artifact
-         uses: actions/upload-artifact@v4
-         with:
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
           name: gnunix-desktop-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/gnunix-desktop-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}.img.zst
           if-no-files-found: error
@@ -342,38 +340,39 @@ jobs:
       contains(github.event.inputs.images, 'gnunix-installer')
     continue-on-error: true
     steps:
-       - uses: actions/checkout@v4
-       - name: Download minimal image
-         uses: actions/download-artifact@v4
-         with:
+      - uses: actions/checkout@v4
+      - name: Download minimal image
+        uses: actions/download-artifact@v4
+        with:
           name: gnunix-minimal-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
-         run: |
+      - name: Rename artifact
+        run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The build scripts expect the .img.zst extension.
-          mv "cache/artifacts/gnunix-minimal-${ARCH}-${VER}" \
-              "cache/artifacts/gnunix-minimal-${ARCH}-${VER}.img.zst"
-       - name: Build gnunix-installer
-         run: |
+          ART="cache/artifacts/gnunix-minimal-${ARCH}-${VER}"
+          # download-artifact names the file after the artifact name (no ext).
+          # The build scripts expect the .img.zst extension.
+          [ -f "$ART" ] || { echo "[build-installer] artifact not found: $ART" >&2; exit 1; }
+          mv "$ART" "${ART}.img.zst"
+      - name: Build gnunix-installer
+        run: |
           sudo bash images/installer/build.sh --ci
-       - name: Compress + upload
-         run: |
+      - name: Compress + upload
+        run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
           OUT="$REPO_ROOT/cache/artifacts"
           mkdir -p "$OUT"
-            # Installer ships as hybrid ISO
+          # Installer ships as hybrid ISO
           zstd -10 -f -k "$OUT/gnunix-installer-${ARCH}-${VER}.iso" \
               -o "$OUT/gnunix-installer-${ARCH}-${VER}.iso.zst"
-       - name: Upload installer artifact
-         uses: actions/upload-artifact@v4
-         if: always()
-         with:
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
           name: gnunix-installer-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: |
             cache/artifacts/gnunix-installer-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}.iso
@@ -381,108 +380,105 @@ jobs:
           if-no-files-found: ignore
           retention-days: ${{ startsWith(github.ref, 'refs/tags/v') && 90 || 30 }}
 
-    # === Smoke tests ===
-    # Per ADR-016 / ADR-021: tests run on `ubuntu-22.04-arm` via
-    # qemu+KVM through `scripts/vm-helpers.sh`.
+  # === Smoke tests ===
+  # Per ADR-016 / ADR-021: tests run on `ubuntu-22.04-arm` via
+  # qemu+KVM through `scripts/vm-helpers.sh`.
 
   test-base:
     needs: [meta, finalize]
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 15
     steps:
-       - uses: actions/checkout@v4
-       - name: Download base image
-         uses: actions/download-artifact@v4
-         with:
+      - uses: actions/checkout@v4
+      - name: Download base image
+        uses: actions/download-artifact@v4
+        with:
           name: gnunix-base-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
-         run: |
+      - name: Rename artifact
+        run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The smoke test expects the .img.zst extension.
-          mv "cache/artifacts/gnunix-base-${ARCH}-${VER}" \
-              "cache/artifacts/gnunix-base-${ARCH}-${VER}.img.zst"
-       - name: Boot smoke test
-         run: |
-          set -eu
-            # The smoke test script uses vm-helpers.sh (qemu driver in CI)
-          VER="${{ needs.meta.outputs.version }}"
-          ARCH="${{ needs.meta.outputs.arch }}"
-            # Import the image for qemu
-          zstd -d -c "cache/artifacts/gnunix-base-${ARCH}-${VER}.img.zst" \
-              | sudo dd of=cache/artifacts/base-test.img bs=4M status=suppress
-            # Run the smoke test (qemu driver via vm-helpers.sh)
-          GNUNIX_IMAGE=cache/artifacts/base-test.img \
-            VER="$VER" \
-            bash tests/base/boot-smoke.sh gnunix-base-$VER
+          ART="cache/artifacts/gnunix-base-${ARCH}-${VER}"
+          # download-artifact names the file after the artifact name (no ext).
+          # The smoke test expects the .img.zst extension.
+          [ -f "$ART" ] || { echo "[test-base] artifact not found: $ART" >&2; exit 1; }
+          mv "$ART" "${ART}.img.zst"
+          # Import the image for qemu
+          zstd -d -c "${ART}.img.zst" \
+              | sudo dd of=cache/artifacts/gnunix-base-test.img bs=4M status=suppress
+      - name: Run smoke test
+        env:
+          VER: "${{ needs.meta.outputs.version }}"
+          GNUNIX_IMAGE: "cache/artifacts/gnunix-base-test.img"
+        run: |
+          bash tests/base/boot-smoke.sh gnunix-base-$VER
 
   test-minimal:
     needs: [meta, build-minimal]
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 15
     steps:
-       - uses: actions/checkout@v4
-       - name: Download minimal image
-         uses: actions/download-artifact@v4
-         with:
+      - uses: actions/checkout@v4
+      - name: Download minimal image
+        uses: actions/download-artifact@v4
+        with:
           name: gnunix-minimal-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
-         run: |
+      - name: Rename artifact
+        run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The smoke test expects the .img.zst extension.
-          mv "cache/artifacts/gnunix-minimal-${ARCH}-${VER}" \
-              "cache/artifacts/gnunix-minimal-${ARCH}-${VER}.img.zst"
-       - name: Boot smoke test
-         run: |
-          set -eu
-          VER="${{ needs.meta.outputs.version }}"
-          ARCH="${{ needs.meta.outputs.arch }}"
-          zstd -d -c "cache/artifacts/gnunix-minimal-${ARCH}-${VER}.img.zst" \
-              | sudo dd of=cache/artifacts/minimal-test.img bs=4M status=suppress
-          GNUNIX_IMAGE=cache/artifacts/minimal-test.img \
-            VER="$VER" \
-            bash tests/minimal/minimal-smoke.sh gnunix-minimal-$VER
+          ART="cache/artifacts/gnunix-minimal-${ARCH}-${VER}"
+          # download-artifact names the file after the artifact name (no ext).
+          # The smoke test expects the .img.zst extension.
+          [ -f "$ART" ] || { echo "[test-minimal] artifact not found: $ART" >&2; exit 1; }
+          mv "$ART" "${ART}.img.zst"
+          # Import the image for qemu
+          zstd -d -c "${ART}.img.zst" \
+              | sudo dd of=cache/artifacts/gnunix-minimal-test.img bs=4M status=suppress
+      - name: Run smoke test
+        env:
+          VER: "${{ needs.meta.outputs.version }}"
+          GNUNIX_IMAGE: "cache/artifacts/gnunix-minimal-test.img"
+        run: |
+          bash tests/minimal/minimal-smoke.sh gnunix-minimal-$VER
 
   test-desktop:
     needs: [meta, build-desktop]
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 15
     steps:
-       - uses: actions/checkout@v4
-       - name: Download desktop image
-         uses: actions/download-artifact@v4
-         with:
+      - uses: actions/checkout@v4
+      - name: Download desktop image
+        uses: actions/download-artifact@v4
+        with:
           name: gnunix-desktop-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
-         run: |
+      - name: Rename artifact
+        run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The smoke test expects the .img.zst extension.
-          mv "cache/artifacts/gnunix-desktop-${ARCH}-${VER}" \
-              "cache/artifacts/gnunix-desktop-${ARCH}-${VER}.img.zst"
-       - name: Wayland session test
-         run: |
-          set -eu
-          VER="${{ needs.meta.outputs.version }}"
-          ARCH="${{ needs.meta.outputs.arch }}"
-          zstd -d -c "cache/artifacts/gnunix-desktop-${ARCH}-${VER}.img.zst" \
-              | sudo dd of=cache/artifacts/desktop-test.img bs=4M status=suppress
-          GNUNIX_IMAGE=cache/artifacts/desktop-test.img \
-            VER="$VER" \
-            bash tests/desktop/wayland-session.sh gnunix-desktop-$VER
+          ART="cache/artifacts/gnunix-desktop-${ARCH}-${VER}"
+          # download-artifact names the file after the artifact name (no ext).
+          # The smoke test expects the .img.zst extension.
+          [ -f "$ART" ] || { echo "[test-desktop] artifact not found: $ART" >&2; exit 1; }
+          mv "$ART" "${ART}.img.zst"
+          # Import the image for qemu
+          zstd -d -c "${ART}.img.zst" \
+              | sudo dd of=cache/artifacts/gnunix-desktop-test.img bs=4M status=suppress
+      - name: Run smoke test
+        env:
+          VER: "${{ needs.meta.outputs.version }}"
+          GNUNIX_IMAGE: "cache/artifacts/gnunix-desktop-test.img"
+        run: |
+          bash tests/desktop/wayland-session.sh gnunix-desktop-$VER
 
-    # === Package matrix ===
-    # Per ADR-018: produce the published artifact forms.
+  # === Package matrix ===
+  # Per ADR-018: produce the published artifact forms.
 
   package:
     needs: meta
@@ -491,37 +487,40 @@ jobs:
     strategy:
       matrix:
         include:
-           - image: gnunix-minimal
-             arch: aarch64
-             platform: generic-uefi
-           - image: gnunix-desktop
-             arch: aarch64
-             platform: generic-uefi
+          - image: gnunix-minimal
+            arch: aarch64
+            platform: generic-uefi
+            output_format: tart.zst
+          - image: gnunix-desktop
+            arch: aarch64
+            platform: generic-uefi
+            output_format: tart.zst
     steps:
-       - uses: actions/checkout@v4
-       - name: Download image
-         uses: actions/download-artifact@v4
-         with:
+      - uses: actions/checkout@v4
+      - name: Download image
+        uses: actions/download-artifact@v4
+        with:
           name: ${{ matrix.image }}-${{ matrix.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
-         run: |
+      - name: Rename artifact
+        run: |
           set -eu
           ARCH="${{ matrix.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The package script expects the .img.zst extension.
-          mv "cache/artifacts/gnunix-${ARCH}-${{ needs.meta.outputs.version }}" \
-              "cache/artifacts/gnunix-${ARCH}-${{ needs.meta.outputs.version }}.img.zst"
-       - name: Package
-         run: |
+          ART="cache/artifacts/gnunix-${ARCH}-${{ needs.meta.outputs.version }}"
+          # download-artifact names the file after the artifact name (no ext).
+          # The package script expects the .img.zst extension.
+          [ -f "$ART" ] || { echo "[package] artifact not found: $ART" >&2; exit 1; }
+          mv "$ART" "${ART}.img.zst"
+      - name: Package
+        run: |
           set -eu
           tools/package.sh "${{ matrix.image }}" \
               --arch=${{ matrix.arch }} \
               --platform=${{ matrix.platform }} \
               --as=${{ matrix.output_format }}
-       - name: Upload package artifact
-         uses: actions/upload-artifact@v4
-         with:
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
           name: package-${{ matrix.image }}-${{ matrix.arch }}-${{ matrix.platform }}
           path: cache/artifacts/
           if-no-files-found: error
