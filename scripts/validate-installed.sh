@@ -8,7 +8,7 @@
 
 set -eu
 REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}
-. "$REPO_ROOT/scripts/tart-helpers.sh"
+. "$REPO_ROOT/scripts/vm-helpers.sh"
 
 PROFILE=${1:-}
 VM=${2:-}
@@ -20,18 +20,18 @@ HOSTNAME=${4:-gnunix-${PROFILE}}
 }
 
 echo "[validate-installed] booting $VM"
-tart run --no-graphics "$VM" >/dev/null 2>&1 &
+vm_run --no-graphics "$VM" >/dev/null 2>&1 &
 TART_PID=$!
-trap 'tart stop "$VM" >/dev/null 2>&1 || true; kill $TART_PID 2>/dev/null || true' EXIT
+trap 'vm_stop "$VM" >/dev/null 2>&1 || true; kill $TART_PID 2>/dev/null || true' EXIT
 
-if ! tart_wait_ssh "$VM" root; then
+if ! vm_wait_ssh "$VM" root; then
   echo "FAIL: installed system did not boot to ssh within 120s"
   exit 1
 fi
 
 echo "[validate-installed] running universal asserts (profile=$PROFILE user=$USER host=$HOSTNAME)"
 # -------- UNIVERSAL: must hold for every profile --------
-tart_ssh "$VM" root env \
+vm_ssh "$VM" root env \
     EXP_USER="$USER" EXP_HOST="$HOSTNAME" EXP_PROFILE="$PROFILE" \
     sh -c '
   set -e
@@ -100,7 +100,7 @@ tart_ssh "$VM" root env \
 case "$PROFILE" in
   minimal)
     echo "[validate-installed] running minimal-specific asserts"
-    tart_ssh "$VM" root sh -c '
+    vm_ssh "$VM" root sh -c '
       set -e
       # greetd should be DISABLED on minimal (no GUI).
       if [ -x /etc/rc.d/rc.greetd ]; then
@@ -121,7 +121,7 @@ case "$PROFILE" in
     ;;
   desktop-sway)
     echo "[validate-installed] running desktop-sway-specific asserts"
-    tart_ssh "$VM" root env EXP_USER="$USER" sh -c '
+    vm_ssh "$VM" root env EXP_USER="$USER" sh -c '
       set -e
       SP=/nix/var/nix/profiles/system
       # greetd ENABLED, agetty on tty1 DISABLED (greetd owns the vt).
@@ -153,7 +153,7 @@ case "$PROFILE" in
     ;;
   desktop-hyprland)
     echo "[validate-installed] running desktop-hyprland-specific asserts"
-    tart_ssh "$VM" root env EXP_USER="$USER" sh -c '
+    vm_ssh "$VM" root env EXP_USER="$USER" sh -c '
       set -e
       SP=/nix/var/nix/profiles/system
       [ -x /etc/rc.d/rc.greetd ] \
@@ -182,7 +182,7 @@ case "$PROFILE" in
     ;;
   desktop-labwc)
     echo "[validate-installed] running desktop-labwc-specific asserts"
-    tart_ssh "$VM" root env EXP_USER="$USER" sh -c '
+    vm_ssh "$VM" root env EXP_USER="$USER" sh -c '
       set -e
       SP=/nix/var/nix/profiles/system
       [ -x /etc/rc.d/rc.greetd ] \
@@ -207,7 +207,7 @@ case "$PROFILE" in
     ;;
   desktop-cosmic)
     echo "[validate-installed] running desktop-cosmic-specific asserts (ADR-022)"
-    tart_ssh "$VM" root env EXP_USER="$USER" sh -c '
+    vm_ssh "$VM" root env EXP_USER="$USER" sh -c '
       set -e
       SP=/nix/var/nix/profiles/system
       [ -x /etc/rc.d/rc.greetd ] \

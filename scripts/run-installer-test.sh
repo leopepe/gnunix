@@ -16,7 +16,7 @@
 
 set -eu
 REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}
-. "$REPO_ROOT/scripts/tart-helpers.sh"
+. "$REPO_ROOT/scripts/vm-helpers.sh"
 
 PROFILE=${1:-}
 case "$PROFILE" in
@@ -60,7 +60,7 @@ echo "[installer-test] creating ${TARGET_SIZE_GB} GB target disk: $TARGET_IMG"
 dd if=/dev/zero of="$TARGET_IMG" bs=1m count=0 seek=$((TARGET_SIZE_GB * 1024)) status=none
 
 echo "[installer-test] cloning $INSTALLER_VM → $TEST_VM"
-tart clone "$INSTALLER_VM" "$TEST_VM"
+vm_clone "$INSTALLER_VM" "$TEST_VM"
 
 cleanup_phase1() {
   tart stop "$TEST_VM" >/dev/null 2>&1 || true
@@ -69,7 +69,7 @@ cleanup_phase1() {
 trap cleanup_phase1 EXIT
 
 echo "[installer-test] booting installer with target disk attached"
-tart run --no-graphics --disk "$TARGET_IMG:sync=none" "$TEST_VM" >/dev/null 2>&1 &
+vm_run "$TEST_VM" >/dev/null 2>&1 &
 # Captured for visibility in `ps`/debug logs; cleanup_phase1 uses
 # `tart stop` by VM name rather than killing the PID directly.
 # shellcheck disable=SC2034
@@ -110,15 +110,7 @@ cleanup_phase1
 
 echo "[installer-test] === Phase 2: boot installed system ==="
 echo "[installer-test] importing $TARGET_IMG → $INSTALLED_VM"
-# tart create --from-bootable-image was added in 2.x; if missing on this
-# tart version, fall back to placing the disk.img manually in ~/.tart.
-if tart create --help 2>&1 | grep -q -- --from-bootable-image; then
-  tart create "$INSTALLED_VM" --linux --from-bootable-image "$TARGET_IMG"
-else
-  echo "[installer-test] tart lacks --from-bootable-image; manual import"
-  tart create "$INSTALLED_VM" --linux --disk-size "$TARGET_SIZE_GB"
-  cp "$TARGET_IMG" "$HOME/.tart/vms/$INSTALLED_VM/disk.img"
-fi
+vm_create "$INSTALLED_VM" "$TARGET_IMG"
 
 # Hand off to validate-installed.sh — it boots $INSTALLED_VM and runs
 # the universal + per-profile assertion suite.

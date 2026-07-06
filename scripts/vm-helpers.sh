@@ -46,6 +46,7 @@ case "$VM_DRIVER" in
     vm_delete()    { tart delete "$1" >/dev/null 2>&1 || true; }
     vm_disk_path(){ printf '%s\n' "$HOME/.tart/vms/$1/disk.img"; }
     vm_dir_path() { printf '%s\n' "$HOME/.tart/vms/$1"; }
+    vm_create() { tart create "$@"; }
      ;;
   qemu)
     # Linux/CI path. qemu-system-aarch64 + KVM. Per-VM state lives
@@ -71,7 +72,7 @@ case "$VM_DRIVER" in
 
     _qemu_cmd() {
       local vm=$1; shift
-      printf '%s\n' "QEMU_CMD=$_qemu_cmd_args VM=$vm $@"
+      printf '%s\n' "QEMU_CMD=$vm $*"
     }
 
     _qemu_start() {
@@ -132,7 +133,7 @@ case "$VM_DRIVER" in
       [ -n "$initrd" ] && echo "[vm-qemu] initrd=$initrd"
 
       (
-        cd "$vmdir"
+        cd "$vmdir" || exit 1
         qemu-system-aarch64 \
           -M virt \
           -cpu cortex-a72 \
@@ -153,7 +154,7 @@ case "$VM_DRIVER" in
       if [ "$detach" = "1" ]; then
         echo "[vm-qemu] detached (pid=$(cat "$pidf"))"
       else
-        wait $(cat "$pidf") 2>/dev/null || true
+        wait "$(cat "$pidf")" 2>/dev/null || true
         rm -f "$pidf"
       fi
     }
@@ -164,7 +165,7 @@ case "$VM_DRIVER" in
 
     vm_running() {
       local pidf="$_VM_BASE_DIR/$1/qemu.pid"
-      [ -f "$pidf" ] && kill -0 $(cat "$pidf") 2>/dev/null
+      [ -f "$pidf" ] && kill -0 "$(cat "$pidf")" 2>/dev/null
     }
 
     vm_ip() {
@@ -264,6 +265,20 @@ case "$VM_DRIVER" in
 
     vm_dir_path() {
       printf '%s\n' "$_VM_BASE_DIR/$1"
+    }
+
+    vm_create() {
+      local vm=$1; shift
+      local disk="${1:-}"
+      if [ -n "$disk" ] && [ -f "$disk" ]; then
+        # Create a qcow2 overlay from a disk image.
+        local vmdir="$_VM_BASE_DIR/$vm"
+        mkdir -p "$vmdir"
+        _qemu_img create -f qcow2 -b "$disk" -F qcow2 "$vmdir/disk.qcow2"
+        # Write a MAC address to config.json.
+        local mac="52:54:00$(printf ':%02x:%02x:%02x' $((RANDOM%256)) $((RANDOM%256)) $((RANDOM%256)))"
+        printf '{"macAddress":"%s"}\n' "$mac" > "$vmdir/config.json"
+      fi
     }
      ;;
    *)
