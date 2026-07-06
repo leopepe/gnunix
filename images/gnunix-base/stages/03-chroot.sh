@@ -4,7 +4,7 @@
 # Mounts virtual filesystems, chroots into $LFS, then runs the inner build
 # script which compiles the final passes of binutils, gcc, and all base
 # packages — this time with the just-built temp tools, ending at a fully
-# self-hosted aarch64 LFS userspace.
+# self-hosted $active_arch LFS userspace.
 #
 # Follows LFS book chapter 7-8.
 
@@ -76,6 +76,9 @@ MANIFEST_JSON="$REPO_ROOT/tools/manifest.json"
   done
   echo "ver_kernel=$(jq -r .kernel.version "$MANIFEST_JSON")"
   echo "url_kernel=$(jq -r .kernel.url "$MANIFEST_JSON")"
+  echo "active_arch=$(jq -r '.active_arch' "$MANIFEST_JSON")"
+  echo "kernel_arch=$(jq -r ".archs[active_arch].kernel_arch // .archs.aarch64.kernel_arch" "$MANIFEST_JSON")"
+  echo "grub_target=$(jq -r ".archs[active_arch].grub_target // .archs.aarch64.grub_target" "$MANIFEST_JSON")"
   for section in base_packages init_and_session bootloader; do
     # `to_entries[] | select(.value|type=="object") | .key` skips the
     # documentation keys like "$slackware_parity_note" / "$logrotate_stack_note"

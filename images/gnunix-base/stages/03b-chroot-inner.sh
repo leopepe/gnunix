@@ -8,7 +8,7 @@
 #
 # This is intentionally a thin orchestrator — each package's build sequence
 # follows the corresponding chapter of the LFS book. The configurations below
-# encode exactly the flags that have proven to produce a bootable arm64 LFS.
+# encode exactly the flags that have proven to produce a bootable $kernel_arch LFS.
 #
 # Note: this script runs INSIDE the chroot where jq doesn't exist. All
 # package version/url values come from /repo/versions.env, pre-resolved by
@@ -447,12 +447,12 @@ if ! pkg_skip openssh; then
   pkg_mark openssh
 fi
 
-# grub (EFI for arm64)
+# grub (EFI — arch from manifest)
 if ! pkg_skip grub; then
   v=$ver_grub
   d=$(mktemp -d); tar -xf "$SOURCES/grub-$v.tar.xz" -C "$d"
   cd "$d/grub-$v"
-  echo "[chroot-inner] building grub-$v"
+  echo "[chroot-inner] building grub-$v (target=$grub_target)"
   hardening_export "grub" native
   # grub-2.12's Makefile depends on grub-core/extra_deps.lst, which is
   # produced by ./bootstrap (gnulib-tool) when generating the tarball.
@@ -460,7 +460,7 @@ if ! pkg_skip grub; then
   # doesn't fail with "No rule to make target '../grub-core/extra_deps.lst'".
   : > grub-core/extra_deps.lst
   ./configure --prefix=/usr --sysconfdir=/etc \
-    --target=aarch64 --with-platform=efi --disable-werror
+    --target=$grub_target --with-platform=efi --disable-werror
   make -j$JOBS && make install
   pkg_mark grub
 fi

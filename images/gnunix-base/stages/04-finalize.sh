@@ -34,20 +34,21 @@ install -d -m 0755 "$LFS/etc/modules-load.d"
 
 echo "[finalize] build kernel"
 KV=$(jq -r .kernel.version "$MANIFEST")
+ARCH=$(jq -r ".archs[active_arch].kernel_arch // .archs.aarch64.kernel_arch" "$MANIFEST")
 KSRC=$(mktemp -d)
 tar -xf "$SOURCES/linux-$KV.tar.xz" -C "$KSRC"
 cd "$KSRC/linux-$KV"
-make ARCH=arm64 defconfig
+make ARCH=$ARCH defconfig
 # Apply our config fragments on top of defconfig (ADR-012 module-first).
 #   kernel.config         — boot-critical =y overrides
 #   kernel.modules.config — non-essential drivers flipped to =m
 # Later wins for any duplicate keys; olddefconfig reconciles.
 cat "$REPO_ROOT/images/gnunix-base/kernel.config" \
     "$REPO_ROOT/images/gnunix-base/kernel.modules.config" >> .config
-make ARCH=arm64 olddefconfig
-make -j$JOBS ARCH=arm64 Image modules
-make ARCH=arm64 INSTALL_MOD_PATH="$LFS" modules_install
-install -Dm 0644 arch/arm64/boot/Image "$LFS/boot/vmlinuz-$KV"
+make ARCH=$ARCH olddefconfig
+make -j$JOBS ARCH=$ARCH Image modules
+make ARCH=$ARCH INSTALL_MOD_PATH="$LFS" modules_install
+install -Dm 0644 arch/$ARCH/boot/Image "$LFS/boot/vmlinuz-$KV"
 cp .config "$LFS/boot/config-$KV"
 cp System.map "$LFS/boot/System.map-$KV"
 cd / && rm -rf "$KSRC"
