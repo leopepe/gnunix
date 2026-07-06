@@ -525,3 +525,152 @@ jobs:
           path: cache/artifacts/
           if-no-files-found: error
           retention-days: ${{ startsWith(github.ref, 'refs/tags/v') && 90 || 30 }}
+
+  # === x86_64 base build (Phase 5 / ADR-010) ===
+  #
+  # Per ADR-010: x86_64 builds run on `ubuntu-22.04` (hosted x86_64 runner).
+  # The LFS build stages run on x86_64 hardware — the chroot compiles
+  # x86_64 binaries that execute natively on the runner.
+  #
+  # TODO: Add x86_64 rootfs provisioning (cirruslabs provides amd64 rootfs).
+  # The x86_64 pipeline is scaffolded; it needs an x86_64 rootfs to work.
+  # See docs/TODO.md § "nuc-installer (Intel NUC + generic x86_64 UEFI)".
+
+  x86_64-cross-toolchain:
+    needs: meta
+    runs-on: ubuntu-22.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute cache key
+        id: cachekey
+        run: |
+          set -eu
+          VER="${{ needs.meta.outputs.version }}"
+          HASH=$(sha256sum images/gnunix-base/stages/01-cross-toolchain.sh | awk '{print $1}')
+          echo "key=x86_64-cross-${VER}-${HASH}" >> "$GITHUB_OUTPUT"
+          echo "restore=x86_64-cross-${VER}-" >> "$GITHUB_OUTPUT"
+      - name: Restore LFS cache
+        uses: actions/cache/restore@v4
+        id: lfs-cache
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          restore-keys: ${{ steps.cachekey.outputs.restore }}
+          path: ${{ env.LFS }}
+      - name: Provision LFS rootfs
+        if: steps.lfs-cache.outputs.cache-hit != 'true'
+        run: |
+          set -eu
+          sudo mkdir -p "$LFS"
+          sudo chmod 755 "$LFS"
+          echo "[provision] fetching x86_64 rootfs (TODO: cirruslabs amd64)"
+          # TODO: curl -fsSL "https://github.com/cirruslabs/ubuntu/releases/download/latest/ubuntu-amd64-rootfs.tar" \
+          #     | sudo tar xf - -C "$LFS"
+          echo "[provision] SKIPPING: x86_64 rootfs not yet provisioned"
+          exit 1
+      - name: Build cross-toolchain
+        run: |
+          set -eu
+          sudo bash images/gnunix-base/stages/01-cross-toolchain.sh
+      - name: Save LFS cache
+        uses: actions/cache/save@v4
+        if: steps.cachekey.outputs.key != ''
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          path: ${{ env.LFS }}
+
+  x86_64-temp-tools:
+    needs: [meta, x86_64-cross-toolchain]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute cache key
+        id: cachekey
+        run: |
+          set -eu
+          VER="${{ needs.meta.outputs.version }}"
+          HASH=$(sha256sum images/gnunix-base/stages/02-temp-tools.sh | awk '{print $1}')
+          echo "key=x86_64-temp-${VER}-${HASH}" >> "$GITHUB_OUTPUT"
+          echo "restore=x86_64-temp-${VER}-" >> "$GITHUB_OUTPUT"
+      - name: Restore LFS cache
+        uses: actions/cache/restore@v4
+        id: lfs-cache
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          restore-keys: ${{ steps.cachekey.outputs.restore }}
+          path: ${{ env.LFS }}
+      - name: Build temp-tools
+        run: |
+          set -eu
+          sudo bash images/gnunix-base/stages/02-temp-tools.sh
+      - name: Save LFS cache
+        uses: actions/cache/save@v4
+        if: steps.cachekey.outputs.key != ''
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          path: ${{ env.LFS }}
+
+  x86_64-chroot:
+    needs: [meta, x86_64-temp-tools]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute cache key
+        id: cachekey
+        run: |
+          set -eu
+          VER="${{ needs.meta.outputs.version }}"
+          HASH=$(sha256sum images/gnunix-base/stages/03-chroot.sh | awk '{print $1}')
+          echo "key=x86_64-chroot-${VER}-${HASH}" >> "$GITHUB_OUTPUT"
+          echo "restore=x86_64-chroot-${VER}-" >> "$GITHUB_OUTPUT"
+      - name: Restore LFS cache
+        uses: actions/cache/restore@v4
+        id: lfs-cache
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          restore-keys: ${{ steps.cachekey.outputs.restore }}
+          path: ${{ env.LFS }}
+      - name: Build chroot system
+        run: |
+          set -eu
+          sudo bash images/gnunix-base/stages/03-chroot.sh
+      - name: Save LFS cache
+        uses: actions/cache/save@v4
+        if: steps.cachekey.outputs.key != ''
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          path: ${{ env.LFS }}
+
+  x86_64-finalize:
+    needs: [meta, x86_64-chroot]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore LFS cache
+        uses: actions/cache/restore@v4
+        with:
+          key: x86_64-chroot-${{ needs.meta.outputs.version }}-
+          restore-keys: x86_64-chroot-${{ needs.meta.outputs.version }}-
+          path: ${{ env.LFS }}
+      - name: Finalize + pack
+        run: |
+          set -eu
+          sudo bash images/gnunix-base/stages/04-finalize.sh
+      - name: Compress disk image
+        run: |
+          set -eu
+          VER="${{ needs.meta.outputs.version }}"
+          OUT="$REPO_ROOT/cache/artifacts"
+          mkdir -p "$OUT"
+          zstd -10 -f -k "$LFS/../gnunix-base-disk.img" \
+              -o "$OUT/gnunix-base-x86_64-${VER}.img.zst"
+      - name: Upload base artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gnunix-base-x86_64-${{ needs.meta.outputs.version }}
+          path: cache/artifacts/gnunix-base-x86_64-${{ needs.meta.outputs.version }}.img.zst
+          if-no-files-found: error
+          retention-days: ${{ startsWith(github.ref, 'refs/tags/v') && 90 || 30 }}
