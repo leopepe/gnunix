@@ -126,13 +126,16 @@ asks for:
 
 ### 4. CI runs automatically
 
-Two PR checks run on every push to your branch:
+One blocking check runs on every push to your branch:
 
 - **`PR lint`** (blocking) — shellcheck, actionlint, gitleaks,
   `manifest.json` schema. If this fails, fix the findings and push again.
-- **`Build images`** (blocking when reachable) — full image rebuild and
-  smoke-test on a macOS arm64 Tart runner. Slow (~hours for `gnunix-base`).
-  Skips for doc-only PRs.
+Image builds **do not run in PR CI** (per
+[ADR-021](docs/adrs/ADR-021-no-self-hosted-runners.md)): there are no
+self-hosted macOS runners. `gnunix-base` rebuilds happen on the
+maintainer's Mac and ship as GitHub Release artifacts; downstream images
+fetch them via `tools/fetch-image.sh`. The `Build images` workflow only
+runs on version tags or manual dispatch.
 
 Optionally, you (or a maintainer) can request an advisory architectural
 review from an LLM:
