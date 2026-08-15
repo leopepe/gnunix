@@ -1,13 +1,13 @@
-# CLAUDE.md — guidance for Claude Code when working in `.github/`
+# AGENTS.md — guidance for Claude Code when working in `.github/`
 
 This file scopes how Claude Code (and any other AI assistant) should operate
 on the GitHub-side automation under `.github/` — workflows, issue/PR
 templates, label palette, Renovate config, and the actionlint allowlist.
-It is *narrower* than the repo-root `CLAUDE.md`: it assumes that document's
+It is *narrower* than the repo-root `AGENTS.md`: it assumes that document's
 locked decisions and project conventions already apply, and adds rules
 specific to CI/CD changes.
 
-Read the repo-root `CLAUDE.md` first. Then read this one. Then read the
+Read the repo-root `AGENTS.md` first. Then read this one. Then read the
 relevant ADRs before touching anything load-bearing.
 
 ## 1. Where decisions about `.github/` are made
@@ -36,8 +36,8 @@ concern already has a home.
 
 ```
 .github/
-├── CLAUDE.md                      ← this file
-├── PULL_REQUEST_TEMPLATE.md       PR checklist (ties to CLAUDE.md § locked decisions)
+├── AGENTS.md                      ← this file
+├── PULL_REQUEST_TEMPLATE.md       PR checklist (ties to AGENTS.md § locked decisions)
 ├── actionlint.yaml                Hosted-runner label allowlist (per ADR-021)
 ├── labeler.yml                    Path-based PR labels (consumed by pr-labeler.yml)
 ├── labels.yml                     Label palette — single source of truth
@@ -167,7 +167,7 @@ event-driven triggers.
 ### 3.6. Shell hygiene
 
 Inline `run:` blocks are shell scripts and obey the project's bash
-conventions (per repo-root CLAUDE.md):
+conventions (per repo-root AGENTS.md):
 
 - `set -eu` at minimum; `set -euo pipefail` if you use pipes.
 - Use `${{ ... }}` to interpolate workflow context **only** into
@@ -345,13 +345,13 @@ Renovate datasource) must:
 
 - `config.yml` disables blank issues; do not re-enable. The contact
   links route off-topic traffic to Discussions and security
-  advisories — both endorsed by repo-root CLAUDE.md and CONTRIBUTING.md.
+  advisories — both endorsed by repo-root AGENTS.md and CONTRIBUTING.md.
 - Each template's prose mirrors a section of the repo-root
-  documentation (CLAUDE.md, runbooks, ADRs). When that documentation
+  documentation (AGENTS.md, runbooks, ADRs). When that documentation
   changes, update the template prose in the same PR — drift between
   template guidance and source docs is a documentation bug.
 - The PR template's "Locked-decisions check" must list the same ADRs
-  as repo-root CLAUDE.md's "Locked decisions" table. Adding an ADR
+  as repo-root AGENTS.md's "Locked decisions" table. Adding an ADR
   to the table → update the PR template in the same PR.
 
 ## 5. Adding a new workflow — checklist
@@ -375,8 +375,8 @@ Before opening a PR that adds a workflow under `.github/workflows/`:
    `-S warning`?
 7. Does it `fail closed` on missing config and `fail open` on
    transient outages of advisory services?
-8. Is its name listed in CLAUDE.md's `.github/` inventory? Add it
-   here and to repo-root CLAUDE.md if it's load-bearing.
+8. Is its name listed in AGENTS.md's `.github/` inventory? Add it
+   here and to repo-root AGENTS.md if it's load-bearing.
 9. Does the Merge Queue ruleset need a new `required_status_checks`
    entry? If yes, plan the change to the ruleset (it's GitHub-side
    config, not in this repo) and note it in the PR description.

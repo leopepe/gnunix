@@ -70,7 +70,7 @@ body:
       label: Locked-decisions check
       description: |
         Does this proposal touch any of the 13 locked decisions in
-        [`CLAUDE.md`](../blob/main/CLAUDE.md)?
+        [`AGENTS.md`](../blob/main/AGENTS.md)?
       options:
         - label: No — this is a non-architectural enhancement.
         - label: Yes — and I think the existing ADR covers it.

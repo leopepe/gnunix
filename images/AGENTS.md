@@ -1,4 +1,4 @@
-# CLAUDE.md — `images/`
+# AGENTS.md — `images/`
 
 Guidance for Claude Code sessions working **inside `images/`** or
 running any image-build / image-release tooling under `tools/` and
@@ -16,7 +16,7 @@ running any image-build / image-release tooling under `tools/` and
 - Host VM tooling (`tart`, `qemu`).
 
 If the task is only about generic shell/Nix style or project-wide
-policy, the root [`CLAUDE.md`](../CLAUDE.md) is enough.
+policy, the root [`AGENTS.md`](../AGENTS.md) is enough.
 
 ## Authority and precedence
 
@@ -28,9 +28,9 @@ every conflict:
 1. **`docs/architecture.md`** — the compiled view of the current
    system. Read it before designing or restructuring any image.
 2. **`docs/adrs/`** — load-bearing decisions. The Locked decisions
-   table in the root [`CLAUDE.md`](../CLAUDE.md#locked-decisions--do-not-relitigate-without-an-adr-update)
+   table in the root [`AGENTS.md`](../AGENTS.md#locked-decisions--do-not-relitigate-without-an-adr-update)
    indexes them; the per-ADR file holds the full rationale.
-3. **Root [`CLAUDE.md`](../CLAUDE.md)** — Guiding philosophy,
+3. **Root [`AGENTS.md`](../AGENTS.md)** — Guiding philosophy,
    `What NOT to do`, contribution flow. Still applies inside `images/`.
 4. **This file** — refines the above with image-specific workflow.
 
@@ -42,7 +42,7 @@ proposed change is allowed:
 - *Does it belong in the static base or the dynamic Nix userland?*
   Default to userland — see ADR-003, ADR-004, ADR-009.
 - *Does it require violating a locked decision?* Stop and open an
-  `adr_proposal.yml` issue (see root CLAUDE.md → *Opening issues and
+  `adr_proposal.yml` issue (see root AGENTS.md → *Opening issues and
   pull requests*). Do not silently work around an ADR.
 - *Is the user choosing this, or are we?* Ship substrate, not
   policy — ADR-009, ADR-015, ADR-020.
@@ -174,7 +174,7 @@ All current scripts do this; new ones must too.
 - `rc.M` calls per-service scripts in order; it does **not** inline
   service logic. `rc.S` is the same way for single-user boot.
 - Never put policy or service logic in `rc.S` / `rc.M`. They are
-  dispatchers. (Root `CLAUDE.md` → *What NOT to do*.)
+  dispatchers. (Root `AGENTS.md` → *What NOT to do*.)
 - No systemd, no OpenRC, no s6/dinit/runit — see ADR-001. If a
   proposed change feels like it wants a supervisor, it belongs in
   the Nix userland, not the base.
@@ -188,7 +188,7 @@ All current scripts do this; new ones must too.
   commits (ADR-008) — not opportunistic.
 - Do not introduce NixOS modules. If you find yourself wanting a
   `configuration.nix`, the answer is home-manager or `rc.d`, not
-  NixOS (root `CLAUDE.md` → *What NOT to do*).
+  NixOS (root `AGENTS.md` → *What NOT to do*).
 
 ## How to validate image work
 
@@ -207,7 +207,7 @@ but not sufficient.
   ADR-017, ADR-019).
 
 PR bodies must only tick the smoke-test boxes that actually ran.
-Don't tick what you didn't run (root `CLAUDE.md` → *Content rules*).
+Don't tick what you didn't run (root `AGENTS.md` → *Content rules*).
 
 ## Updates and release flow (ADR-008, amended by ADR-016, ADR-021)
 

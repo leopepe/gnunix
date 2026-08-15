@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Per `CLAUDE.md`, **load-bearing decisions get an ADR.** Examples of
+        Per `AGENTS.md`, **load-bearing decisions get an ADR.** Examples of
         load-bearing decisions:
 
         - Adding or replacing a system-level dependency (a new init system,
@@ -83,7 +83,7 @@ body:
     id: conflicts
     attributes:
       label: Conflicts with locked decisions?
-      description: Check the table in `CLAUDE.md § Locked decisions`.
+      description: Check the table in `AGENTS.md § Locked decisions`.
       options:
         - "No — this is a new area not covered by any existing ADR."
         - "Yes — it amends an existing ADR (note which one below)."

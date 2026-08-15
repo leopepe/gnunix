@@ -19,7 +19,7 @@ This is the **multi-arch + per-platform** half of ADR-010.
 ## Summary of features
 
 - **One subdirectory per platform.** Never inline a variant inside
-  an upstream image's `build.sh` (root `CLAUDE.md` → *Where things
+  an upstream image's `build.sh` (root `AGENTS.md` → *Where things
   go*). Adding a new platform means adding a new subdirectory here.
 - **Standard packager interface.** Each `<platform>/package.sh`
   takes `(image, arch)` arguments and writes

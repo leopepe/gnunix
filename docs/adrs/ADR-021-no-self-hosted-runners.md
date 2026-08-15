@@ -200,7 +200,7 @@ prevents reintroduction.
 - [ ] Update `tools/manifest.json`'s `archs.<arch>.runner_labels`.
 - [ ] Strike the "Provision a self-hosted Linux x86_64 runner" task
   in `docs/TODO.md`.
-- [ ] Add ADR-021 to CLAUDE.md's locked-decisions table.
+- [ ] Add ADR-021 to AGENTS.md's locked-decisions table.
 - [ ] Add ADR-021 to `docs/architecture.md` and rewrite Phase 5/6
   language to remove the self-hosted-runner prerequisite.
 

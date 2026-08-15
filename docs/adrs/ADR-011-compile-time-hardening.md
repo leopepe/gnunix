@@ -120,7 +120,7 @@ Alternatives rejected:
 
 - **GCC spec file** (`/etc/specs`) — silently mutates *every* compile in the
   resulting system including users' Nix-builds and kernel rebuilds.
-  Violates the "no hidden policy" principle (CLAUDE.md). Also breaks
+  Violates the "no hidden policy" principle (AGENTS.md). Also breaks
   `nix-shell`'s wrapper detection. Hard no.
 - **Plain `export` blocks duplicated per stage** — drifts and re-types the
   same long string in 30+ stage entry points; the exclusion list would have

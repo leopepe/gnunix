@@ -55,7 +55,7 @@ Scope:
 - `.github/workflows/release.yml` body text and globs
 - `tests/minimal/minimal-smoke.sh` → `tests/minimal-smoke.sh`
 - `docs/architecture.md` lineage diagram + phase table
-- `CLAUDE.md` references in the "Phase status" section
+- `AGENTS.md` references in the "Phase status" section
 - `images/installer/*.sh` and `images/installer/README.md` strings
 - `runbook.md` and `docs/runbooks/*.md` mentions
 
@@ -195,7 +195,7 @@ the fetched minimal.
   This ADR does **not** revisit X11.
 - The release flow ([ADR-008](ADR-008-renovate-and-release.md))
   modulo the taxonomy changes in [ADR-018](ADR-018-artifact-taxonomy.md).
-- Locked-decisions table in `CLAUDE.md` — appended, not edited; new
+- Locked-decisions table in `AGENTS.md` — appended, not edited; new
   ADRs row, no row deleted.
 
 ## Consequences
@@ -267,7 +267,7 @@ defaults) instead of `minimal` + `desktop-sway`. `desktop-sway` and
   installer ISO is produced" guide.
 - `docs/architecture.md` lineage diagram updated to the
   siblings-of-minimal shape.
-- `CLAUDE.md` locked-decisions table appends ADR-017, 018, 019.
+- `AGENTS.md` locked-decisions table appends ADR-017, 018, 019.
 
 ## Out of scope
 

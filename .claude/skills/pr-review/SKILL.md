@@ -1,7 +1,7 @@
 ---
 name: pr-review
 description: |
-  Review a pull request in the gnunix repo. Loads the project's CLAUDE.md
+  Review a pull request in the gnunix repo. Loads the project's AGENTS.md
   and ADRs as context, then evaluates the diff against four axes (formatting,
   lint, quality/architecture, security) and posts a single advisory review
   comment. Used by .github/workflows/ai-review.yml and runnable locally
@@ -34,7 +34,7 @@ The skill is provider-agnostic. It runs in two modes:
   agentic LLM frontend that respects the `allowed-tools` frontmatter. The
   model fetches the diff and context itself.
 - **Single-turn mode** — invoked by `.github/workflows/ai-review.yml`,
-  which pre-loads the diff + CLAUDE.md + ADRs into a single prompt and
+  which pre-loads the diff + AGENTS.md + ADRs into a single prompt and
   sends it to whatever OpenAI-compatible API the repo is configured to use
   (OpenRouter free-tier DeepSeek by default; see the workflow's header for
   alternatives). The model does not fetch anything; it just produces the
@@ -70,10 +70,10 @@ tool-using steps (1, 2, 6) because they're already done.
   blocking gate is `pr-lint.yml`; your job is to add the architectural and
   qualitative layer on top.
 - **Cite, don't lecture.** Every finding must reference (a) a specific file
-  and line range, and (b) a CLAUDE.md rule or ADR. If you can't cite, you're
+  and line range, and (b) a AGENTS.md rule or ADR. If you can't cite, you're
   guessing — drop the finding.
 - **No invention.** Don't suggest patterns or tools the repo doesn't already
-  use. The architecture is locked (see CLAUDE.md § Locked decisions).
+  use. The architecture is locked (see AGENTS.md § Locked decisions).
 - **Budget.** Bound yourself to ~15 tool calls. If you can't find anything
   material in that budget, post "no material findings" and exit.
 
@@ -83,7 +83,7 @@ tool-using steps (1, 2, 6) because they're already done.
 
 Read these files first. They define the rules you'll be applying:
 
-1. `CLAUDE.md` (top-level) — guiding philosophy, locked decisions, conventions.
+1. `AGENTS.md` (top-level) — guiding philosophy, locked decisions, conventions.
 2. `docs/architecture.md` — phase status, system shape.
 3. The ADRs relevant to the diff. Determine relevance by file path:
    - Any change under `images/` or `tools/build-*.sh` → `docs/adrs/ADR-001`,
@@ -118,14 +118,14 @@ Walk through `checklist.md` axis by axis. For each finding, capture:
 - **Severity** — `info` / `suggestion` / `concern` / `blocking-concern`
   (you can't block, but flag the worst level for the human)
 - **File:line** — exact location
-- **Rule** — citation (e.g., "CLAUDE.md § Shell scripts: `set -eu` at the top",
+- **Rule** — citation (e.g., "AGENTS.md § Shell scripts: `set -eu` at the top",
   "ADR-001: no service supervisor", "ADR-010 § Out of scope: i686 32-bit")
 - **Suggested fix** — concrete, minimal, copy-pasteable when possible
 
 ### Step 4 — Check for ADR conflicts
 
 This is the most important axis and the one humans miss most often. The
-"locked decisions" table in `CLAUDE.md` lists 13 decisions that cannot be
+"locked decisions" table in `AGENTS.md` lists 13 decisions that cannot be
 relitigated without updating the ADR. If the diff touches any of them,
 flag it explicitly even if the change is otherwise fine — the PR may need
 an ADR update first.
@@ -139,10 +139,10 @@ rg -n 'systemctl|systemd|/etc/systemd' --type sh --type yaml
 # NixOS module creep — ADR-004
 rg -n 'configuration\.nix|nixosModules|nixosConfigurations'
 
-# Service logic in dispatchers — CLAUDE.md § rc.d
+# Service logic in dispatchers — AGENTS.md § rc.d
 rg -n '' images/*/etc/rc.d/rc.S images/*/etc/rc.d/rc.M 2>/dev/null
 
-# Fallback / compatibility layers — CLAUDE.md § What NOT to do
+# Fallback / compatibility layers — AGENTS.md § What NOT to do
 rg -n -i 'fallback|compat(ibility)?|legacy support'
 
 # Ad-hoc version bumps without manifest update — ADR-008
@@ -165,7 +165,7 @@ the items below are architectural and qualitative._
 - **[ADR-XXX]** `path/to/file:LN` — finding. Suggested fix.
 
 ### 🟡 Quality
-<!-- Convention violations from CLAUDE.md § Conventions. -->
+<!-- Convention violations from AGENTS.md § Conventions. -->
 
 ### 🟢 Suggestions
 <!-- Nice-to-haves; low-confidence improvements. -->
@@ -192,7 +192,7 @@ comments via `gh pr review --body-file ... --comment` plus separate
 If you found nothing material:
 
 ```sh
-gh pr comment "$PR_NUMBER" --body "🤖 Claude review: no material findings against CLAUDE.md / ADRs. Diff is within scope."
+gh pr comment "$PR_NUMBER" --body "🤖 Claude review: no material findings against AGENTS.md / ADRs. Diff is within scope."
 ```
 
 ## Failure modes you should avoid
@@ -204,13 +204,13 @@ gh pr comment "$PR_NUMBER" --body "🤖 Claude review: no material findings agai
   That belongs in a separate proposal PR with an ADR.
 - **Re-explaining ADRs.** Cite the ADR number; don't paraphrase its content.
 - **Asking for tests** for build-pipeline shell scripts. The validation
-  strategy (per CLAUDE.md) is `boot-smoke.sh` / `wayland-session.sh` /
+  strategy (per AGENTS.md) is `boot-smoke.sh` / `wayland-session.sh` /
   `minimal-smoke.sh`, not unit tests.
 - **Suggesting `set -o pipefail`** in a `#!/bin/sh` script. That's a bash
-  extension; CLAUDE.md § Shell scripts is explicit about this.
+  extension; AGENTS.md § Shell scripts is explicit about this.
 
 ## See also
 
 - `.claude/skills/pr-review/checklist.md` — the per-axis checklist body.
-- `CLAUDE.md` — the source of truth for project conventions.
+- `AGENTS.md` — the source of truth for project conventions.
 - `docs/adrs/ADR-014-ai-pr-review.md` — why this skill exists.

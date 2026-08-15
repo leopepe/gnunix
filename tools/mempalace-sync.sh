@@ -2,7 +2,7 @@
 # Index this repo into MemPalace (https://github.com/mempalace/mempalace).
 #
 # What it does: runs `mempalace mine` over the canonical knowledge sources
-# (ADRs, runbooks, the manifest, every CLAUDE.md, the workflow files) plus
+# (ADRs, runbooks, the manifest, every AGENTS.md, the workflow files) plus
 # this project's Claude Code transcripts, all tagged under the `gnunix`
 # wing so queries can be scoped.
 #
@@ -41,12 +41,12 @@ echo "[mempalace-sync] wing=$WING"
 # Paths are listed by mining cost order — small files first, faster
 # feedback when something breaks.
 for path in \
-  CLAUDE.md \
+  AGENTS.md \
   CONTRIBUTING.md \
   README.md \
   docs/ \
   .github/ \
-  images/CLAUDE.md \
+  images/AGENTS.md \
   tools/manifest.json
 do
   if [ -e "$path" ]; then

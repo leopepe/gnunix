@@ -16,14 +16,14 @@ them, your patch is welcome.
 Read these in order. Each is short:
 
 1. [`README.md`](README.md) — what GNUnix is and isn't.
-2. [`CLAUDE.md`](CLAUDE.md) — the project's load-bearing philosophy:
+2. [`AGENTS.md`](AGENTS.md) — the project's load-bearing philosophy:
    *"static base, dynamic userland"*, *"no policy in PID 1"*, *"boring base,
    declarative top"*. Also the **locked decisions** table (13 ADRs that
    cannot be relitigated without updating the ADR itself).
 3. [`docs/architecture.md`](docs/architecture.md) — phase status and the
    two-layer model.
 4. The ADRs in [`docs/adrs/`](docs/adrs/) that are relevant to your area.
-   You don't need to read all 14; the table in `CLAUDE.md` tells you which
+   You don't need to read all 14; the table in `AGENTS.md` tells you which
    ADR governs each topic.
 5. The runbook for your area in [`docs/runbooks/`](docs/runbooks/) (build,
    build-nix, build-wayland, platforms, release, test-image).
@@ -92,12 +92,12 @@ the other in the same PR. Shared inline pieces:
 ### 1. Branch and code
 
 - Branch from `main`. Keep the branch focused on one change.
-- Match the file-placement conventions in `CLAUDE.md § Where things go`.
+- Match the file-placement conventions in `AGENTS.md § Where things go`.
   In short: image-specific config under `images/<name>/`, reusable Nix
   under `bundles/`, multi-image orchestration under `tools/`, one-shot
   helpers under `scripts/`, tests under `tests/`. "Why we chose X" goes in
   a new `docs/adrs/ADR-NNN.md`.
-- Match the shell conventions in `CLAUDE.md § Shell scripts`:
+- Match the shell conventions in `AGENTS.md § Shell scripts`:
   `#!/bin/sh` (with `set -eu`) for portable scripts; `bash` only when you
   actually use bash features. No silent `cd` — use absolute paths or
   compute `REPO_ROOT`.
@@ -121,7 +121,7 @@ asks for:
 - Summary of the change
 - Why (link to the issue, ADR, or runbook)
 - How you validated it (the smoke tests are the real gate — see
-  `CLAUDE.md § How to validate work`)
+  `AGENTS.md § How to validate work`)
 - Whether you touched any locked decision
 
 ### 4. CI runs automatically
@@ -143,7 +143,7 @@ review from an LLM:
 The review is provider-agnostic — the repo defaults to OpenRouter's free
 tier (DeepSeek V3) but works with any OpenAI-compatible API (DeepSeek
 direct, Groq, Together, Ollama on a self-hosted runner, OpenAI, etc.).
-The model cites the specific CLAUDE.md rules / ADRs it thinks your change
+The model cites the specific AGENTS.md rules / ADRs it thinks your change
 touches. It never blocks merge — the maintainer makes the call. See
 [ADR-014](docs/adrs/ADR-014-ai-pr-review.md) for the design and
 [`.github/workflows/ai-review.yml`](.github/workflows/ai-review.yml) for
@@ -158,7 +158,7 @@ provider configuration.
 
 ## What we don't accept
 
-Per `CLAUDE.md § What NOT to do`:
+Per `AGENTS.md § What NOT to do`:
 
 - **`systemd`** anywhere, even "just for one service". Init-system decision
   is in [ADR-001](docs/adrs/ADR-001-init-system.md).
@@ -170,7 +170,7 @@ Per `CLAUDE.md § What NOT to do`:
   expands, we'll write code then.
 - **Opportunistic version bumps.** Each bump is its own commit and goes
   through Renovate or a deliberate PR.
-- **README/CLAUDE.md/doc rewrites** that aren't asked for. If a doc is
+- **README/AGENTS.md/doc rewrites** that aren't asked for. If a doc is
   factually wrong, fix the fact; don't restructure for style.
 
 ## Code of conduct

@@ -1,4 +1,4 @@
-# CLAUDE.md — `tests/`
+# AGENTS.md — `tests/`
 
 Guidance for Claude Code sessions working **inside `tests/`** or
 when the user asks to create, run, modify, or wire up image
@@ -15,8 +15,8 @@ Load this file when the user's request touches:
   variant.
 
 If the task is about *how images are built* (not how they're tested),
-load [`images/CLAUDE.md`](../images/CLAUDE.md) instead. If it's about
-CI wiring, load [`.github/CLAUDE.md`](../.github/CLAUDE.md).
+load [`images/AGENTS.md`](../images/AGENTS.md) instead. If it's about
+CI wiring, load [`.github/AGENTS.md`](../.github/AGENTS.md).
 
 ## Authority and precedence
 
@@ -24,9 +24,9 @@ This file documents **how tests are shaped, written, and triggered.**
 It does not redefine **what** is tested or **why**. Rationale lives
 in the ADRs, and they win on every conflict:
 
-1. **Root [`CLAUDE.md`](../CLAUDE.md)** — guiding philosophy and
+1. **Root [`AGENTS.md`](../AGENTS.md)** — guiding philosophy and
    `What NOT to do`. Still applies inside `tests/`.
-2. **[`images/CLAUDE.md`](../images/CLAUDE.md)** — defines *which*
+2. **[`images/AGENTS.md`](../images/AGENTS.md)** — defines *which*
    tests gate *which* images (boot-smoke for base, minimal-smoke
    for minimal, wayland-session for desktop, installer profiles
    for the installer ISO).
@@ -54,7 +54,7 @@ silently extending the test surface.
 
 ```
 tests/
-├── CLAUDE.md
+├── AGENTS.md
 ├── base/                       # gnunix-base   acceptance gate (Phase 2)
 │   └── boot-smoke.sh
 ├── minimal/                    # gnunix-minimal acceptance gate (Phase 3)
@@ -96,11 +96,11 @@ tests/
 **Shell scripts are the predominant language here. Do not introduce
 Python, Go, or a new test framework unless an ADR sanctions it.**
 The base layer is sysvinit + GNU coreutils on purpose (root
-`CLAUDE.md` → *Guiding philosophy*); the test layer mirrors that
+`AGENTS.md` → *Guiding philosophy*); the test layer mirrors that
 attitude.
 
 Rules (in addition to the project-wide shell conventions in the root
-`CLAUDE.md`):
+`AGENTS.md`):
 
 - **`#!/bin/sh`** by default. `bash` only when actually using bash
   features (arrays, `[[ ]]`, `set -o pipefail`); say so on the
@@ -124,7 +124,7 @@ Rules (in addition to the project-wide shell conventions in the root
   paths — the preamble was removed when the compat symlinks were deleted.
 - **Exit non-zero with a one-line reason on failure.** The image
   validators echo `FAIL: <reason>` and exit; reviewers and CI logs
-  rely on that single line. The root `CLAUDE.md` makes this an
+  rely on that single line. The root `AGENTS.md` makes this an
   explicit `tests/` rule.
 - **`expect`-driven tests are allowed** for terminal/TTY harnessing
   (e.g. driving the whiptail TUI when unattended mode isn't enough,
@@ -163,7 +163,7 @@ Rules:
   (e.g. `validate-installed.sh` is shared by all four installer
   profile tests, parameterised by profile name).
 - A new orchestrator under `scripts/` graduates a one-shot helper
-  to a reused one (root `CLAUDE.md` → *Where things go*).
+  to a reused one (root `AGENTS.md` → *Where things go*).
 - If a new test starts as one script but you can already see a
   validator + orchestrator split coming (e.g. "I'll inline this
   for now and refactor later"), do the split up front. It's cheap
@@ -284,7 +284,7 @@ canonical shape.
 
 Tests are designed to be runnable by hand against locally-built
 Tart VMs. The prerequisite is that the VM the test targets has
-been built or fetched — see [`images/CLAUDE.md`](../images/CLAUDE.md).
+been built or fetched — see [`images/AGENTS.md`](../images/AGENTS.md).
 
 ```sh
 # Built locally via tools/build-all.sh, or fetched via tools/fetch-image.sh.
@@ -343,7 +343,7 @@ test that nothing invokes.
 ### Validation evidence in PR bodies
 
 The PR template asks which smoke tests ran. Tick only what you
-actually ran (root `CLAUDE.md` → *Content rules*). If a test was
+actually ran (root `AGENTS.md` → *Content rules*). If a test was
 skipped because it requires hardware you don't have (e.g. a
 specific platform variant), note that under *Reviewer notes* rather
 than ticking falsely.
@@ -375,7 +375,7 @@ new ADR:
   not landable.
 
 If a task seems to require testing one of the above, stop and open
-an `adr_proposal.yml` issue (root `CLAUDE.md` → *Opening issues and
+an `adr_proposal.yml` issue (root `AGENTS.md` → *Opening issues and
 pull requests*).
 
 ## Transitional compat symlinks

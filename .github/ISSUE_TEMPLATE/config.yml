@@ -8,7 +8,7 @@ contact_links:
     url: https://github.com/JoseHKFA/gnunix/discussions
     about: |
       For open-ended discussion of design choices, prefer Discussions over
-      Issues. Read CLAUDE.md and the relevant ADR first — most "should we
+      Issues. Read AGENTS.md and the relevant ADR first — most "should we
       do X?" questions already have a written answer.
   - name: Security concern
     url: https://github.com/JoseHKFA/gnunix/security/advisories/new

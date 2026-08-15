@@ -607,5 +607,5 @@ answers, in case you only read one section:
 - [`docs/adrs/`](adrs/) — the locked decisions referenced above.
 - [`docs/runbooks/`](runbooks/) — task-oriented procedures (build,
   release, test).
-- [`CLAUDE.md`](../CLAUDE.md) — the guiding philosophy and locked-
+- [`AGENTS.md`](../AGENTS.md) — the guiding philosophy and locked-
   decisions summary table.

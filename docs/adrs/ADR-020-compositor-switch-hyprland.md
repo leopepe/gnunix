@@ -222,7 +222,7 @@ Sway demoted to an optional installer profile).
 
 The body of ADR-009 is otherwise untouched (historical fidelity).
 
-`CLAUDE.md`'s locked-decisions table appends a row for ADR-020 and
+`AGENTS.md`'s locked-decisions table appends a row for ADR-020 and
 updates the ADR-009 row to: *"Hyprland compositor (default) + greetd;
 sway and labwc available as optional installer profiles. Amends
 ADR-009."*

@@ -83,7 +83,7 @@ static-base components, but the Phase 2 build pipeline never got them built
 
 We choose option 2. Justification:
 
-- The CLAUDE.md heuristic ("if unsure, default to userland Nix") points here.
+- The AGENTS.md heuristic ("if unsure, default to userland Nix") points here.
 - dbus and elogind do change ABIs over time; pinning them to a nixpkgs channel
   inherits the security maintenance the upstream channel already provides,
   rather than us reimplementing it.

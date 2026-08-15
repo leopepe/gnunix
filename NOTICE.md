@@ -20,7 +20,7 @@ distribution:
   `tools/fetch-image.sh`, `tools/promote.sh`).
 - Tests under `tests/` and `scripts/validate-*.sh`,
   `scripts/run-installer-test.sh`.
-- Documentation: `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`,
+- Documentation: `README.md`, `AGENTS.md`, `CONTRIBUTING.md`,
   `docs/architecture.md`, `docs/adrs/`, `docs/runbooks/`.
 - ADRs themselves and the runbooks.
 
