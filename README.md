@@ -111,7 +111,7 @@ build/test entry points, and `docs/adrs/` for the locked decisions
 (init system, package layer, compositor, hardening, kernel architecture,
 …).
 
-For Claude Code sessions: read `CLAUDE.md` first.
+For Claude Code sessions: read `AGENTS.md` first.
 
 ## References
 

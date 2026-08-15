@@ -18,7 +18,7 @@ Implements:
 ## How validated
 
 <!--
-Per CLAUDE.md § How to validate work, smoke tests are the real gate.
+Per AGENTS.md § How to validate work, smoke tests are the real gate.
 Tick what you ran; note anything you couldn't run locally and why.
 -->
 
@@ -33,7 +33,7 @@ Tick what you ran; note anything you couldn't run locally and why.
 ## Locked-decisions check
 
 <!--
-The 13 locked decisions in CLAUDE.md cannot be relitigated without updating
+The 13 locked decisions in AGENTS.md cannot be relitigated without updating
 the relevant ADR. Tick if this PR touches any of them; otherwise leave
 unticked.
 -->
@@ -51,10 +51,10 @@ state migration, manual steps after merge, follow-up PRs you're planning.
 
 ## Checklist
 
-- [ ] I read [`CONTRIBUTING.md`](../CONTRIBUTING.md) and followed the relevant conventions in [`CLAUDE.md`](../CLAUDE.md).
+- [ ] I read [`CONTRIBUTING.md`](../CONTRIBUTING.md) and followed the relevant conventions in [`AGENTS.md`](../AGENTS.md).
 - [ ] Pinned versions changed in their own commit (per ADR-008), or no version pins were touched.
 - [ ] New scripts have `set -eu` (or `set -euo pipefail` for bash) and use absolute paths / `REPO_ROOT`.
-- [ ] New files are in the right directory per `CLAUDE.md § Where things go`.
+- [ ] New files are in the right directory per `AGENTS.md § Where things go`.
 - [ ] I am OK with my contribution being distributed under the [`LICENSE`](../LICENSE).
 
 <!--

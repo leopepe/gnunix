@@ -6,7 +6,7 @@ glibc, GCC, and GRUB. Built from source inside `gnunix-builder` and
 published as `gnunix-base-<arch>-<ver>.{img.zst,tart.zst}`.
 
 This is the **static base** half of the project sandwich (see root
-`CLAUDE.md` § "Guiding philosophy"). It changes rarely. Anything
+`AGENTS.md` § "Guiding philosophy"). It changes rarely. Anything
 that evolves week-to-week belongs in the Nix layer
 (`gnunix-minimal` and above), not here.
 

@@ -154,7 +154,7 @@ jobs:
 
           - You CANNOT run gh / git / rg / read additional files. The
             workflow pre-loaded everything you need in the user message
-            below: the diff, the PR metadata, CLAUDE.md, and the ADRs.
+            below: the diff, the PR metadata, AGENTS.md, and the ADRs.
           - You CANNOT post comments yourself. The workflow will take your
             Markdown output verbatim and post it as the review comment via
             `gh pr review --comment`.
@@ -183,10 +183,10 @@ jobs:
             echo "$PR_JSON" | jq .
             echo '```'
             echo
-            echo "## Repository CLAUDE.md (project conventions, locked decisions)"
+            echo "## Repository AGENTS.md (project conventions, locked decisions)"
             echo
             echo '```markdown'
-            cat CLAUDE.md
+            cat AGENTS.md
             echo '```'
             echo
             echo "## Architecture Decision Records (ADRs)"

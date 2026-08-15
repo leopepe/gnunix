@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-Guidance for Claude Code sessions working in this repo.
+Guidance for Code Agentsessions working in this repo.
 
 ## What this project is
 
@@ -130,7 +130,7 @@ tests/        — image acceptance / smoke tests, one directory per image:
               —   tests/minimal/  gnunix-minimal (Phase 3: nix daemon)
               —   tests/desktop/  gnunix-desktop (Phase 4: wayland session)
               —   tests/installer/ gnunix-installer (Phase 5: profiles)
-              — See `tests/CLAUDE.md` for layout rules, GWT scenario
+              — See `tests/AGENTS.md` for layout rules, GWT scenario
                — format. The transitional compat symlinks have been removed.
 runbook.md    — index of other runbooks in `docs/runbooks/`
 ```
@@ -192,7 +192,7 @@ nice but not sufficient. Each image has a dedicated test set under
 Whenever the task involves creating, deleting, restructuring, or
 non-trivially editing anything under `tests/` — including adding a
 brand-new test set for a new image or variant — **read
-[`tests/CLAUDE.md`](tests/CLAUDE.md) first**. It is the
+[`tests/AGENTS.md`](tests/AGENTS.md) first**. It is the
 authoritative guide for:
 
 - The one-directory-per-test-set rule (a new image gets a new
@@ -215,7 +215,7 @@ authoritative guide for:
   reinstall/upgrade/RAID/LUKS, no X11) — extending the test
   surface across those lines requires a new ADR, not just code.
 
-If a task seems to require testing something `tests/CLAUDE.md`
+If a task seems to require testing something `tests/AGENTS.md`
 places out of scope, stop and surface the conflict (open an
 `adr_proposal.yml` issue) instead of silently extending the test
 surface.
@@ -314,7 +314,7 @@ Issues:
   to it.
 - Validation evidence must be real. If you didn't run
     `tests/base/boot-smoke.sh`, don't tick its box.
-- Don't open meta-PRs that rewrite `README.md`, `CLAUDE.md`, or
+- Don't open meta-PRs that rewrite `README.md`, `AGENTS.md`, or
   `CONTRIBUTING.md` for style. Fix factual errors only, per *What NOT to
   do* above.
 - Don't bundle a version bump with an unrelated change (ADR-008).
@@ -343,10 +343,10 @@ reading whole ADRs into the context window.
   won't be there yet).
 - The target is source code, CI workflows, or scripts — `grep`/Explore
   handle those better. MemPalace is for narrative docs (ADRs, runbooks,
-  architecture, CLAUDE.md hierarchy).
+  architecture, AGENTS.md hierarchy).
 
 **Keep the index honest.** After substantive changes to ADRs, runbooks,
-`architecture.md`, or any top-level CLAUDE.md, re-run
+`architecture.md`, or any top-level AGENTS.md, re-run
 `tools/mempalace-sync.sh` so the next session starts from a fresh index.
 
 ## External tooling on the host (macOS)

@@ -17,7 +17,7 @@ Compositor:
   ( ) labwc      — stacking, Openbox-style
 ```
 
-[`CLAUDE.md`](../../CLAUDE.md) § "Guiding philosophy" further locks
+[`AGENTS.md`](../../AGENTS.md) § "Guiding philosophy" further locks
 **"no desktop environment in the base image"** — GNOME and KDE are
 explicitly out of scope because both pull in `systemd --user` /
 `graphical-session.target` and a session-manager surface our sysvinit
@@ -103,7 +103,7 @@ shape of the existing profile scripts (most closely
 ### Bundle
 
 A new `bundles/cosmic.nix` exposes the COSMIC closure as a pure
-function of `pkgs` (per `CLAUDE.md` § Nix conventions):
+function of `pkgs` (per `AGENTS.md` § Nix conventions):
 
 ```nix
 { pkgs }: with pkgs; [
@@ -177,7 +177,7 @@ ADR-013 + ADR-015.
 
 ### Why COSMIC and not GNOME or KDE
 
-`CLAUDE.md` § "No desktop environment in the base image" rules out
+`AGENTS.md` § "No desktop environment in the base image" rules out
 GNOME and KDE on architectural grounds:
 
 - GNOME's session manager is `gnome-session`, which expects
@@ -325,7 +325,7 @@ file).
   scope only — TUI mechanism + pre-baked default unchanged).
 ```
 
-`CLAUDE.md`'s locked-decisions table:
+`AGENTS.md`'s locked-decisions table:
 
 - ADR-015 row: *"Live installer (`gnunix-installer`) + **5**
   Wayland-only profiles (`minimal`, `desktop-sway`, `desktop-hyprland`,
@@ -354,7 +354,7 @@ file).
   `wayland-session.sh` for Hyprland). Needs a built `gnunix-desktop-cosmic`
   image or a CI path that installs COSMIC fresh in each run.
   Follow-up.
-- **GNOME / KDE / other DEs.** Out of scope per `CLAUDE.md` "no DE
+- **GNOME / KDE / other DEs.** Out of scope per `AGENTS.md` "no DE
   in the base image" and the systemd-`--user` test articulated in
   Rationale § "Why COSMIC and not GNOME or KDE".
 - **Migration from a `desktop-hyprland` install to `desktop-cosmic`.**

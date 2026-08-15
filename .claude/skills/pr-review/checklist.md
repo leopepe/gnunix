@@ -13,10 +13,10 @@ catch what the linters miss.
 
 | Check | Severity if violated | Rule |
 |---|---|---|
-| Shell script has shebang on line 1 | `concern` | CLAUDE.md § Shell scripts |
-| Shebang matches the actual shell features used (no bashisms under `#!/bin/sh`) | `concern` | CLAUDE.md § Shell scripts |
-| `set -eu` (or `set -euo pipefail` for bash) at top | `concern` | CLAUDE.md § Shell scripts |
-| Indentation consistent within the file (2 or 4 spaces, no tabs in shell) | `suggestion` | CLAUDE.md § Shell scripts |
+| Shell script has shebang on line 1 | `concern` | AGENTS.md § Shell scripts |
+| Shebang matches the actual shell features used (no bashisms under `#!/bin/sh`) | `concern` | AGENTS.md § Shell scripts |
+| `set -eu` (or `set -euo pipefail` for bash) at top | `concern` | AGENTS.md § Shell scripts |
+| Indentation consistent within the file (2 or 4 spaces, no tabs in shell) | `suggestion` | AGENTS.md § Shell scripts |
 | Workflow YAML has top-of-file comment explaining purpose | `suggestion` | Existing convention (see `build.yml`, `release.yml`) |
 
 ## Axis 2 — Lint (semantic)
@@ -25,21 +25,21 @@ Things shellcheck/actionlint can't catch.
 
 | Check | Severity | Rule |
 |---|---|---|
-| New file under `images/` matches the image directory it belongs to (no cross-image config) | `concern` | CLAUDE.md § Where things go |
-| New reusable Nix expression is in `bundles/`, not duplicated per-image | `concern` | CLAUDE.md § Where things go |
-| New one-shot helper is in `scripts/`; reusable pipeline tool is in `tools/` | `suggestion` | CLAUDE.md § Where things go |
-| `bundles/*.nix` is a pure function of `pkgs` (no side effects, no top-level reads) | `concern` | CLAUDE.md § Nix |
-| Pinned version (`tools/manifest.json`, `bundles/*.nix`, image `build.sh`) bumped in its own commit | `suggestion` | CLAUDE.md § What NOT to do |
-| Each `rc.<service>` script enables/disables exactly one service | `concern` | CLAUDE.md § rc.d scripts |
-| `rc.S` / `rc.M` is a dispatcher — no service logic inlined | `blocking-concern` | CLAUDE.md § rc.d scripts |
-| New shell script uses absolute paths or computes `REPO_ROOT` properly (no silent `cd`) | `concern` | CLAUDE.md § Shell scripts |
-| New test in `tests/` exits non-zero on failure with a one-line reason | `concern` | CLAUDE.md § Shell scripts |
+| New file under `images/` matches the image directory it belongs to (no cross-image config) | `concern` | AGENTS.md § Where things go |
+| New reusable Nix expression is in `bundles/`, not duplicated per-image | `concern` | AGENTS.md § Where things go |
+| New one-shot helper is in `scripts/`; reusable pipeline tool is in `tools/` | `suggestion` | AGENTS.md § Where things go |
+| `bundles/*.nix` is a pure function of `pkgs` (no side effects, no top-level reads) | `concern` | AGENTS.md § Nix |
+| Pinned version (`tools/manifest.json`, `bundles/*.nix`, image `build.sh`) bumped in its own commit | `suggestion` | AGENTS.md § What NOT to do |
+| Each `rc.<service>` script enables/disables exactly one service | `concern` | AGENTS.md § rc.d scripts |
+| `rc.S` / `rc.M` is a dispatcher — no service logic inlined | `blocking-concern` | AGENTS.md § rc.d scripts |
+| New shell script uses absolute paths or computes `REPO_ROOT` properly (no silent `cd`) | `concern` | AGENTS.md § Shell scripts |
+| New test in `tests/` exits non-zero on failure with a one-line reason | `concern` | AGENTS.md § Shell scripts |
 
 ## Axis 3 — Quality (architecture)
 
 The expensive axis. Worth the budget.
 
-### Locked decisions (CLAUDE.md table)
+### Locked decisions (AGENTS.md table)
 
 Flag any of these as `blocking-concern` and reference the ADR:
 
@@ -63,13 +63,13 @@ Flag any of these as `blocking-concern` and reference the ADR:
 
 | Smell | Severity | Why |
 |---|---|---|
-| New "fallback" or "compatibility" code path for hypothetical future requirements | `concern` | CLAUDE.md § What NOT to do |
-| Code comment that re-explains an ADR's rationale | `suggestion` | CLAUDE.md § Where things go: "Code comments reference the ADR number; they do not re-explain." |
-| Image-specific config placed outside its `images/<name>/` directory | `concern` | CLAUDE.md § Where things go |
-| Multi-image orchestration outside `tools/` | `suggestion` | CLAUDE.md § Where things go |
+| New "fallback" or "compatibility" code path for hypothetical future requirements | `concern` | AGENTS.md § What NOT to do |
+| Code comment that re-explains an ADR's rationale | `suggestion` | AGENTS.md § Where things go: "Code comments reference the ADR number; they do not re-explain." |
+| Image-specific config placed outside its `images/<name>/` directory | `concern` | AGENTS.md § Where things go |
+| Multi-image orchestration outside `tools/` | `suggestion` | AGENTS.md § Where things go |
 | New service supervisor / pid1-like daemon | `blocking-concern` | ADR-001: no policy in PID 1 |
-| New "policy in PID 1" code in `rc.S` (e.g., conditional service starts based on hardware) | `blocking-concern` | CLAUDE.md § Guiding philosophy |
-| Anything that pushes user-facing config into the static base instead of home-manager / nix | `concern` | CLAUDE.md § Guiding philosophy: "boring base, declarative top" |
+| New "policy in PID 1" code in `rc.S` (e.g., conditional service starts based on hardware) | `blocking-concern` | AGENTS.md § Guiding philosophy |
+| Anything that pushes user-facing config into the static base instead of home-manager / nix | `concern` | AGENTS.md § Guiding philosophy: "boring base, declarative top" |
 
 ### Manifest hygiene
 
@@ -100,7 +100,7 @@ Both gitleaks and shellcheck catch a lot here; focus on what they can't.
 | New external download URL without a matching `sha256` field in manifest.json | `concern` | ADR-008 |
 | Hardcoded credentials, API tokens, SSH keys, certificates | `blocking-concern` | (Gitleaks should catch; double-check) |
 | New `ssh` invocation without `StrictHostKeyChecking` policy | `suggestion` | Existing pattern in `scripts/tart-helpers.sh` |
-| New world-writable file mode (`chmod 777`, `0666`) | `concern` | CLAUDE.md § Conventions implied; KSPP |
+| New world-writable file mode (`chmod 777`, `0666`) | `concern` | AGENTS.md § Conventions implied; KSPP |
 | New SUID binary added to the rootfs | `blocking-concern` | `docs/TODO.md § System configuration hardening` |
 | `eval` on user-controlled input | `blocking-concern` | shell injection |
 | `rm -rf $VAR` without verifying `$VAR` is non-empty | `concern` | shell footgun |
@@ -114,20 +114,20 @@ Don't be exhaustive here; the human writes prose, you spot-check.
 
 | Check | Severity |
 |---|---|
-| New ADR added but not referenced in CLAUDE.md § Locked decisions table | `concern` |
-| Code introduces a new "load-bearing" pattern (per CLAUDE.md philosophy) without an ADR | `concern` |
+| New ADR added but not referenced in AGENTS.md § Locked decisions table | `concern` |
+| Code introduces a new "load-bearing" pattern (per AGENTS.md philosophy) without an ADR | `concern` |
 | Runbook command shown in `docs/runbooks/*.md` no longer matches the actual tool flag set | `concern` |
 | Cross-link to ADR-NNN where N is out of range or file doesn't exist | `concern` |
 | New runbook lives outside `docs/runbooks/` | `suggestion` |
 
 ## What NOT to flag
 
-Per CLAUDE.md § What NOT to do and the skill's `Failure modes you should
+Per AGENTS.md § What NOT to do and the skill's `Failure modes you should
 avoid`, do not raise findings about:
 
 - Missing unit tests for shell scripts.
 - Style preferences shellcheck doesn't flag (e.g., `[[ ]]` vs `[ ]` in bash).
-- README/CLAUDE.md updates "for completeness".
+- README/AGENTS.md updates "for completeness".
 - Switching to flakes / `pre-commit` / `mise` / `direnv`.
 - Adding systemd "for one service."
 - Adding a fallback path for an environment the architecture doesn't target.

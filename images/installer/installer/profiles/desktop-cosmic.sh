@@ -38,7 +38,7 @@ sleep 2
 echo "[profile/desktop-cosmic] installing COSMIC closure into system profile"
 # Full COSMIC DE stack per ADR-022 § Bundle. Inlined here rather than
 # pulled from bundles/ because no other image consumes COSMIC today
-# (CLAUDE.md § "Reusable Nix bundles (consumed by ≥2 images)").
+# (AGENTS.md § "Reusable Nix bundles (consumed by ≥2 images)").
 nix-env -p "$SP" -iA \
   nixpkgs.cosmic-comp \
   nixpkgs.cosmic-session \

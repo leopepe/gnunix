@@ -9,7 +9,7 @@ body:
         Use this for: factual errors in runbooks, ADRs that don't match the
         code, missing rationale, broken cross-references, stale commands.
 
-        Per CLAUDE.md: "If a doc is factually wrong, fix the fact; don't
+        Per AGENTS.md: "If a doc is factually wrong, fix the fact; don't
         restructure for style." Restructure-only PRs are not in scope.
 
   - type: dropdown

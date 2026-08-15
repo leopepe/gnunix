@@ -28,7 +28,7 @@ recorded in ADR-011. Items below are implementation steps:
 
 ### System configuration hardening
 
-Apply at finalize-time (image build) and/or via sysvinit `rc.d` scripts at boot. Keep these declarative — the static base shouldn't drift, per CLAUDE.md philosophy.
+Apply at finalize-time (image build) and/or via sysvinit `rc.d` scripts at boot. Keep these declarative — the static base shouldn't drift, per AGENTS.md philosophy.
 
 - [ ] **`/etc/sysctl.d/`** with hardened defaults — `kernel.dmesg_restrict=1`, `kernel.kptr_restrict=2`, `kernel.unprivileged_userns_clone=1` (Nix needs this), `fs.protected_*`, `net.ipv4.tcp_syncookies=1`, etc. Source: KSPP / CIS Linux Benchmark.
 - [ ] **Filesystem permissions audit** — `/etc/shadow`, `/etc/sudoers.d/`, `/var/log/btmp`, `/var/log/wtmp` modes; pruning suid bits we don't need (we ship far fewer suid binaries than a typical distro, but audit).

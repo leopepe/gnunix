@@ -13,7 +13,7 @@ reviewing them. Two adjacent problems:
    manifest schema validation — all deterministic, all fast, all should run
    on every PR. The repo had no PR-time linting before this ADR; only
    `boot-smoke.sh` after the fact.
-2. **Architectural drift is hard to spot.** CLAUDE.md lists 14 locked
+2. **Architectural drift is hard to spot.** AGENTS.md lists 14 locked
    decisions. A reviewer with the architecture loaded in their head catches
    "this introduces a fallback path / systemd creep / NixOS module" early;
    a tired human at midnight, merging a Renovate PR, does not.
@@ -22,7 +22,7 @@ We want a check that:
 
 - Validates the objective rules deterministically and **blocks** merge.
 - Surfaces architectural smells **advisorially**, with citations to the
-  ADRs/CLAUDE.md sections being violated.
+  ADRs/AGENTS.md sections being violated.
 - Is cheap (no per-PR API cost unless explicitly invoked).
 - Is **not tied to a single vendor** — single-maintainer hobby projects
   shouldn't need a paid Anthropic / OpenAI account to get a second opinion.
@@ -73,7 +73,7 @@ Claude-specific):
 - **Advisory, not blocking.** LLMs hallucinate, especially on a codebase
   this idiosyncratic. The blocking gate is the deterministic linters; the
   LLM is a second opinion on architecture, not an authority.
-- **Cite, don't lecture.** Every finding must reference a CLAUDE.md rule
+- **Cite, don't lecture.** Every finding must reference a AGENTS.md rule
   or ADR number. Findings without citations are dropped. Keeps feedback
   grounded in the locked decisions and avoids the "LLM suggests random
   best practices" failure mode.
@@ -145,7 +145,7 @@ invocation paths.
 - **Security scanning of dependencies.** Renovate + Dependabot's security
   advisories cover that path; the skill doesn't try to replicate it.
 - **Replacing the boot-smoke / wayland-session tests.** Those are the real
-  gate (per CLAUDE.md § How to validate work); the AI review is a layer on
+  gate (per AGENTS.md § How to validate work); the AI review is a layer on
   top, not a substitute.
 
 ## Revisit when
@@ -164,6 +164,6 @@ invocation paths.
 ## See also
 
 - ADR-008 — the surrounding release / CI pipeline this plugs into.
-- `CLAUDE.md § Locked decisions` — the source of truth the skill cites.
+- `AGENTS.md § Locked decisions` — the source of truth the skill cites.
 - `.claude/skills/pr-review/SKILL.md` — implementation.
 - `.github/workflows/ai-review.yml` — provider configuration and trigger logic.

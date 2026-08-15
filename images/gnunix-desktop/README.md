@@ -67,7 +67,7 @@ tools/build-all.sh gnunix-desktop
 
 ## What it does NOT ship
 
-By design (root `CLAUDE.md` § "Guiding philosophy" + ADR-020):
+By design (root `AGENTS.md` § "Guiding philosophy" + ADR-020):
 
 - **No second compositor in the pre-baked image.** Sway, labwc,
   labwc-nextspace, COSMIC are installer-time picks (see
