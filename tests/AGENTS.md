@@ -41,7 +41,7 @@ in the ADRs, and they win on every conflict:
    | [ADR-017](../docs/adrs/ADR-017-live-iso-architecture.md) | Live ISO is squashfs + overlayfs + custom initramfs. A future `tests/installer/iso-boot.sh` asserts the TUI auto-launches on tty1. |
    | [ADR-019](../docs/adrs/ADR-019-image-lineage-and-installer-pivot.md) | Installer layers on `gnunix-minimal`, not `gnunix-desktop`. Live env is text-only — there is no greetd session menu to test. PR-gate runs `minimal` + `desktop-hyprland`; `desktop-sway` and `desktop-labwc` are nightly / tag-build. |
    | [ADR-020](../docs/adrs/ADR-020-compositor-switch-hyprland.md) | Hyprland is the reference compositor. `desktop-hyprland` is the default PR-gate desktop profile. |
-   | [ADR-021](../docs/adrs/ADR-021-no-self-hosted-runners.md) | No self-hosted runners — ever. Tests cannot assume Tart in CI; the macOS host runs them locally, CI runs them via qemu+KVM. |
+   | [ADR-021](../docs/adrs/ADR-021-hosted-runners-only.md) | No self-hosted runners — ever. Tests cannot assume Tart in CI; the macOS host runs them locally, CI runs them via qemu+KVM. |
 
 Whenever you touch this layer, re-read the relevant ADR rather than
 paraphrasing from memory. If a proposed change would require

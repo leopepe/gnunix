@@ -74,5 +74,5 @@ This is the **multi-arch + per-platform** half of ADR-010.
 
 - [ADR-010](../../docs/adrs/ADR-010-multi-arch-and-platforms.md) — multi-arch + per-platform packagers
 - [ADR-018](../../docs/adrs/ADR-018-artifact-taxonomy.md) — artifact taxonomy + naming
-- [ADR-021](../../docs/adrs/ADR-021-no-self-hosted-runners.md) — x86_64 + Phase 5/6 routing
+- [ADR-021](../../docs/adrs/ADR-021-hosted-runners-only.md) — x86_64 + Phase 5/6 routing
 - [`docs/runbooks/platforms.md`](../../docs/runbooks/platforms.md) — packager exit codes, matrix wiring

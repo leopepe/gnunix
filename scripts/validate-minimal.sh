@@ -14,7 +14,7 @@ VM_OR_IMG="${1:-}"
 if [ -f "$VM_OR_IMG" ]; then
      # CI mode: disk image path.
     . "$REPO_ROOT/scripts/vm-helpers.sh"
-    VM_DRIVER=qvm
+    VM_DRIVER=qemu
     export VM_DRIVER
 
     echo "[validate-minimal] CI mode — testing disk image: $VM_OR_IMG"
