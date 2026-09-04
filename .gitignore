@@ -3,3 +3,6 @@ cache
 .DS_Store
 **/.DS_Store
 logs/
+.conductor/
+.pi/
+.plan/

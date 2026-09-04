@@ -1,0 +1,269 @@
+{
+  "binutils": {
+    "vendor": "gnu",
+    "product": "binutils"
+  },
+  "gcc": {
+    "vendor": "gnu",
+    "product": "gcc"
+  },
+  "glibc": {
+    "vendor": "gnu",
+    "product": "glibc"
+  },
+  "gmp": {
+    "vendor": "gmplib",
+    "product": "gmp"
+  },
+  "mpfr": {
+    "vendor": "mpfr",
+    "product": "mpfr"
+  },
+  "mpc": {
+    "vendor": "gnu",
+    "product": "mpc"
+  },
+  "isl": {
+    "vendor": "isl_project",
+    "product": "isl"
+  },
+  "linux_headers": {
+    "skip": true,
+    "reason": "headers-only package with no runtime exposure"
+  },
+  "bash": {
+    "vendor": "gnu",
+    "product": "bash"
+  },
+  "coreutils": {
+    "vendor": "gnu",
+    "product": "coreutils"
+  },
+  "util-linux": {
+    "vendor": "kernel",
+    "product": "util-linux"
+  },
+  "e2fsprogs": {
+    "vendor": "e2fsprogs_project",
+    "product": "e2fsprogs"
+  },
+  "iproute2": {
+    "vendor": "kernel",
+    "product": "iproute2"
+  },
+  "iputils": {
+    "vendor": "iputils_project",
+    "product": "iputils"
+  },
+  "dhcpcd": {
+    "vendor": "dhcpcd_project",
+    "product": "dhcpcd"
+  },
+  "openssh": {
+    "vendor": "openbsd",
+    "product": "openssh",
+    "version_map": {
+      "9.9p1": "9.9:p1"
+    }
+  },
+  "openssl": {
+    "vendor": "openssl",
+    "product": "openssl"
+  },
+  "zlib": {
+    "vendor": "zlib",
+    "product": "zlib"
+  },
+  "ncurses": {
+    "vendor": "gnu",
+    "product": "ncurses"
+  },
+  "readline": {
+    "vendor": "gnu",
+    "product": "readline"
+  },
+  "less": {
+    "vendor": "gnu",
+    "product": "less"
+  },
+  "vim": {
+    "vendor": "vim",
+    "product": "vim"
+  },
+  "shadow": {
+    "vendor": "shadow_project",
+    "product": "shadow"
+  },
+  "libxcrypt": {
+    "vendor": "libxcrypt_project",
+    "product": "libxcrypt"
+  },
+  "perl": {
+    "vendor": "perl",
+    "product": "perl"
+  },
+  "bison": {
+    "vendor": "gnu",
+    "product": "bison"
+  },
+  "flex": {
+    "vendor": "flex_project",
+    "product": "flex"
+  },
+  "gperf": {
+    "vendor": "gnu",
+    "product": "gperf"
+  },
+  "pkgconf": {
+    "vendor": "pkgconf",
+    "product": "pkgconf"
+  },
+  "python": {
+    "vendor": "python",
+    "product": "python"
+  },
+  "pam": {
+    "vendor": "linux-pam",
+    "product": "linux-pam"
+  },
+  "expat": {
+    "vendor": "libexpat_project",
+    "product": "libexpat"
+  },
+  "file": {
+    "vendor": "file_project",
+    "product": "file"
+  },
+  "gawk": {
+    "vendor": "gnu",
+    "product": "gawk"
+  },
+  "grep": {
+    "vendor": "gnu",
+    "product": "grep"
+  },
+  "sed": {
+    "vendor": "gnu",
+    "product": "sed"
+  },
+  "xz": {
+    "vendor": "tukaani",
+    "product": "xz"
+  },
+  "gzip": {
+    "vendor": "gnu",
+    "product": "gzip"
+  },
+  "tar": {
+    "vendor": "gnu",
+    "product": "tar"
+  },
+  "make": {
+    "vendor": "gnu",
+    "product": "make"
+  },
+  "m4": {
+    "vendor": "gnu",
+    "product": "m4"
+  },
+  "diffutils": {
+    "vendor": "gnu",
+    "product": "diffutils"
+  },
+  "findutils": {
+    "vendor": "gnu",
+    "product": "findutils"
+  },
+  "patch": {
+    "vendor": "gnu",
+    "product": "patch"
+  },
+  "kmod": {
+    "vendor": "kernel",
+    "product": "kmod"
+  },
+  "procps-ng": {
+    "vendor": "procps-ng_project",
+    "product": "procps-ng"
+  },
+  "psmisc": {
+    "vendor": "psmisc_project",
+    "product": "psmisc"
+  },
+  "sysklogd": {
+    "vendor": "sysklogd_project",
+    "product": "sysklogd"
+  },
+  "pciutils": {
+    "vendor": "pciutils_project",
+    "product": "pciutils"
+  },
+  "dmidecode": {
+    "vendor": "dmidecode_project",
+    "product": "dmidecode"
+  },
+  "popt": {
+    "vendor": "popt_project",
+    "product": "popt"
+  },
+  "cronie": {
+    "vendor": "cronie_project",
+    "product": "cronie"
+  },
+  "logrotate": {
+    "vendor": "logrotate_project",
+    "product": "logrotate"
+  },
+  "meson": {
+    "vendor": "mesonbuild",
+    "product": "meson"
+  },
+  "ninja": {
+    "vendor": "ninja-build",
+    "product": "ninja"
+  },
+  "hwdata": {
+    "vendor": "hwdata_project",
+    "product": "hwdata"
+  },
+  "bzip2": {
+    "vendor": "bzip",
+    "product": "bzip2"
+  },
+  "libusb": {
+    "vendor": "libusb",
+    "product": "libusb"
+  },
+  "usbutils": {
+    "vendor": "kernel",
+    "product": "usbutils"
+  },
+  "sysvinit": {
+    "vendor": "sysvinit_project",
+    "product": "sysvinit"
+  },
+  "eudev": {
+    "vendor": "eudev_project",
+    "product": "eudev"
+  },
+  "dbus": {
+    "vendor": "freedesktop",
+    "product": "dbus"
+  },
+  "elogind": {
+    "vendor": "elogind_project",
+    "product": "elogind"
+  },
+  "grub": {
+    "vendor": "gnu",
+    "product": "grub"
+  },
+  "nix": {
+    "vendor": "nixos",
+    "product": "nix"
+  },
+  "kernel": {
+    "skip": true,
+    "reason": "NVD kernel CVE ingestion is incomplete; kernel CVEs flow via Renovate + kernel.org releases (documented limitation)"
+  }
+}
