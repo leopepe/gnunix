@@ -1,0 +1,115 @@
+# CVE scan against NVD API 2.0 — detection + alerting only.
+#
+# Parses tools/manifest.json, resolves pinned packages through
+# tools/cpe-map.json, queries NVD per package (virtualMatchString),
+# filters by CVSS >= 7.0 (HIGH/CRITICAL).
+#
+# If critical CVEs found: opens one labeled issue per CVE finding,
+# titled `CVE-YYYY-NNNN (<package> <version>)`, deduped by exact title
+# + labels across open and closed issues. No image rebuild is triggered
+# from here — a
+# rebuild from unchanged pins would emit a bit-identical vulnerable
+# image. Remediation is a pin bump via Renovate, which flows through
+# the existing v* tag -> build.yml pipeline.
+#
+# If no CVEs: silent exit.
+#
+# Rate limiting: unauthenticated NVD allows 5 requests / 30 s, so the
+# script sleeps ~7 s between queries (~64 packages = ~8 min); the
+# optional NVD_API_KEY secret raises the limit (~1 s sleep). HTTP
+# 429/503 responses and network failures are retried with backoff. A
+# failed scan fails this job loudly and creates no issues.
+#
+# Trigger:
+#   schedule: daily at 06:00 UTC
+#   push: tools/manifest.json modified (every pin bump is CVE-verified)
+#   workflow_dispatch: manual trigger
+
+name: Security scan
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  push:
+    paths:
+      - tools/manifest.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: security-scan
+  cancel-in-progress: false
+
+jobs:
+  cve-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan manifest against NVD
+        id: scan
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: bash tools/security-scan.sh
+
+      - name: Open one issue per CVE finding
+        if: steps.scan.outputs.cves != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = ['security', 'auto-triggered'];
+            const findings = (process.env.FINDINGS_TSV || '')
+              .split('\n')
+              .filter(l => l.trim() !== '');
+            if (findings.length === 0) {
+              core.warning('cves=true but FINDINGS_TSV is empty');
+              return;
+            }
+
+            // Dedup across open AND closed issues so a triaged/fixed
+            // issue is not recreated after it was closed.
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              labels: labels.join(','),
+              per_page: 100,
+            });
+
+            for (const line of findings) {
+              const [cveId, pkg, version, score, severity, url] =
+                line.split('\t');
+              if (!cveId || !pkg || !version || !score || !url) {
+                core.warning(`Skipping malformed finding line: ${line}`);
+                continue;
+              }
+              const title = `${cveId} (${pkg} ${version})`;
+              const existing = issues.find(i => i.title === title);
+              if (existing) {
+                core.info(`Issue already exists: #${existing.number}`);
+                continue;
+              }
+              const body = [
+                '## Critical CVE detected in base packages',
+                '',
+                `- ${cveId} (${pkg} ${version}): CVSS ${score}` +
+                  ` ${severity} - ${url}`,
+                '',
+                '---',
+                '_Auto-detected by [security-scan.yml]' +
+                  '(.github/workflows/security-scan.yml). Remediate by' +
+                  ' bumping the affected pin in `tools/manifest.json`' +
+                  ' (Renovate PR -> merge -> v* tag -> build.yml)._',
+              ].join('\n');
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                labels,
+                body,
+              });
+            }

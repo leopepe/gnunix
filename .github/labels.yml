@@ -41,6 +41,10 @@
   color: b60205
   description: Security-sensitive — handle via security advisory if exploitable.
 
+- name: auto-triggered
+  color: fbca04
+  description: Opened automatically by CI (e.g. CVE detection).
+
 - name: good-first-issue
   color: 008672
   description: A productive starting point for new contributors.
@@ -121,7 +125,9 @@
 
 - name: claude-review
   color: 7057ff
-  description: Alias for ai-review (legacy; kept for back-compat with ADR-014's first draft).
+  description: >-
+    Alias for ai-review (legacy; kept for back-compat with ADR-014's
+    first draft).
 
 - name: dependencies
   color: 0366d6
