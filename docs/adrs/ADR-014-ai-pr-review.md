@@ -45,9 +45,8 @@ Split PR review into two complementary workflows:
    - Ollama on a self-hosted runner — for fully-local review.
 
 The architectural rules the model applies are encoded **once** in the
-skill at `.claude/skills/pr-review/` (kept under `.claude/` because that
-path is Claude's skill-discovery convention, not because the content is
-Claude-specific):
+skill at `.agents/skills/pr-review/` (the project's default agents
+directory):
 
 - `SKILL.md` — procedure, boundaries, output format. Works in two modes:
   agentic (a local `claude` invocation drives tool calls itself) and
@@ -60,9 +59,13 @@ Claude-specific):
 - **Provider-agnostic by design.** ADR-005 says single-maintainer audience;
   we shouldn't gate the review on a paid Anthropic key. OpenRouter's free
   tier costs $0 and covers reasonable PR volume; the workflow accepts any
-  OpenAI-compatible endpoint as a swap-in.
+  OpenAI-compatible endpoint as a swap-in. The default model strategy uses
+  a three-tier fallback: Gemini 2.5 Flash (primary, via OpenRouter free
+  tier), Llama 3.3 70B (internal OpenRouter failover on rate-limit or
+  downtime), and Groq direct (external fallback if OpenRouter itself is
+  unreachable). All tiers are free and require no credit card.
 - **Skill as shared prompt template, not vendor lock-in.** Putting the
-  rules in `.claude/skills/pr-review/` means a human running `claude`
+  rules in `.agents/skills/pr-review/` means a human running `claude`
   locally on their branch gets the same procedure as CI. The CI workflow
   just reads the same Markdown and sends it to whichever LLM is
   configured.
@@ -89,8 +92,8 @@ Claude-specific):
 - `.github/workflows/ai-review.yml` — invokes whichever LLM is configured
   on `@ai review` / `@claude review` or `ai-review` / `claude-review`
   label.
-- `.claude/skills/pr-review/SKILL.md` — procedure, boundaries, output format.
-- `.claude/skills/pr-review/checklist.md` — the rule body with severity
+- `.agents/skills/pr-review/SKILL.md` — procedure, boundaries, output format.
+- `.agents/skills/pr-review/checklist.md` — the rule body with severity
   levels and ADR citations.
 - New secret required: `AI_REVIEW_API_KEY` (single secret regardless of
   provider).
@@ -110,15 +113,29 @@ Claude-specific):
 
 | Setting | Type | Default | Notes |
 |---|---|---|---|
-| `AI_REVIEW_API_KEY` | secret | _(required)_ | API key for the chosen provider. |
+| `AI_REVIEW_API_KEY` | secret | _(required)_ | API key for the primary provider (OpenRouter). |
+| `AI_REVIEW_FALLBACK_API_KEY` | secret | _(optional)_ | Groq API key for external fallback. If unset, Groq tier is skipped. |
 | `AI_REVIEW_API_URL` | variable | `https://openrouter.ai/api/v1/chat/completions` | Any OpenAI-compatible endpoint. |
-| `AI_REVIEW_MODEL` | variable | `deepseek/deepseek-chat-v3:free` | Model identifier in the provider's namespace. |
+| `AI_REVIEW_MODEL` | variable | `google/gemini-2.5-flash:free` | Primary model identifier in the provider's namespace. |
+| `AI_REVIEW_FALLBACK_MODELS` | variable | `meta-llama/llama-3.3-70b-instruct:free` | Comma-separated OpenRouter model IDs for internal failover. |
+| `AI_REVIEW_FALLBACK_URL` | variable | `https://api.groq.com/openai/v1/chat/completions` | External fallback endpoint. |
+| `AI_REVIEW_FALLBACK_MODEL` | variable | `llama-3.3-70b-versatile` | External fallback model (Groq). |
 
 Provider quick-pick is in the header comment of
 `.github/workflows/ai-review.yml`.
 
 If the key is missing or revoked, the workflow fails closed (no review
 posted) but no other CI is affected. PR merges aren't blocked.
+
+The three-tier fallback strategy ensures resilience:
+
+1. **Primary**: Gemini 2.5 Flash via OpenRouter — fast, strong reasoning,
+   free tier with generous rate limits.
+2. **Internal failover**: Llama 3.3 70B via OpenRouter — automatic via
+   OpenRouter's `models` parameter; triggers on rate-limit, downtime, or
+   content moderation refusal.
+3. **External fallback**: Groq direct API — activates only if OpenRouter
+   itself is unreachable. Requires `AI_REVIEW_FALLBACK_API_KEY`.
 
 ## Boundaries
 
@@ -165,5 +182,5 @@ invocation paths.
 
 - ADR-008 — the surrounding release / CI pipeline this plugs into.
 - `AGENTS.md § Locked decisions` — the source of truth the skill cites.
-- `.claude/skills/pr-review/SKILL.md` — implementation.
+- `.agents/skills/pr-review/SKILL.md` — implementation.
 - `.github/workflows/ai-review.yml` — provider configuration and trigger logic.

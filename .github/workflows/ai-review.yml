@@ -1,5 +1,5 @@
 # Advisory PR review by an LLM, following the pr-review skill in
-# .claude/skills/pr-review/. Decision: ADR-014.
+# .agents/skills/pr-review/. Decision: ADR-014.
 #
 # Provider-agnostic: speaks the OpenAI-compatible chat completions API, so
 # it works with OpenRouter (free tier or paid), DeepSeek, Together, Groq,
@@ -13,29 +13,47 @@
 # (shellcheck, actionlint, gitleaks) are handled by pr-lint.yml, which DOES
 # block.
 #
+# Model strategy (three-tier fallback):
+#   1. Primary:   Google Gemini 2.5 Flash via OpenRouter (free, fast, strong)
+#   2. Internal:  Llama 3.3 70B via OpenRouter (auto-failover if Gemini is
+#                 rate-limited or down — uses OpenRouter's `models` parameter)
+#   3. External:  Groq direct API (if OpenRouter itself is unreachable —
+#                 requires AI_REVIEW_FALLBACK_API_KEY secret)
+#
 # Configuration (repo settings → secrets and variables → actions):
 #   SECRETS (required):
-#     AI_REVIEW_API_KEY     API key for the chosen provider.
+#     AI_REVIEW_API_KEY           API key for the primary provider (OpenRouter).
+#   SECRETS (optional):
+#     AI_REVIEW_FALLBACK_API_KEY  Groq API key for external fallback. If unset,
+#                                 the workflow skips the Groq fallback tier.
 #   VARIABLES (optional, with defaults):
-#     AI_REVIEW_API_URL     Chat-completions endpoint URL.
-#                           Default: https://openrouter.ai/api/v1/chat/completions
-#     AI_REVIEW_MODEL       Model identifier.
-#                           Default: deepseek/deepseek-chat-v3:free
+#     AI_REVIEW_API_URL           Chat-completions endpoint URL.
+#                                 Default: https://openrouter.ai/api/v1/chat/completions
+#     AI_REVIEW_MODEL             Primary model identifier.
+#                                 Default: google/gemini-2.5-flash:free
+#     AI_REVIEW_FALLBACK_MODELS   Comma-separated OpenRouter model IDs for
+#                                 internal failover (tried in order).
+#                                 Default: meta-llama/llama-3.3-70b-instruct:free
+#     AI_REVIEW_FALLBACK_URL      External fallback endpoint (Groq).
+#                                 Default: https://api.groq.com/openai/v1/chat/completions
+#     AI_REVIEW_FALLBACK_MODEL    External fallback model (Groq).
+#                                 Default: llama-3.3-70b-versatile
 #
 # Provider quick-pick:
 #   OpenRouter free tier (recommended default — no payment needed):
 #     URL:   https://openrouter.ai/api/v1/chat/completions
-#     MODEL: deepseek/deepseek-chat-v3:free
-#            deepseek/deepseek-r1:free                  (slower, stronger reasoning)
-#            qwen/qwen-2.5-coder-32b-instruct:free      (code specialist)
-#            meta-llama/llama-3.3-70b-instruct:free     (general-purpose)
+#     MODEL: google/gemini-2.5-flash:free            (primary — fast, strong)
+#            meta-llama/llama-3.3-70b-instruct:free  (fallback — general-purpose)
+#            deepseek/deepseek-chat-v3:free           (alternative — cheap, good)
+#            deepseek/deepseek-r1:free                (slower, stronger reasoning)
+#            qwen/qwen-2.5-coder-32b-instruct:free   (code specialist)
+#   Groq direct (fastest inference, free tier, no CC needed):
+#     URL:   https://api.groq.com/openai/v1/chat/completions
+#     MODEL: llama-3.3-70b-versatile, qwen-2.5-coder-32b
 #   DeepSeek direct (cheapest paid option):
 #     URL:   https://api.deepseek.com/v1/chat/completions
 #     MODEL: deepseek-chat   (V3)
 #            deepseek-reasoner (R1)
-#   Groq:
-#     URL:   https://api.groq.com/openai/v1/chat/completions
-#     MODEL: llama-3.3-70b-versatile, qwen-2.5-coder-32b
 #   Ollama (self-hosted, e.g. on the gnunix-builder Mac):
 #     URL:   http://<host>:11434/v1/chat/completions
 #     MODEL: qwen2.5-coder:32b  (or whatever you have pulled)
@@ -108,7 +126,11 @@ jobs:
       PR: ${{ needs.trigger-check.outputs.pr_number }}
       AI_REVIEW_API_KEY: ${{ secrets.AI_REVIEW_API_KEY }}
       AI_REVIEW_API_URL: ${{ vars.AI_REVIEW_API_URL || 'https://openrouter.ai/api/v1/chat/completions' }}
-      AI_REVIEW_MODEL:   ${{ vars.AI_REVIEW_MODEL   || 'deepseek/deepseek-chat-v3:free' }}
+      AI_REVIEW_MODEL:   ${{ vars.AI_REVIEW_MODEL   || 'google/gemini-2.5-flash:free' }}
+      AI_REVIEW_FALLBACK_MODELS: ${{ vars.AI_REVIEW_FALLBACK_MODELS || 'meta-llama/llama-3.3-70b-instruct:free' }}
+      AI_REVIEW_FALLBACK_API_KEY: ${{ secrets.AI_REVIEW_FALLBACK_API_KEY }}
+      AI_REVIEW_FALLBACK_URL:     ${{ vars.AI_REVIEW_FALLBACK_URL || 'https://api.groq.com/openai/v1/chat/completions' }}
+      AI_REVIEW_FALLBACK_MODEL:   ${{ vars.AI_REVIEW_FALLBACK_MODEL || 'llama-3.3-70b-versatile' }}
     steps:
       - name: Sanity check — API key is configured
         run: |
@@ -117,7 +139,13 @@ jobs:
             echo "::error title=AI_REVIEW_API_KEY missing::Set the AI_REVIEW_API_KEY secret in repo settings. See ai-review.yml header for provider options."
             exit 1
           fi
-          echo "[ai-review] using model=$AI_REVIEW_MODEL via $AI_REVIEW_API_URL"
+          echo "[ai-review] primary model=$AI_REVIEW_MODEL via $AI_REVIEW_API_URL"
+          echo "[ai-review] openrouter fallback models: $AI_REVIEW_FALLBACK_MODELS"
+          if [ -n "${AI_REVIEW_FALLBACK_API_KEY:-}" ]; then
+            echo "[ai-review] external fallback: $AI_REVIEW_FALLBACK_MODEL via $AI_REVIEW_FALLBACK_URL"
+          else
+            echo "[ai-review] external fallback: disabled (set AI_REVIEW_FALLBACK_API_KEY to enable Groq)"
+          fi
 
       - name: Checkout PR head
         uses: actions/checkout@v4
@@ -138,11 +166,11 @@ jobs:
 
           # ── System prompt: the skill describes the procedure + checklist.
           {
-            cat .claude/skills/pr-review/SKILL.md
+            cat .agents/skills/pr-review/SKILL.md
             echo
             echo "---"
             echo
-            cat .claude/skills/pr-review/checklist.md
+            cat .agents/skills/pr-review/checklist.md
             echo
             echo "---"
             echo
@@ -226,8 +254,16 @@ jobs:
           set -eu
 
           # Build the request body. jq -Rs slurps each file into a string.
+          # If OpenRouter fallback models are configured, add the `models`
+          # array so OpenRouter auto-failover on rate-limit/downtime.
+          fallback_json="[]"
+          if [ -n "${AI_REVIEW_FALLBACK_MODELS:-}" ]; then
+            fallback_json=$(echo "$AI_REVIEW_FALLBACK_MODELS" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | jq -R . | jq -s .)
+          fi
+
           jq -n \
             --arg model "$AI_REVIEW_MODEL" \
+            --argjson fallbacks "$fallback_json" \
             --rawfile sys  /tmp/ai-review/system.md \
             --rawfile usr  /tmp/ai-review/user.md \
             '{
@@ -238,28 +274,80 @@ jobs:
                 { role: "system", content: $sys },
                 { role: "user",   content: $usr }
               ]
-            }' > /tmp/ai-review/req.json
+            } + if ($fallbacks | length) > 0 then { models: $fallbacks } else {} end' \
+            > /tmp/ai-review/req.json
 
+          # ── Try primary provider (OpenRouter).
           # OpenRouter recommends (but doesn't require) these headers for
           # attribution. Other providers ignore them harmlessly.
+          primary_ok=false
           http_code=$(curl -sS \
             -o /tmp/ai-review/resp.json \
             -w '%{http_code}' \
+            --max-time 120 \
             "$AI_REVIEW_API_URL" \
             -H "Authorization: Bearer $AI_REVIEW_API_KEY" \
             -H "Content-Type: application/json" \
             -H "HTTP-Referer: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
             -H "X-Title: GNUnix PR review" \
-            -d @/tmp/ai-review/req.json)
+            -d @/tmp/ai-review/req.json) || true
 
-          echo "[ai-review] HTTP $http_code"
+          echo "[ai-review] primary HTTP $http_code"
 
-          if [ "$http_code" != "200" ]; then
-            echo "::error title=AI API returned $http_code::See response body below."
-            echo "--- response ---"
-            cat /tmp/ai-review/resp.json || true
+          if [ "$http_code" = "200" ] && jq -er '.choices[0].message.content' /tmp/ai-review/resp.json > /dev/null 2>&1; then
+            primary_ok=true
+            echo "[ai-review] primary provider succeeded"
+          else
+            echo "[ai-review] primary provider failed (HTTP $http_code or malformed response)"
+            echo "--- primary response ---"
+            cat /tmp/ai-review/resp.json 2>/dev/null || true
             echo
-            echo "----------------"
+            echo "------------------------"
+          fi
+
+          # ── External fallback (Groq direct) if primary failed and key is set.
+          if [ "$primary_ok" = "false" ] && [ -n "${AI_REVIEW_FALLBACK_API_KEY:-}" ]; then
+            echo "[ai-review] trying external fallback: $AI_REVIEW_FALLBACK_MODEL via $AI_REVIEW_FALLBACK_URL"
+
+            # Rebuild request body with the fallback model (no `models` array).
+            jq -n \
+              --arg model "$AI_REVIEW_FALLBACK_MODEL" \
+              --rawfile sys  /tmp/ai-review/system.md \
+              --rawfile usr  /tmp/ai-review/user.md \
+              '{
+                model: $model,
+                temperature: 0.2,
+                max_tokens: 4096,
+                messages: [
+                  { role: "system", content: $sys },
+                  { role: "user",   content: $usr }
+                ]
+              }' > /tmp/ai-review/req-fallback.json
+
+            http_code=$(curl -sS \
+              -o /tmp/ai-review/resp.json \
+              -w '%{http_code}' \
+              --max-time 120 \
+              "$AI_REVIEW_FALLBACK_URL" \
+              -H "Authorization: Bearer $AI_REVIEW_FALLBACK_API_KEY" \
+              -H "Content-Type: application/json" \
+              -d @/tmp/ai-review/req-fallback.json) || true
+
+            echo "[ai-review] fallback HTTP $http_code"
+
+            if [ "$http_code" = "200" ] && jq -er '.choices[0].message.content' /tmp/ai-review/resp.json > /dev/null 2>&1; then
+              primary_ok=true
+              echo "[ai-review] external fallback succeeded"
+            else
+              echo "::error title=Fallback also failed::Both primary and fallback providers failed."
+              echo "--- fallback response ---"
+              cat /tmp/ai-review/resp.json 2>/dev/null || true
+              echo
+              echo "-------------------------"
+              exit 1
+            fi
+          elif [ "$primary_ok" = "false" ]; then
+            echo "::error title=AI API returned $http_code::Primary provider failed and no fallback key configured. Set AI_REVIEW_FALLBACK_API_KEY for Groq fallback."
             exit 1
           fi
 

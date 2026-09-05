@@ -36,7 +36,8 @@ The skill is provider-agnostic. It runs in two modes:
 - **Single-turn mode** — invoked by `.github/workflows/ai-review.yml`,
   which pre-loads the diff + AGENTS.md + ADRs into a single prompt and
   sends it to whatever OpenAI-compatible API the repo is configured to use
-  (OpenRouter free-tier DeepSeek by default; see the workflow's header for
+  (Google Gemini 2.5 Flash via OpenRouter free tier by default, with
+  Llama 3.3 internal fallback and Groq external fallback; see the
   alternatives). The model does not fetch anything; it just produces the
   review Markdown.
 
@@ -94,7 +95,7 @@ Read these files first. They define the rules you'll be applying:
      `ADR-008`.
 4. `docs/runbooks/platforms.md` — if any platform packager or artifact
    naming changes.
-5. `.claude/skills/pr-review/checklist.md` — the concrete per-axis checklist
+5. `.agents/skills/pr-review/checklist.md` — the concrete per-axis checklist
    you'll apply.
 
 ### Step 2 — Fetch the diff
@@ -211,6 +212,6 @@ gh pr comment "$PR_NUMBER" --body "🤖 Claude review: no material findings agai
 
 ## See also
 
-- `.claude/skills/pr-review/checklist.md` — the per-axis checklist body.
+- `.agents/skills/pr-review/checklist.md` — the per-axis checklist body.
 - `AGENTS.md` — the source of truth for project conventions.
 - `docs/adrs/ADR-014-ai-pr-review.md` — why this skill exists.
