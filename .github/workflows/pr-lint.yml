@@ -23,7 +23,16 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: pr-lint-${{ github.ref }}
+  # Key by head SHA (PRs) / commit SHA (push) instead of github.ref.
+  # For pull_request events github.ref is refs/pull/N/merge, so two
+  # near-simultaneous synchronize events on the same PR land in one group
+  # and cancel-in-progress wedges both: the older run's jobs get cancelled
+  # ("Canceling since a higher priority waiting request for
+  # pr-lint-refs/pull/N/merge exists") and the newer run never allocates
+  # jobs (stuck pending, 0 jobs). Keying by SHA means a re-push of the
+  # same commit can't cancel itself; a genuinely new commit still
+  # supersedes the previous run because its SHA forms a new group.
+  group: pr-lint-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 jobs:
