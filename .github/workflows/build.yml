@@ -137,15 +137,7 @@ jobs:
           sudo mkdir -p "$LFS" "$SOURCES"
           sudo chmod 755 "$LFS"
        - name: Install LFS host build dependencies
-         run: |
-          set -eu
-            # LFS host-system requirements not already on the runner image.
-            # texinfo (makeinfo) is needed by binutils and gcc; the rest are
-            # cheap and keep the stage scripts from discovering gaps mid-build.
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-              texinfo gawk bison flex m4 gettext \
-              libisl-dev python3 rsync zstd xz-utils
+         run: sudo scripts/install-build-deps.sh
        - name: Build stage 'cross'
          run: |
           set -eu
@@ -201,15 +193,7 @@ jobs:
        - name: Unpack the LFS tree
          run: sudo scripts/ci-lfs-cache.sh unpack cache/lfs-tree.tzst
        - name: Install LFS host build dependencies
-         run: |
-          set -eu
-            # LFS host-system requirements not already on the runner image.
-            # texinfo (makeinfo) is needed by binutils and gcc; the rest are
-            # cheap and keep the stage scripts from discovering gaps mid-build.
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-              texinfo gawk bison flex m4 gettext \
-              libisl-dev python3 rsync zstd xz-utils
+         run: sudo scripts/install-build-deps.sh
        - name: Build stage 'temp-tools'
          run: |
           set -eu
@@ -262,15 +246,7 @@ jobs:
        - name: Unpack the LFS tree
          run: sudo scripts/ci-lfs-cache.sh unpack cache/lfs-tree.tzst
        - name: Install LFS host build dependencies
-         run: |
-          set -eu
-            # LFS host-system requirements not already on the runner image.
-            # texinfo (makeinfo) is needed by binutils and gcc; the rest are
-            # cheap and keep the stage scripts from discovering gaps mid-build.
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-              texinfo gawk bison flex m4 gettext \
-              libisl-dev python3 rsync zstd xz-utils
+         run: sudo scripts/install-build-deps.sh
        - name: Build stage 'chroot'
          run: |
           set -eu
@@ -308,15 +284,7 @@ jobs:
        - name: Unpack the LFS tree
          run: sudo scripts/ci-lfs-cache.sh unpack cache/lfs-tree.tzst
        - name: Install LFS host build dependencies
-         run: |
-          set -eu
-            # LFS host-system requirements not already on the runner image.
-            # texinfo (makeinfo) is needed by binutils and gcc; the rest are
-            # cheap and keep the stage scripts from discovering gaps mid-build.
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-              texinfo gawk bison flex m4 gettext \
-              libisl-dev python3 rsync zstd xz-utils
+         run: sudo scripts/install-build-deps.sh
        - name: Finalize rootfs
          run: |
           set -eu

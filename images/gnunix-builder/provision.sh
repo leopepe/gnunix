@@ -9,6 +9,14 @@ set -eu
 LFS_USER=${LFS_USER:-lfs}
 LFS_MOUNT=${LFS_MOUNT:-/mnt/lfs}
 
+# NOTE: the package list below is mirrored in
+# scripts/install-build-deps.sh, which the CI stage jobs use. The two
+# cannot share a file today because tools/bootstrap-builder.sh scp's
+# THIS script alone into the VM's /tmp, with no repo alongside. A list
+# that drifts between them is not hypothetical: the CI side was missing
+# gperf, pkgconf, gdisk, dosfstools and grub-efi-arm64-bin, which the
+# chroot and imaging stages need. Change both, or teach
+# bootstrap-builder.sh to copy the shared script too.
 echo "[provision] apt update + base build deps"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
