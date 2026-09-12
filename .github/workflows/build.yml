@@ -451,7 +451,7 @@ jobs:
           ARCH="${{ needs.meta.outputs.arch }}"
             # Import the image for qemu
           zstd -d -c "cache/artifacts/gnunix-base-${ARCH}-${VER}.img.zst" \
-              | sudo dd of=cache/artifacts/base-test.img bs=4M status=suppress
+              | sudo dd of=cache/artifacts/base-test.img bs=4M status=none
             # Run the smoke test (qemu driver via vm-helpers.sh)
           GNUNIX_IMAGE=cache/artifacts/base-test.img \
             bash tests/base/boot-smoke.sh gnunix-base-$VER
@@ -473,7 +473,7 @@ jobs:
           export VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
           zstd -d -c "cache/artifacts/gnunix-minimal-${ARCH}-${VER}.img.zst" \
-              | sudo dd of=cache/artifacts/minimal-test.img bs=4M status=suppress
+              | sudo dd of=cache/artifacts/minimal-test.img bs=4M status=none
           GNUNIX_IMAGE=cache/artifacts/minimal-test.img \
             bash tests/minimal/minimal-smoke.sh gnunix-minimal-$VER
 
@@ -494,7 +494,7 @@ jobs:
           export VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
           zstd -d -c "cache/artifacts/gnunix-desktop-${ARCH}-${VER}.img.zst" \
-              | sudo dd of=cache/artifacts/desktop-test.img bs=4M status=suppress
+              | sudo dd of=cache/artifacts/desktop-test.img bs=4M status=none
           GNUNIX_IMAGE=cache/artifacts/desktop-test.img \
             bash tests/desktop/wayland-session.sh gnunix-desktop-$VER
 
