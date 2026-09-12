@@ -341,7 +341,7 @@ for entry in \
   ncurses readline pam \
   kmod procps-ng psmisc sysklogd \
   popt cronie logrotate \
-  hwdata libusb
+  hwdata
 do
   pkg_skip "$entry" && continue
   v=$(pkg_ver "$entry")
@@ -351,9 +351,12 @@ do
   d=$(mktemp -d)
   # tar in the rootfs was built with lbzip2 autodetected on the
   # builder host's PATH and hardcodes it as the .bz2 decompressor —
-  # but lbzip2 isn't in the final rootfs. For *.tar.bz2 sources
-  # (libusb, today), force bzip2 (built in its own block above)
-  # via --use-compress-program. Other formats use tar's native path.
+  # but lbzip2 isn't in the final rootfs. For any *.tar.bz2 source,
+  # force bzip2 (built in its own block above) via
+  # --use-compress-program. Other formats use tar's native path.
+  # No package in this loop ships as .tar.bz2 today — libusb, which
+  # did, now builds after eudev for libudev — so this arm is kept for
+  # the next one rather than removed.
   case "$fname" in
     *.tar.bz2) tar --use-compress-program=bzip2 -xf "$SOURCES/$fname" -C "$d" ;;
     *)         tar -xf "$SOURCES/$fname" -C "$d" ;;
@@ -441,6 +444,33 @@ for entry in sysvinit eudev; do
   esac
   pkg_mark "$entry"
 done
+
+# libusb — must come AFTER eudev, which provides libudev.
+#
+# It used to sit at the end of the main autotools loop, which runs before
+# eudev is built, so its configure found no libudev header and stopped:
+#   configure: error: udev support requested but libudev header not installed
+# libusb enables udev support by default and uses it to enumerate devices
+# via /dev/bus/usb; usbutils below links against the result, and its own
+# comment already notes the eudev dependency.
+#
+# Own block rather than the loop: the loop runs before eudev, and the
+# source ships only as .tar.bz2 (see the tar note in that loop).
+if ! pkg_skip libusb; then
+  v=$ver_libusb
+  fname=$(pkg_file libusb)
+  d=$(mktemp -d)
+  tar --use-compress-program=bzip2 -xf "$SOURCES/$fname" -C "$d"
+  cd "$d/libusb-$v"
+  echo "[chroot-inner] building libusb-$v"
+  hardening_export "libusb" native
+  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var \
+    --disable-static
+  make -j$JOBS
+  make install
+  cd /; rm -rf "$d"
+  pkg_mark libusb
+fi
 
 # meson — Python build system. SKIPPED: bind-mounted from apt
 # (provision.sh). Available in chroot via /usr/bin/lfs-tools.
