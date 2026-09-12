@@ -173,14 +173,14 @@ done
 # Perl — required by libxcrypt's configure (>= 5.14) and by several
 # later packages' build machinery.
 #
-# This is NOT bind-mounted, despite what this comment used to claim.
-# 03-chroot.sh binds exactly `bison flex gperf make patch pkgconf` (+m4)
-# from the host; perl was added to the skip list in 5bf0eae without ever
-# being added to that list, so `perl` did not exist inside the chroot on
-# any host and libxcrypt stopped at
-# "configure: error: Perl version 5.14.0 or later is required".
+# Perl was previously skipped here on the claim that it came from the
+# host via /usr/bin/lfs-tools (5bf0eae). It never did — perl was never
+# even in that symlink list, and as of the commit that removed the whole
+# mechanism from 03-chroot.sh, there is no such list to be in. libxcrypt
+# stopped at "configure: error: Perl version 5.14.0 or later is
+# required".
 #
-# Perl also cannot be bind-mounted the way those tools are: it is not one
+# Perl could not have been borrowed that way regardless: it is not one
 # binary but an interpreter plus its module tree (@INC under
 # /usr/lib/perl5/...), and a symlinked /usr/bin/perl finds none of it.
 # Building it is also what the manifest implies — perl is pinned in
