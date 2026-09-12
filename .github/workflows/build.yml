@@ -435,7 +435,7 @@ jobs:
   test-base:
     needs: [meta, finalize]
     runs-on: ubuntu-22.04-arm
-    timeout-minutes: 15
+    timeout-minutes: 45   # TCG emulation: boot alone can take minutes
     steps:
        - uses: actions/checkout@v4
        - name: Download base image
@@ -443,23 +443,42 @@ jobs:
          with:
           name: gnunix-base-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
+       - name: Install qemu and EFI firmware
+         run: |
+          set -eu
+            # No /dev/kvm on hosted arm64 runners, so the guest runs under
+            # TCG. qemu-efi-aarch64 supplies /usr/share/AAVMF, which the
+            # image needs to boot the way it does on hardware: UEFI -> GRUB.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+              qemu-system-arm qemu-utils qemu-efi-aarch64
        - name: Boot smoke test
          run: |
           set -eu
-            # The smoke test script uses vm-helpers.sh (qemu driver in CI)
-          export VER="${{ needs.meta.outputs.version }}"
+          VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
-            # Import the image for qemu
           zstd -d -c "cache/artifacts/gnunix-base-${ARCH}-${VER}.img.zst" \
-              | sudo dd of=cache/artifacts/base-test.img bs=4M status=none
-            # Run the smoke test (qemu driver via vm-helpers.sh)
-          GNUNIX_IMAGE=cache/artifacts/base-test.img \
-            bash tests/base/boot-smoke.sh gnunix-base-$VER
+              > cache/artifacts/base-test.img
+            # Pass the IMAGE PATH, not a VM name: validate-boot.sh selects
+            # its qemu path on the argument being a file. It previously got
+            # a name, took the Tart branch, and waited on a VM that had
+            # never been created.
+          bash tests/base/boot-smoke.sh cache/artifacts/base-test.img
+       - name: Upload guest console on failure
+         if: failure()
+         uses: actions/upload-artifact@v4
+         with:
+          name: console-test-base-${{ needs.meta.outputs.version }}
+          path: |
+            cache/vms/**/console.log
+            cache/vms/**/qemu.log
+          if-no-files-found: ignore
+          retention-days: 7
 
   test-minimal:
     needs: [meta, build-minimal]
     runs-on: ubuntu-22.04-arm
-    timeout-minutes: 15
+    timeout-minutes: 45   # TCG emulation: boot alone can take minutes
     steps:
        - uses: actions/checkout@v4
        - name: Download minimal image
@@ -467,20 +486,42 @@ jobs:
          with:
           name: gnunix-minimal-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
+       - name: Install qemu and EFI firmware
+         run: |
+          set -eu
+            # No /dev/kvm on hosted arm64 runners, so the guest runs under
+            # TCG. qemu-efi-aarch64 supplies /usr/share/AAVMF, which the
+            # image needs to boot the way it does on hardware: UEFI -> GRUB.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+              qemu-system-arm qemu-utils qemu-efi-aarch64
        - name: Boot smoke test
          run: |
           set -eu
-          export VER="${{ needs.meta.outputs.version }}"
+          VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
           zstd -d -c "cache/artifacts/gnunix-minimal-${ARCH}-${VER}.img.zst" \
-              | sudo dd of=cache/artifacts/minimal-test.img bs=4M status=none
-          GNUNIX_IMAGE=cache/artifacts/minimal-test.img \
-            bash tests/minimal/minimal-smoke.sh gnunix-minimal-$VER
+              > cache/artifacts/minimal-test.img
+            # Pass the IMAGE PATH, not a VM name: validate-boot.sh selects
+            # its qemu path on the argument being a file. It previously got
+            # a name, took the Tart branch, and waited on a VM that had
+            # never been created.
+          bash tests/minimal/minimal-smoke.sh cache/artifacts/minimal-test.img
+       - name: Upload guest console on failure
+         if: failure()
+         uses: actions/upload-artifact@v4
+         with:
+          name: console-test-minimal-${{ needs.meta.outputs.version }}
+          path: |
+            cache/vms/**/console.log
+            cache/vms/**/qemu.log
+          if-no-files-found: ignore
+          retention-days: 7
 
   test-desktop:
     needs: [meta, build-desktop]
     runs-on: ubuntu-22.04-arm
-    timeout-minutes: 15
+    timeout-minutes: 45   # TCG emulation: boot alone can take minutes
     steps:
        - uses: actions/checkout@v4
        - name: Download desktop image
@@ -488,15 +529,37 @@ jobs:
          with:
           name: gnunix-desktop-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
+       - name: Install qemu and EFI firmware
+         run: |
+          set -eu
+            # No /dev/kvm on hosted arm64 runners, so the guest runs under
+            # TCG. qemu-efi-aarch64 supplies /usr/share/AAVMF, which the
+            # image needs to boot the way it does on hardware: UEFI -> GRUB.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+              qemu-system-arm qemu-utils qemu-efi-aarch64
        - name: Wayland session test
          run: |
           set -eu
-          export VER="${{ needs.meta.outputs.version }}"
+          VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ needs.meta.outputs.arch }}"
           zstd -d -c "cache/artifacts/gnunix-desktop-${ARCH}-${VER}.img.zst" \
-              | sudo dd of=cache/artifacts/desktop-test.img bs=4M status=none
-          GNUNIX_IMAGE=cache/artifacts/desktop-test.img \
-            bash tests/desktop/wayland-session.sh gnunix-desktop-$VER
+              > cache/artifacts/desktop-test.img
+            # Pass the IMAGE PATH, not a VM name: validate-boot.sh selects
+            # its qemu path on the argument being a file. It previously got
+            # a name, took the Tart branch, and waited on a VM that had
+            # never been created.
+          bash tests/desktop/wayland-session.sh cache/artifacts/desktop-test.img
+       - name: Upload guest console on failure
+         if: failure()
+         uses: actions/upload-artifact@v4
+         with:
+          name: console-test-desktop-${{ needs.meta.outputs.version }}
+          path: |
+            cache/vms/**/console.log
+            cache/vms/**/qemu.log
+          if-no-files-found: ignore
+          retention-days: 7
 
     # === Package matrix ===
     # Per ADR-018: produce the published artifact forms.
