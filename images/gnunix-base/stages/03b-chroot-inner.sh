@@ -142,8 +142,49 @@ EOF
 # pkgconf — pkg-config implementation. SKIPPED: bind-mounted from apt
 # (provision.sh). Available in chroot via /usr/bin/lfs-tools.
 
-# Perl — required by libxcrypt configure. SKIPPED: bind-mounted from
-# apt (provision.sh). Available in chroot via /usr/bin/lfs-tools.
+# Perl — required by libxcrypt's configure (>= 5.14) and by several
+# later packages' build machinery.
+#
+# This is NOT bind-mounted, despite what this comment used to claim.
+# 03-chroot.sh binds exactly `bison flex gperf make patch pkgconf` (+m4)
+# from the host; perl was added to the skip list in 5bf0eae without ever
+# being added to that list, so `perl` did not exist inside the chroot on
+# any host and libxcrypt stopped at
+# "configure: error: Perl version 5.14.0 or later is required".
+#
+# Perl also cannot be bind-mounted the way those tools are: it is not one
+# binary but an interpreter plus its module tree (@INC under
+# /usr/lib/perl5/...), and a symlinked /usr/bin/perl finds none of it.
+# Building it is also what the manifest implies — perl is pinned in
+# base_packages at a version chosen for a specific reason (5.40 has a
+# locale.c codegen bug, per docs/runbooks/build.md), which is not
+# something you pin for a package you borrow from the host's apt.
+#
+# Not autotools, so it gets its own block. Flags per LFS book ch. 7.
+if ! pkg_skip perl; then
+  v=$ver_perl
+  fname=$(pkg_file perl)
+  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
+  cd "$d/perl-$v"
+  echo "[chroot-inner] building perl-$v"
+  hardening_export "perl" native
+  # @INC paths are versioned by major.minor only: 5.38.2 -> 5.38.
+  perl_mm=${v%.*}
+  sh Configure -des                                            \
+    -Dprefix=/usr                                              \
+    -Dvendorprefix=/usr                                        \
+    -Duseshrplib                                               \
+    -Dprivlib="/usr/lib/perl5/$perl_mm/core_perl"              \
+    -Darchlib="/usr/lib/perl5/$perl_mm/core_perl"              \
+    -Dsitelib="/usr/lib/perl5/$perl_mm/site_perl"              \
+    -Dsitearch="/usr/lib/perl5/$perl_mm/site_perl"             \
+    -Dvendorlib="/usr/lib/perl5/$perl_mm/vendor_perl"          \
+    -Dvendorarch="/usr/lib/perl5/$perl_mm/vendor_perl"
+  make -j$JOBS
+  make install
+  cd /; rm -rf "$d"
+  pkg_mark perl
+fi
 
 # libxcrypt — provides crypt() which glibc-2.40 no longer ships. Needed by
 # shadow (and anything else with password hashing). LFS book chapter 8 uses
@@ -163,8 +204,13 @@ if ! pkg_skip libxcrypt; then
   pkg_mark libxcrypt
 fi
 
-# Python — required by GRUB configure. SKIPPED: bind-mounted from apt
-# (provision.sh). Available in chroot via /usr/bin/lfs-tools.
+# Python — SKIPPED, and NOT bind-mounted either: like perl above, it is
+# absent from 03-chroot.sh's bind list, so this claim is false. Left as-is
+# for now because, unlike perl, nothing has yet been shown to need it —
+# GRUB 2.12 configures from the release tarball without python (the
+# python requirement applies to a git checkout's autogen.sh). If a later
+# stage does stop for a missing python, it needs the same treatment perl
+# just got: a real build, not a bind-mount.
 
 # shadow — LFS book chapter 8.5 needs --without-libbsd (avoids libbsd
 # dependency for readpassphrase) and a few other specific flags + seds.
