@@ -261,15 +261,6 @@ jobs:
          with:
           name: gnunix-base-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
-         run: |
-          set -eu
-          VER="${{ needs.meta.outputs.version }}"
-          ARCH="${{ needs.meta.outputs.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The build scripts expect the .img.zst extension.
-          mv "cache/artifacts/gnunix-base-${ARCH}-${VER}" \
-              "cache/artifacts/gnunix-base-${ARCH}-${VER}.img.zst"
        - name: Build gnunix-minimal
          run: |
           sudo bash images/gnunix-minimal/build.sh --ci
@@ -304,15 +295,6 @@ jobs:
          with:
           name: gnunix-minimal-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
-         run: |
-          set -eu
-          VER="${{ needs.meta.outputs.version }}"
-          ARCH="${{ needs.meta.outputs.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The build scripts expect the .img.zst extension.
-          mv "cache/artifacts/gnunix-minimal-${ARCH}-${VER}" \
-              "cache/artifacts/gnunix-minimal-${ARCH}-${VER}.img.zst"
        - name: Build gnunix-desktop
          run: |
           sudo bash images/gnunix-desktop/build.sh --ci
@@ -348,15 +330,6 @@ jobs:
          with:
           name: gnunix-minimal-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
-         run: |
-          set -eu
-          VER="${{ needs.meta.outputs.version }}"
-          ARCH="${{ needs.meta.outputs.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The build scripts expect the .img.zst extension.
-          mv "cache/artifacts/gnunix-minimal-${ARCH}-${VER}" \
-              "cache/artifacts/gnunix-minimal-${ARCH}-${VER}.img.zst"
        - name: Build gnunix-installer
          run: |
           sudo bash images/installer/build.sh --ci
@@ -396,15 +369,6 @@ jobs:
          with:
           name: gnunix-base-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
-         run: |
-          set -eu
-          VER="${{ needs.meta.outputs.version }}"
-          ARCH="${{ needs.meta.outputs.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The smoke test expects the .img.zst extension.
-          mv "cache/artifacts/gnunix-base-${ARCH}-${VER}" \
-              "cache/artifacts/gnunix-base-${ARCH}-${VER}.img.zst"
        - name: Boot smoke test
          run: |
           set -eu
@@ -429,15 +393,6 @@ jobs:
          with:
           name: gnunix-minimal-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
-         run: |
-          set -eu
-          VER="${{ needs.meta.outputs.version }}"
-          ARCH="${{ needs.meta.outputs.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The smoke test expects the .img.zst extension.
-          mv "cache/artifacts/gnunix-minimal-${ARCH}-${VER}" \
-              "cache/artifacts/gnunix-minimal-${ARCH}-${VER}.img.zst"
        - name: Boot smoke test
          run: |
           set -eu
@@ -459,15 +414,6 @@ jobs:
          with:
           name: gnunix-desktop-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
-         run: |
-          set -eu
-          VER="${{ needs.meta.outputs.version }}"
-          ARCH="${{ needs.meta.outputs.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The smoke test expects the .img.zst extension.
-          mv "cache/artifacts/gnunix-desktop-${ARCH}-${VER}" \
-              "cache/artifacts/gnunix-desktop-${ARCH}-${VER}.img.zst"
        - name: Wayland session test
          run: |
           set -eu
@@ -482,7 +428,9 @@ jobs:
     # Per ADR-018: produce the published artifact forms.
 
   package:
-    needs: meta
+    # Must wait for the images it repackages: `needs: meta` alone let this
+    # job start immediately, so download-artifact raced the build jobs.
+    needs: [meta, build-minimal, build-desktop]
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 15
     strategy:
@@ -503,14 +451,16 @@ jobs:
          with:
           name: ${{ matrix.image }}-${{ matrix.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
-       - name: Rename artifact
+       - name: Decompress to raw .img
          run: |
           set -eu
+            # tools/package/to-img-zst.sh reads the RAW disk image at
+            # cache/artifacts/<image>-<arch>-<ver>.img; the build jobs
+            # publish the compressed form, so expand it here.
+          VER="${{ needs.meta.outputs.version }}"
           ARCH="${{ matrix.arch }}"
-            # download-artifact names the file after the artifact name (no ext).
-            # The package script expects the .img.zst extension.
-          mv "cache/artifacts/gnunix-${ARCH}-${{ needs.meta.outputs.version }}" \
-              "cache/artifacts/gnunix-${ARCH}-${{ needs.meta.outputs.version }}.img.zst"
+          SRC="cache/artifacts/${{ matrix.image }}-${ARCH}-${VER}"
+          zstd -d -f "${SRC}.img.zst" -o "${SRC}.img"
        - name: Package
          run: |
           set -eu
@@ -522,6 +472,9 @@ jobs:
          uses: actions/upload-artifact@v4
          with:
           name: package-${{ matrix.image }}-${{ matrix.arch }}-${{ matrix.platform }}
-          path: cache/artifacts/
+            # Narrow to the packaged form only. Globbing the whole
+            # cache/artifacts/ dir also swept up the decompressed raw
+            # .img (multi-GB) and the downloaded input artifact.
+          path: cache/artifacts/${{ matrix.image }}-${{ matrix.arch }}-${{ needs.meta.outputs.version }}.${{ matrix.output_format }}
           if-no-files-found: error
           retention-days: ${{ startsWith(github.ref, 'refs/tags/v') && 90 || 30 }}
