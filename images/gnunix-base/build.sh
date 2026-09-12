@@ -73,7 +73,7 @@ if [ "$CI_MODE" = "1" ]; then
     }
 
     LFS=/mnt/lfs
-    REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}
+    REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}
     export LFS
     export LFS_TGT=$(uname -m)-lfs-linux-gnu
     export LC_ALL=POSIX
@@ -183,7 +183,7 @@ fi
 # $LFS/.lfs-stages/ on completion; re-running skips completed stages unless
 # --rebuild=<stage> is passed.
 
-REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}
+REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}
 export LFS=${LFS:-/mnt/lfs}
 export LFS_TGT=$(uname -m)-lfs-linux-gnu
 export LC_ALL=POSIX
