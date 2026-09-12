@@ -114,6 +114,31 @@ if [ "$CI_MODE" = "1" ]; then
       echo "[build-ci] <<< stage: $name complete"
     }
 
+     # Refuse to run a stage whose predecessor is absent.
+     #
+     # Without this the failure is silent, not loud: with an empty $LFS the
+     # cross compiler $LFS/tools/bin/$LFS_TGT-gcc does not exist, and
+     # autoconf's --host handling quietly falls back to the host gcc rather
+     # than erroring. Stage 2 then builds a "temp-tools" set linked against
+     # the runner's glibc, and the tree looks plausible until something
+     # downstream breaks for an apparently unrelated reason.
+    require_prev_stage() {
+      local prev=$1
+      [ -f "$STAGES_DIR/$prev.done" ] && return 0
+      echo "[build-ci] cannot run '$ONLY_STAGE': stage '$prev' has not" >&2
+      echo "           completed — $STAGES_DIR/$prev.done is missing." >&2
+      echo "           \$LFS was restored empty or partially; re-run the" >&2
+      echo "           '$prev' stage before this one." >&2
+      exit 1
+    }
+
+    case "$ONLY_STAGE" in
+      temp-tools) require_prev_stage cross ;;
+      chroot)     require_prev_stage temp-tools ;;
+      finalize)   require_prev_stage chroot ;;
+      package)    require_prev_stage finalize ;;
+    esac
+
     if [ -n "$ONLY_STAGE" ]; then
       echo "[build-ci] running single stage: $ONLY_STAGE"
     else

@@ -168,7 +168,16 @@ jobs:
           VER="${{ needs.meta.outputs.version }}"
           HASH=$(sha256sum images/gnunix-base/stages/02-temp-tools.sh | awk '{print $1}')
           echo "key=lfs-temp-${VER}-${HASH}" >> "$GITHUB_OUTPUT"
-          echo "restore=lfs-temp-${VER}-" >> "$GITHUB_OUTPUT"
+            # Fall back to the PREVIOUS stage's tree, not just this stage's.
+            # With only the lfs-temp- prefix, the very first run of this job
+            # always missed (nothing had ever saved an lfs-temp- key) and
+            # started from an empty $LFS.
+          {
+            echo "restore<<EOF"
+            echo "lfs-temp-${VER}-"
+            echo "lfs-cross-${VER}-"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
        - name: Restore LFS cache
          uses: actions/cache/restore@v4
          with:
@@ -216,7 +225,13 @@ jobs:
           VER="${{ needs.meta.outputs.version }}"
           HASH=$(sha256sum images/gnunix-base/stages/03-chroot.sh | awk '{print $1}')
           echo "key=lfs-chroot-${VER}-${HASH}" >> "$GITHUB_OUTPUT"
-          echo "restore=lfs-chroot-${VER}-" >> "$GITHUB_OUTPUT"
+            # Ordered fallback down the stage chain (see temp-tools above).
+          {
+            echo "restore<<EOF"
+            echo "lfs-chroot-${VER}-"
+            echo "lfs-temp-${VER}-"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
        - name: Restore LFS cache
          uses: actions/cache/restore@v4
          with:
