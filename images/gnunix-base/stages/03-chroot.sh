@@ -23,26 +23,24 @@ mount -vt sysfs  sysfs   "$LFS/sys"
 mount -vt tmpfs  tmpfs   "$LFS/run"
 [ -h "$LFS/dev/shm" ] && install -v -d -m 1777 "$LFS$(realpath /dev/shm)" || mount -t tmpfs -o nosuid,nodev tmpfs "$LFS/dev/shm"
 
-# Bind-mount apt-installed build tools into chroot (issue #44: skip from-source
-# builds for build-only deps available on the builder). The builder VM has
-# bison, flex, gperf, m4, make, patch, pkgconf installed via apt (provision.sh);
-# make these available inside the chroot so 03b-chroot-inner.sh can skip them.
-LFS_TOOLS="$LFS/usr/bin/lfs-tools"
-mkdir -p "$LFS_TOOLS"
-for tool in bison flex gperf make patch pkgconf; do
-  ln -sfv "/usr/bin/$tool" "$LFS_TOOLS/$tool"
-done
-# m4 lives in /usr/local/bin on apt-installed Debian
-if [ -x /usr/local/bin/m4 ]; then
-  ln -sfv "/usr/local/bin/m4" "$LFS_TOOLS/m4"
-elif [ -x /usr/bin/m4 ]; then
-  ln -sfv "/usr/bin/m4" "$LFS_TOOLS/m4"
-fi
-mount --bind "$LFS_TOOLS" "$LFS_TOOLS"
+# NOTE: this used to symlink the host's bison/flex/gperf/make/patch/pkgconf
+# into $LFS/usr/bin/lfs-tools and bind-mount that directory, so that
+# 03b-chroot-inner.sh could skip building them (#44 / #52). It never
+# worked, for two independent reasons:
+#
+#   1. the chroot runs with PATH=/usr/bin:/usr/sbin (below), which never
+#      included /usr/bin/lfs-tools; and
+#   2. the entries were symlinks to absolute paths — /usr/bin/pkgconf and
+#      friends — which resolve INSIDE the chroot, where nothing was
+#      installed. Binding the directory onto itself imports no binaries.
+#
+# The symptoms were `checking for pkg-config... no` and perl's "I can't
+# find make or gmake, and my life depends on it". Those packages are now
+# built from source: make and m4 in stage 02 (the chroot has no make to
+# bootstrap with), bison/flex/gperf/pkgconf early in 03b-chroot-inner.sh.
 
 cleanup() {
   set +e
-  mountpoint -q "$LFS_TOOLS" && umount "$LFS_TOOLS"
   mountpoint -q "$LFS/dev/pts" && umount "$LFS/dev/pts"
   mountpoint -q "$LFS/dev/shm" && umount "$LFS/dev/shm"
   mountpoint -q "$LFS/dev"     && umount "$LFS/dev"

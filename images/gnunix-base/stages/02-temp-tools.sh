@@ -127,9 +127,20 @@ build_pkg file "$(PKG_VER file)" tar.gz \
            make -j$JOBS FILE_COMPILE=\$(pwd)/build/src/file && \
            make DESTDIR=$LFS install"
 
-# diffutils, findutils, gawk, grep, gzip, patch, sed, tar, xz
-# make skipped (bind-mounted from apt); file handled above
-for p in diffutils findutils gawk grep gzip patch sed tar xz; do
+# make — LFS book ch. 6.16. Built here, in the cross stage, precisely
+# because the chroot has no make to bootstrap itself with: every
+# autotools package the chroot builds (perl included) needs it to exist
+# already. It was previously skipped on the assumption that the host's
+# make was reachable inside the chroot; it is not. See 03-chroot.sh.
+# --without-guile per the book, so a host guile never gets linked in.
+build_pkg make "$(PKG_VER make)" tar.gz \
+  bash -c "./configure --prefix=/usr --without-guile \
+             --host=$LFS_TGT --build=\$(build-aux/config.guess) && \
+           make -j$JOBS && make DESTDIR=$LFS install"
+
+# diffutils, findutils, gawk, grep, gzip, m4, patch, sed, tar, xz
+# (m4 is LFS ch. 6.14 and was missing entirely; file and make above)
+for p in diffutils findutils gawk grep gzip m4 patch sed tar xz; do
   v=$(jq -r ".base_packages.\"$p\".version // empty" "$MANIFEST")
   [ -z "$v" ] && continue
   ext=$(jq -r ".base_packages.\"$p\".url" "$MANIFEST" | sed 's/.*\.\(tar\.[a-z]*\)$/\1/')

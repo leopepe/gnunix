@@ -131,28 +131,56 @@ EOF
 # $LFS/usr/bin (gcc, cc, ar, as, ld, ...) so the chroot has a working
 # compiler. LFS book chapter 6.17 and 6.18.
 
-# Bison + Flex — yacc/lex parser+lexer generators. SKIPPED: bind-mounted
-# from apt (provision.sh) via /usr/bin/lfs-tools. LFS book ch. 7.7 + 7.6.
-
-
-# gperf — perfect-hash generator. SKIPPED: bind-mounted from apt
-# (provision.sh). Available in chroot via /usr/bin/lfs-tools.
-
-
-# pkgconf — pkg-config implementation. SKIPPED: bind-mounted from apt
-# (provision.sh). Available in chroot via /usr/bin/lfs-tools.
+# Build-only tools, built here rather than borrowed from the host.
+#
+# These four were skipped on the claim that 03-chroot.sh bind-mounts them
+# from apt into /usr/bin/lfs-tools. That never worked, for two
+# independent reasons: the chroot's PATH is /usr/bin:/usr/sbin, which
+# does not include /usr/bin/lfs-tools, and the entries there are symlinks
+# to absolute paths like /usr/bin/pkgconf that resolve INSIDE the chroot,
+# where nothing is installed. Both runs that reached this stage reported
+# `checking for pkg-config... no`.
+#
+# Ordered deliberately: bison and flex need m4 (now built in temp-tools),
+# and everything after this point may need any of the four.
+# LFS book ch. 7.6, 7.7 and ch. 8.
+for entry in bison flex gperf pkgconf; do
+  pkg_skip "$entry" && continue
+  v=$(pkg_ver "$entry")
+  [ -z "$v" ] && continue
+  fname=$(pkg_file "$entry")
+  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
+  inner=$(ls "$d" | head -n1)
+  cd "$d/$inner"
+  echo "[chroot-inner] building $entry-$v"
+  hardening_export "$entry" native
+  extra=""
+  case "$entry" in
+    bison)  extra="--docdir=/usr/share/doc/bison-$v" ;;
+    pkgconf) extra="--disable-static" ;;
+  esac
+  # shellcheck disable=SC2086  # extra is a deliberate flag list
+  ./configure --prefix=/usr $extra
+  make -j$JOBS
+  make install
+  # Everything probing for a pkg-config implementation calls it by that
+  # name, not `pkgconf`. LFS book ch. 8.4.
+  [ "$entry" = pkgconf ] && ln -sfv pkgconf /usr/bin/pkg-config
+  cd /; rm -rf "$d"
+  pkg_mark "$entry"
+done
 
 # Perl — required by libxcrypt's configure (>= 5.14) and by several
 # later packages' build machinery.
 #
-# This is NOT bind-mounted, despite what this comment used to claim.
-# 03-chroot.sh binds exactly `bison flex gperf make patch pkgconf` (+m4)
-# from the host; perl was added to the skip list in 5bf0eae without ever
-# being added to that list, so `perl` did not exist inside the chroot on
-# any host and libxcrypt stopped at
-# "configure: error: Perl version 5.14.0 or later is required".
+# Perl was previously skipped here on the claim that it came from the
+# host via /usr/bin/lfs-tools (5bf0eae). It never did — perl was never
+# even in that symlink list, and as of the commit that removed the whole
+# mechanism from 03-chroot.sh, there is no such list to be in. libxcrypt
+# stopped at "configure: error: Perl version 5.14.0 or later is
+# required".
 #
-# Perl also cannot be bind-mounted the way those tools are: it is not one
+# Perl could not have been borrowed that way regardless: it is not one
 # binary but an interpreter plus its module tree (@INC under
 # /usr/lib/perl5/...), and a symlinked /usr/bin/perl finds none of it.
 # Building it is also what the manifest implies — perl is pinned in
