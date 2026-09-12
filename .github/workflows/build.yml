@@ -116,22 +116,35 @@ jobs:
           key: ${{ steps.cachekey.outputs.key }}
           restore-keys: ${{ steps.cachekey.outputs.restore }}
           path: ${{ env.LFS }}
-       - name: Provision LFS rootfs
+       - name: Create the LFS tree
          run: |
           set -eu
-          sudo mkdir -p "$LFS"
+            # $LFS is the LFS tree being BUILT, not a distro rootfs. Stage 1
+            # cross-compiles into $LFS/tools using the runner's own gcc, per
+            # the LFS book ch. 4-5. The previous step downloaded a cirruslabs
+            # Ubuntu rootfs from a URL that 404s, and cirruslabs ships Tart
+            # OCI images rather than rootfs tarballs, so there was nothing to
+            # point it at.
+          sudo mkdir -p "$LFS" "$SOURCES"
           sudo chmod 755 "$LFS"
-            # Download cirruslabs Ubuntu arm64 rootfs
-          echo "[provision] fetching cirruslabs Ubuntu arm64 rootfs"
-          curl -fsSL "https://github.com/cirruslabs/ubuntu/releases/download/latest/ubuntu-arm64-rootfs.tar" \
-              | sudo tar xf - -C "$LFS"
-            # Create lfs user
-          sudo useradd -m -s /bin/bash lfs
-          sudo chown -R lfs:lfs "$LFS"
-       - name: Build cross-toolchain
+       - name: Install LFS host build dependencies
          run: |
           set -eu
-          sudo bash images/gnunix-base/stages/01-cross-toolchain.sh
+            # LFS host-system requirements not already on the runner image.
+            # texinfo (makeinfo) is needed by binutils and gcc; the rest are
+            # cheap and keep the stage scripts from discovering gaps mid-build.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+              texinfo gawk bison flex m4 gettext \
+              libisl-dev python3 rsync zstd xz-utils
+       - name: Build stage 'cross'
+         run: |
+          set -eu
+            # build.sh --ci owns the environment (LFS_TGT, LC_ALL, PATH),
+            # runs tools/fetch-sources.sh first, and honours the
+            # $LFS/.lfs-stages/*.done markers. Calling the stage script
+            # directly skipped all of that.
+          sudo bash images/gnunix-base/build.sh --ci --only=cross
        - name: Save LFS cache
          uses: actions/cache/save@v4
          if: steps.cachekey.outputs.key != ''
@@ -162,10 +175,24 @@ jobs:
           key: ${{ steps.cachekey.outputs.key }}
           restore-keys: ${{ steps.cachekey.outputs.restore }}
           path: ${{ env.LFS }}
-       - name: Build temp-tools
+       - name: Install LFS host build dependencies
          run: |
           set -eu
-          sudo bash images/gnunix-base/stages/02-temp-tools.sh
+            # LFS host-system requirements not already on the runner image.
+            # texinfo (makeinfo) is needed by binutils and gcc; the rest are
+            # cheap and keep the stage scripts from discovering gaps mid-build.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+              texinfo gawk bison flex m4 gettext \
+              libisl-dev python3 rsync zstd xz-utils
+       - name: Build stage 'temp-tools'
+         run: |
+          set -eu
+            # build.sh --ci owns the environment (LFS_TGT, LC_ALL, PATH),
+            # runs tools/fetch-sources.sh first, and honours the
+            # $LFS/.lfs-stages/*.done markers. Calling the stage script
+            # directly skipped all of that.
+          sudo bash images/gnunix-base/build.sh --ci --only=temp-tools
        - name: Save LFS cache
          uses: actions/cache/save@v4
          if: steps.cachekey.outputs.key != ''
@@ -196,10 +223,24 @@ jobs:
           key: ${{ steps.cachekey.outputs.key }}
           restore-keys: ${{ steps.cachekey.outputs.restore }}
           path: ${{ env.LFS }}
-       - name: Build chroot system
+       - name: Install LFS host build dependencies
          run: |
           set -eu
-          sudo bash images/gnunix-base/stages/03-chroot.sh
+            # LFS host-system requirements not already on the runner image.
+            # texinfo (makeinfo) is needed by binutils and gcc; the rest are
+            # cheap and keep the stage scripts from discovering gaps mid-build.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+              texinfo gawk bison flex m4 gettext \
+              libisl-dev python3 rsync zstd xz-utils
+       - name: Build stage 'chroot'
+         run: |
+          set -eu
+            # build.sh --ci owns the environment (LFS_TGT, LC_ALL, PATH),
+            # runs tools/fetch-sources.sh first, and honours the
+            # $LFS/.lfs-stages/*.done markers. Calling the stage script
+            # directly skipped all of that.
+          sudo bash images/gnunix-base/build.sh --ci --only=chroot
        - name: Save LFS cache
          uses: actions/cache/save@v4
          if: steps.cachekey.outputs.key != ''
@@ -222,19 +263,30 @@ jobs:
           key: lfs-chroot-${{ needs.meta.outputs.version }}-
           restore-keys: lfs-chroot-${{ needs.meta.outputs.version }}-
           path: ${{ env.LFS }}
-       - name: Finalize + pack
+       - name: Install LFS host build dependencies
          run: |
           set -eu
-          sudo bash images/gnunix-base/stages/04-finalize.sh
-       - name: Compress disk image
+            # LFS host-system requirements not already on the runner image.
+            # texinfo (makeinfo) is needed by binutils and gcc; the rest are
+            # cheap and keep the stage scripts from discovering gaps mid-build.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+              texinfo gawk bison flex m4 gettext \
+              libisl-dev python3 rsync zstd xz-utils
+       - name: Finalize rootfs
          run: |
           set -eu
-          VER="${{ needs.meta.outputs.version }}"
-          ARCH="${{ needs.meta.outputs.arch }}"
-          OUT="$REPO_ROOT/cache/artifacts"
-          mkdir -p "$OUT"
-          zstd -10 -f -k "$LFS/../gnunix-base-disk.img" \
-              -o "$OUT/gnunix-base-${ARCH}-${VER}.img.zst"
+          sudo bash images/gnunix-base/build.sh --ci --only=finalize
+       - name: Build and compress disk image
+         run: |
+          set -eu
+            # --only=package runs packaging/mkimage.sh (which writes
+            # $LFS/../gnunix-base-disk.img) and then compresses it to the
+            # canonical cache/artifacts/ name. The previous version never
+            # invoked mkimage.sh at all and compressed a file that the
+            # finalize stage does not create.
+          sudo bash images/gnunix-base/build.sh --ci --only=package
+          ls -lh cache/artifacts/
        - name: Upload base artifact
          uses: actions/upload-artifact@v4
          with:
