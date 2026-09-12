@@ -88,10 +88,14 @@ jobs:
     # its cache key changes, forcing a rebuild. A `restore-keys` prefix
     # falls back to the previous stage's cache if the exact key misses.
     #
-    # LFS tree size: ~5-10GB after cross-toolchain, ~15-25GB after
-    # chroot. GitHub's 10GB/cache limit means we accept cache misses
-    # when scripts change; the rebuild is fast because the LFS tree
-    # from the previous stage is restored.
+    # LFS tree size: measured at 801 MB after cross-toolchain (run
+    # 34705000776), well inside GitHub's 10 GB per-cache limit — the
+    # 5-10 GB / 15-25 GB figures previously written here were never
+    # measured. Each stage's restore-keys fall back down the chain
+    # (chroot -> temp -> cross), so a script edit that misses the exact
+    # key still restores the previous stage's tree instead of starting
+    # empty, and --ci refuses to run a stage whose predecessor marker
+    # is absent.
 
   cross-toolchain:
     needs: meta
