@@ -75,6 +75,10 @@ case "$VM_DRIVER" in
     : "${VM_EFI_CODE:=/usr/share/AAVMF/AAVMF_CODE.fd}"
     : "${VM_EFI_VARS:=/usr/share/AAVMF/AAVMF_VARS.fd}"
     : "${VM_MEM_MB:=2048}"
+    # Referenced unquoted in the qemu argv below for deliberate word
+    # splitting. Without a default, `set -u` kills the launch subshell
+    # before qemu ever execs — which is exactly what run 34719707628 hit.
+    : "${QEMU_EXTRA_ARGS:=}"
 
     _vm_ssh_opts() {
       printf '%s' "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
@@ -113,6 +117,12 @@ case "$VM_DRIVER" in
 
       echo "[vm-qemu] starting $vm (disk=$disk, tcg, ssh on :$VM_SSH_PORT)"
       echo "[vm-qemu] console -> $vmdir/console.log"
+
+      # Create both logs up front. If qemu dies before it execs, these stay
+      # empty rather than absent, and CI's artifact upload still has files
+      # to collect -- "no files found" is a worse diagnostic than "empty".
+      : > "$vmdir/console.log"
+      : > "$vmdir/qemu.log"
 
       (
         cd "$vmdir" || exit
