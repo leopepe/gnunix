@@ -225,7 +225,17 @@ jobs:
          run: |
           set -eu
           VER="${{ needs.meta.outputs.version }}"
-          HASH=$(sha256sum images/gnunix-base/stages/03-chroot.sh | awk '{print $1}')
+            # Hash BOTH chroot scripts. 03-chroot.sh only sets up the
+            # mounts and staging; every package the stage actually builds
+            # lives in 03b-chroot-inner.sh. Keying on 03-chroot.sh alone
+            # meant an edit to the package list did not invalidate the
+            # cache — and because the restored tree carries the
+            # /var/lib/lfs-pkgs/*.done markers, pkg_skip would then skip
+            # the very package that was just added or changed. The perl
+            # fix in 6a5f14b is exactly that shape.
+          HASH=$(cat images/gnunix-base/stages/03-chroot.sh \
+                     images/gnunix-base/stages/03b-chroot-inner.sh \
+                 | sha256sum | awk '{print $1}')
           echo "key=lfs-chroot-${VER}-${HASH}" >> "$GITHUB_OUTPUT"
             # Ordered fallback down the stage chain (see temp-tools above).
           {
