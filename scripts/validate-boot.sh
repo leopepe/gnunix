@@ -33,8 +33,10 @@ if [ -f "$VM_OR_IMG" ]; then
     # CI mode: the argument is a disk image, booted under qemu.
     #
     # Per ADR-021 this runs on a GitHub-hosted arm64 runner, which has no
-    # /dev/kvm — so the guest runs under TCG emulation and a full boot
-    # takes minutes, not seconds. VM_SSH_TIMEOUT reflects that.
+    # /dev/kvm, so the guest runs under TCG emulation. Measured on probe
+    # run 34723139540: gnunix-base reaches sshd 15s after qemu starts, so
+    # TCG costs far less than assumed. VM_SSH_TIMEOUT stays generous as
+    # headroom for the larger desktop image, not because base needs it.
     . "$REPO_ROOT/scripts/vm-helpers.sh"
     VM_DRIVER=qemu
     export VM_DRIVER
@@ -48,7 +50,17 @@ if [ -f "$VM_OR_IMG" ]; then
 
     WORK=$(mktemp -d)
     VM="gnunix-boot-test-$$"
-    trap 'vm_delete "$VM" >/dev/null 2>&1 || true; rm -rf "$WORK"' EXIT
+    # Stop the guest and reclaim the multi-GB disk copy, but KEEP
+    # console.log and qemu.log: CI uploads them as the failure artifact,
+    # and vm_delete used to remove the whole directory first, so every
+    # failed run reported "no files were found" and shipped no evidence.
+    cleanup() {
+        vm_stop "$VM" >/dev/null 2>&1 || true
+        rm -f "$(vm_dir_path "$VM")/disk.img" \
+              "$(vm_dir_path "$VM")/efi-vars.fd" 2>/dev/null || true
+        rm -rf "$WORK"
+    }
+    trap cleanup EXIT
 
     IMG="$VM_OR_IMG"
     case "$IMG" in

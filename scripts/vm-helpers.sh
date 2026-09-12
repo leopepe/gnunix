@@ -108,6 +108,11 @@ case "$VM_DRIVER" in
 
     _qemu_start() {
       local vm=$1 detach=${2:-0}
+      # Drop the two arguments we consumed. Whatever is left is passed
+      # through to qemu verbatim -- without this shift, the VM name and
+      # the detach flag land on qemu's argv as bare disk images:
+      #   qemu-system-aarch64: <vm>: drive with bus=0, unit=0 exists
+      if [ $# -ge 2 ]; then shift 2; else shift $#; fi
       local vmdir="$_VM_BASE_DIR/$vm"
       local disk="$vmdir/disk.img"
       local pidf="$vmdir/qemu.pid"

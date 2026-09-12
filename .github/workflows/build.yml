@@ -435,7 +435,7 @@ jobs:
   test-base:
     needs: [meta, finalize]
     runs-on: ubuntu-22.04-arm
-    timeout-minutes: 45   # TCG emulation: boot alone can take minutes
+    timeout-minutes: 45   # TCG: base boots in ~15s measured; headroom for desktop
     steps:
        - uses: actions/checkout@v4
        - name: Download base image
@@ -450,8 +450,11 @@ jobs:
             # TCG. qemu-efi-aarch64 supplies /usr/share/AAVMF, which the
             # image needs to boot the way it does on hardware: UEFI -> GRUB.
           sudo apt-get update -qq
+            # ipxe-qemu supplies efi-virtio.rom, which virtio-net-pci
+            # refuses to start without. It is only a Recommends of
+            # qemu-system-arm, so --no-install-recommends drops it.
           sudo apt-get install -y --no-install-recommends \
-              qemu-system-arm qemu-utils qemu-efi-aarch64
+              qemu-system-arm qemu-utils qemu-efi-aarch64 ipxe-qemu
        - name: Boot smoke test
          run: |
           set -eu
@@ -478,7 +481,7 @@ jobs:
   test-minimal:
     needs: [meta, build-minimal]
     runs-on: ubuntu-22.04-arm
-    timeout-minutes: 45   # TCG emulation: boot alone can take minutes
+    timeout-minutes: 45   # TCG: base boots in ~15s measured; headroom for desktop
     steps:
        - uses: actions/checkout@v4
        - name: Download minimal image
@@ -493,8 +496,11 @@ jobs:
             # TCG. qemu-efi-aarch64 supplies /usr/share/AAVMF, which the
             # image needs to boot the way it does on hardware: UEFI -> GRUB.
           sudo apt-get update -qq
+            # ipxe-qemu supplies efi-virtio.rom, which virtio-net-pci
+            # refuses to start without. It is only a Recommends of
+            # qemu-system-arm, so --no-install-recommends drops it.
           sudo apt-get install -y --no-install-recommends \
-              qemu-system-arm qemu-utils qemu-efi-aarch64
+              qemu-system-arm qemu-utils qemu-efi-aarch64 ipxe-qemu
        - name: Boot smoke test
          run: |
           set -eu
@@ -521,7 +527,7 @@ jobs:
   test-desktop:
     needs: [meta, build-desktop]
     runs-on: ubuntu-22.04-arm
-    timeout-minutes: 45   # TCG emulation: boot alone can take minutes
+    timeout-minutes: 45   # TCG: base boots in ~15s measured; headroom for desktop
     steps:
        - uses: actions/checkout@v4
        - name: Download desktop image
@@ -536,8 +542,11 @@ jobs:
             # TCG. qemu-efi-aarch64 supplies /usr/share/AAVMF, which the
             # image needs to boot the way it does on hardware: UEFI -> GRUB.
           sudo apt-get update -qq
+            # ipxe-qemu supplies efi-virtio.rom, which virtio-net-pci
+            # refuses to start without. It is only a Recommends of
+            # qemu-system-arm, so --no-install-recommends drops it.
           sudo apt-get install -y --no-install-recommends \
-              qemu-system-arm qemu-utils qemu-efi-aarch64
+              qemu-system-arm qemu-utils qemu-efi-aarch64 ipxe-qemu
        - name: Wayland session test
          run: |
           set -eu
