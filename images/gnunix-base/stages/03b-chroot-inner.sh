@@ -232,13 +232,11 @@ if ! pkg_skip libxcrypt; then
   pkg_mark libxcrypt
 fi
 
-# Python — SKIPPED, and NOT bind-mounted either: like perl above, it is
-# absent from 03-chroot.sh's bind list, so this claim is false. Left as-is
-# for now because, unlike perl, nothing has yet been shown to need it —
-# GRUB 2.12 configures from the release tarball without python (the
-# python requirement applies to a git checkout's autogen.sh). If a later
-# stage does stop for a missing python, it needs the same treatment perl
-# just got: a real build, not a bind-mount.
+# Python is built further down, next to ninja and meson, because that is
+# where it is first needed (usbutils is a meson project). It is not a
+# GRUB dependency, despite an earlier comment here saying so: GRUB 2.12
+# configures from the release tarball without python — that requirement
+# applies to a git checkout's autogen.sh.
 
 # shadow — LFS book chapter 8.5 needs --without-libbsd (avoids libbsd
 # dependency for readpassphrase) and a few other specific flags + seds.
@@ -472,11 +470,72 @@ if ! pkg_skip libusb; then
   pkg_mark libusb
 fi
 
-# meson — Python build system. SKIPPED: bind-mounted from apt
-# (provision.sh). Available in chroot via /usr/bin/lfs-tools.
+# Python + ninja + meson — the build stack usbutils needs.
+#
+# All three carried the same "bind-mounted from apt" claim as perl and
+# pkgconf, and it was just as false. usbutils is a meson project, so the
+# stage stopped at `meson: command not found` (run 34714821005) the
+# moment libusb stopped failing ahead of it.
+#
+# Order is forced: meson is Python, and ninja bootstraps with Python.
+# Each is installed the way tools/manifest.json documents for it.
+if ! pkg_skip python; then
+  v=$ver_python
+  fname=$(pkg_file python)
+  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
+  # The tarball unpacks to Python-<v>, capitalised, so resolve it rather
+  # than assuming <name>-<version>.
+  inner=$(ls "$d" | head -n1)
+  cd "$d/$inner"
+  echo "[chroot-inner] building python-$v"
+  hardening_export "python" native
+  # --with-system-expat: expat is already built in the loop above, so
+  # don't compile the bundled copy. --without-ensurepip: meson arrives
+  # by vendor-copy below, and nothing here wants pip in the image.
+  # --enable-optimizations is deliberately NOT set: PGO roughly doubles
+  # an already ~10 min build for a interpreter used only at build time.
+  ./configure --prefix=/usr --enable-shared \
+    --with-system-expat --without-ensurepip
+  make -j$JOBS
+  make install
+  cd /; rm -rf "$d"
+  pkg_mark python
+fi
 
-# ninja — build system generator. SKIPPED: bind-mounted from apt
-# (provision.sh). Available in chroot via /usr/bin/lfs-tools.
+# python<major>.<minor>, e.g. 3.12 — meson's vendor-copy target below.
+py_mm=$(echo "$ver_python" | cut -d. -f1,2)
+
+if ! pkg_skip ninja; then
+  v=$ver_ninja
+  fname=$(pkg_file ninja)
+  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
+  cd "$d/ninja-$v"
+  echo "[chroot-inner] building ninja-$v"
+  hardening_export "ninja" native
+  # No autotools: bootstrap with the interpreter just installed, then
+  # drop the single binary in place (per the manifest note).
+  python3 configure.py --bootstrap
+  install -v -m755 ninja /usr/bin/ninja
+  cd /; rm -rf "$d"
+  pkg_mark ninja
+fi
+
+if ! pkg_skip meson; then
+  v=$ver_meson
+  fname=$(pkg_file meson)
+  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
+  cd "$d/meson-$v"
+  echo "[chroot-inner] installing meson-$v (vendor-copy)"
+  # Vendor-copy per the manifest note: meson is pure Python, and copying
+  # meson.py plus its package onto sys.path avoids bootstrapping pip or
+  # setuptools into the image for a build-time-only tool.
+  install -v -m755 meson.py /usr/bin/meson
+  install -v -d "/usr/lib/python${py_mm}/site-packages"
+  cp -a mesonbuild "/usr/lib/python${py_mm}/site-packages/"
+  meson --version
+  cd /; rm -rf "$d"
+  pkg_mark meson
+fi
 
 # pciutils + dmidecode — Makefile-only (no ./configure), so they don't
 # fit the autotools loop. Hardware introspection.
