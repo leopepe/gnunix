@@ -8,43 +8,72 @@
 # $LFS/.lfs-stages/ on completion; re-running skips completed stages unless
 # --rebuild=<stage> is passed.
 #
-# Per ADR-021: --ci runs the LFS build directly on the checked-out
-# ubuntu-22.04-arm rootfs at /mnt/lfs. No Tart needed — the stage
-# scripts are chroot-based and only need a shell + arm64 rootfs.
+# Per ADR-021: --ci runs the LFS build on an arm64 GitHub-hosted runner,
+# using the runner's own toolchain as the LFS host system. $LFS is the
+# LFS tree being *built*; it is NOT a pre-provisioned distro rootfs.
+# Stage 1 cross-compiles into $LFS/tools using the host gcc.
 #
 # Usage:
-#   $0                    # Tart path (local Mac): bootstrap + build
-#   $0 --ci               # CI path: run stages on /mnt/lfs, package
-#   $0 --rebuild=<stage>  # Rebuild a specific stage
+#   $0                     # Tart path (local Mac): bootstrap + build
+#   $0 --ci                # CI path: all stages on /mnt/lfs, then package
+#   $0 --ci --only=<stage> # CI path: run exactly one stage (see below)
+#   $0 --rebuild=<stage>   # Rebuild a specific stage
+#
+# --only=<stage> exists so the CI job split (ADR-023 § Four-stage build
+# split) can run one stage per job while sharing this orchestrator's
+# environment setup and marker handling. Valid stages:
+#   cross | temp-tools | chroot | finalize | package
+# `fetch` always runs first (marker-guarded, cheap when sources are
+# already staged); `--only=package` skips it.
 #
 # CI mode expects:
-#   /mnt/lfs            — ubuntu-22.04-arm rootfs (provisioned by CI)
-#   /mnt/lfs/sources    — pre-fetched tarballs (optional, from CI cache)
+#   /mnt/lfs            — empty dir, or a partially-built LFS tree
+#   /mnt/lfs/sources    — pre-fetched tarballs (optional; else fetched)
 #
 # Output:
-#   /tmp/gnunix-base-disk.img   — raw GPT disk image (EFI + ext4)
+#   /mnt/gnunix-base-disk.img  — raw GPT disk image (EFI + ext4),
+#                                written by packaging/mkimage.sh
 #   cache/artifacts/gnunix-base-<arch>-<ver>.img.zst  — compressed artifact
 
 set -euo pipefail
 
 CI_MODE=0
+ONLY_STAGE=""
 for arg in "$@"; do
   case "$arg" in
-    --ci) CI_MODE=1 ;;
+    --ci)     CI_MODE=1 ;;
+    --only=*) ONLY_STAGE=${arg#--only=} ;;
   esac
 done
 
+case "$ONLY_STAGE" in
+  ""|cross|temp-tools|chroot|finalize|package) ;;
+  *) echo "[build] unknown --only stage: '$ONLY_STAGE'" >&2
+     echo "        valid: cross temp-tools chroot finalize package" >&2
+     exit 1 ;;
+esac
+
 if [ "$CI_MODE" = "1" ]; then
-     # === CI mode: run stages on the checked-out rootfs ===
+     # === CI mode: build the LFS tree at /mnt/lfs ===
      #
-     # Per ADR-021: the LFS build runs on ubuntu-22.04-arm via chroot.
-     # No Tart, no self-hosted runner. The stage scripts are chroot-based
-     # and only need an arm64 rootfs at /mnt/lfs.
+     # Per ADR-021: the LFS build runs on ubuntu-22.04-arm. No Tart, no
+     # self-hosted runner. The runner's own Ubuntu toolchain is the LFS
+     # host system; stages 1-2 cross-compile into $LFS/tools, stages 3-4
+     # chroot into the tree those stages produced.
 
     echo "[build-ci] CI mode — running LFS stages on /mnt/lfs"
 
+     # Stages 3 and 4 mount and chroot, so --ci is root-only. Requiring root
+     # up front lets run_stage exec the stage scripts directly: the exports
+     # below then reach them by plain inheritance, with no dependence on
+     # `sudo -E` being permitted by the runner's sudoers policy.
+    [ "$(id -u)" = 0 ] || {
+      echo "[build-ci] --ci must run as root (try: sudo $0 $*)" >&2
+      exit 1
+    }
+
     LFS=/mnt/lfs
-    REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}
+    REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}
     export LFS
     export LFS_TGT=$(uname -m)-lfs-linux-gnu
     export LC_ALL=POSIX
@@ -60,12 +89,18 @@ if [ "$CI_MODE" = "1" ]; then
     if [ -d "$REPO_ROOT/cache/sources" ] && \
        [ -n "$(ls -A "$REPO_ROOT/cache/sources" 2>/dev/null)" ]; then
       echo "[build-ci] staging $(ls "$REPO_ROOT/cache/sources" | wc -l | tr -d ' ') pre-fetched tarballs"
-      sudo mkdir -p "$SOURCES_DIR"
-      sudo rsync -a --ignore-existing "$REPO_ROOT/cache/sources/" "$SOURCES_DIR/"
+      mkdir -p "$SOURCES_DIR"
+      rsync -a --ignore-existing "$REPO_ROOT/cache/sources/" "$SOURCES_DIR/"
     fi
 
     run_stage() {
       local name=$1 script=$2
+       # With --only=<stage>, run just that stage. 'fetch' is exempt: every
+       # build stage needs its tarballs, and its marker makes it a no-op
+       # once the sources are staged.
+      if [ -n "$ONLY_STAGE" ] && [ "$name" != "$ONLY_STAGE" ] && [ "$name" != fetch ]; then
+        return 0
+      fi
        # Check if stage is already done.
       if [ -f "$STAGES_DIR/$name.done" ]; then
         echo "[build-ci] stage '$name' already complete (skipping)"
@@ -73,36 +108,85 @@ if [ "$CI_MODE" = "1" ]; then
       fi
       echo "[build-ci] >>> stage: $name"
       mkdir -p "$LOGS_DIR"
-      sudo bash "$script" 2>&1 | tee "$LOGS_DIR/$name.log"
+      bash "$script" 2>&1 | tee "$LOGS_DIR/$name.log"
       touch "$STAGES_DIR/$name.done"
       sync
       echo "[build-ci] <<< stage: $name complete"
     }
 
-    echo "[build-ci] running LFS build stages"
-    run_stage fetch     "$REPO_ROOT/tools/fetch-sources.sh"
-    run_stage cross     "$REPO_ROOT/images/gnunix-base/stages/01-cross-toolchain.sh"
-    run_stage temp-tools "$REPO_ROOT/images/gnunix-base/stages/02-temp-tools.sh"
-    run_stage chroot    "$REPO_ROOT/images/gnunix-base/stages/03-chroot.sh"
-    run_stage finalize  "$REPO_ROOT/images/gnunix-base/stages/04-finalize.sh"
+     # Refuse to run a stage whose predecessor is absent.
+     #
+     # Without this the failure is silent, not loud: with an empty $LFS the
+     # cross compiler $LFS/tools/bin/$LFS_TGT-gcc does not exist, and
+     # autoconf's --host handling quietly falls back to the host gcc rather
+     # than erroring. Stage 2 then builds a "temp-tools" set linked against
+     # the runner's glibc, and the tree looks plausible until something
+     # downstream breaks for an apparently unrelated reason.
+    require_prev_stage() {
+      local prev=$1
+      [ -f "$STAGES_DIR/$prev.done" ] && return 0
+      echo "[build-ci] cannot run '$ONLY_STAGE': stage '$prev' has not" >&2
+      echo "           completed — $STAGES_DIR/$prev.done is missing." >&2
+      echo "           \$LFS was restored empty or partially; re-run the" >&2
+      echo "           '$prev' stage before this one." >&2
+      exit 1
+    }
+
+    case "$ONLY_STAGE" in
+      temp-tools) require_prev_stage cross ;;
+      chroot)     require_prev_stage temp-tools ;;
+      finalize)   require_prev_stage chroot ;;
+      package)    require_prev_stage finalize ;;
+    esac
+
+    if [ -n "$ONLY_STAGE" ]; then
+      echo "[build-ci] running single stage: $ONLY_STAGE"
+    else
+      echo "[build-ci] running LFS build stages"
+    fi
+
+    if [ "$ONLY_STAGE" != package ]; then
+      run_stage fetch      "$REPO_ROOT/tools/fetch-sources.sh"
+      run_stage cross      "$REPO_ROOT/images/gnunix-base/stages/01-cross-toolchain.sh"
+      run_stage temp-tools "$REPO_ROOT/images/gnunix-base/stages/02-temp-tools.sh"
+      run_stage chroot     "$REPO_ROOT/images/gnunix-base/stages/03-chroot.sh"
+      run_stage finalize   "$REPO_ROOT/images/gnunix-base/stages/04-finalize.sh"
+    fi
+
+     # Report tree size: the CI cache has a hard 10 GB ceiling, and the
+     # stage-split design (ADR-023) depends on the tree fitting under it.
+    echo "[build-ci] LFS tree size: $(du -sh "$LFS" 2>/dev/null | cut -f1)"
+
+    if [ -n "$ONLY_STAGE" ] && [ "$ONLY_STAGE" != package ]; then
+      echo "[build-ci] stage '$ONLY_STAGE' done (--only); not packaging."
+      exit 0
+    fi
 
     echo "[build-ci] all stages complete. rootfs at: $LFS"
 
      # Package: produce the disk image.
     echo "[build-ci] packaging disk image"
-    sudo bash "$REPO_ROOT/images/gnunix-base/packaging/mkimage.sh"
+    bash "$REPO_ROOT/images/gnunix-base/packaging/mkimage.sh"
 
      # Compress and upload artifact.
     ART_DIR="$REPO_ROOT/cache/artifacts"
     mkdir -p "$ART_DIR"
     VER=$(jq -r .lfs_image_version "$REPO_ROOT/tools/manifest.json")
-    ARCH=$(jq -r '.arch // "aarch64"' "$REPO_ROOT/tools/manifest.json")
+     # manifest.json has no `.arch` key — the multi-arch axis (ADR-010) is
+     # `.active_arch`, mirrored by legacy `.target_arch`. The old expression
+     # always fell through to the "aarch64" literal.
+    ARCH=$(jq -r '.active_arch // .target_arch' "$REPO_ROOT/tools/manifest.json")
     IMG="$ART_DIR/gnunix-base-${ARCH}-${VER}.img"
     ZST="$ART_DIR/gnunix-base-${ARCH}-${VER}.img.zst"
 
-    if [ -f /tmp/gnunix-base-disk.img ]; then
-      cp /tmp/gnunix-base-disk.img "$IMG"
+     # packaging/mkimage.sh writes $LFS/../gnunix-base-disk.img. The old
+     # /tmp path here predates that and silently produced no artifact.
+    DISK="$LFS/../gnunix-base-disk.img"
+    if [ ! -f "$DISK" ]; then
+      echo "[build-ci] expected disk image not found: $DISK" >&2
+      exit 1
     fi
+    cp "$DISK" "$IMG"
 
      # Compress with zstd (level 10: ~4-5x faster than -19, ~15% bigger).
     if command -v zstd >/dev/null 2>&1; then
@@ -124,7 +208,7 @@ fi
 # $LFS/.lfs-stages/ on completion; re-running skips completed stages unless
 # --rebuild=<stage> is passed.
 
-REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}
+REPO_ROOT=${REPO_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}
 export LFS=${LFS:-/mnt/lfs}
 export LFS_TGT=$(uname -m)-lfs-linux-gnu
 export LC_ALL=POSIX

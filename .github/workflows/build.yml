@@ -88,10 +88,14 @@ jobs:
     # its cache key changes, forcing a rebuild. A `restore-keys` prefix
     # falls back to the previous stage's cache if the exact key misses.
     #
-    # LFS tree size: ~5-10GB after cross-toolchain, ~15-25GB after
-    # chroot. GitHub's 10GB/cache limit means we accept cache misses
-    # when scripts change; the rebuild is fast because the LFS tree
-    # from the previous stage is restored.
+    # LFS tree size: measured at 801 MB after cross-toolchain (run
+    # 34705000776), well inside GitHub's 10 GB per-cache limit — the
+    # 5-10 GB / 15-25 GB figures previously written here were never
+    # measured. Each stage's restore-keys fall back down the chain
+    # (chroot -> temp -> cross), so a script edit that misses the exact
+    # key still restores the previous stage's tree instead of starting
+    # empty, and --ci refuses to run a stage whose predecessor marker
+    # is absent.
 
   cross-toolchain:
     needs: meta
@@ -115,29 +119,49 @@ jobs:
          with:
           key: ${{ steps.cachekey.outputs.key }}
           restore-keys: ${{ steps.cachekey.outputs.restore }}
-          path: ${{ env.LFS }}
-       - name: Provision LFS rootfs
+            # A workspace file, not $LFS itself: actions/cache runs as the
+            # unprivileged runner and cannot write under root-owned /mnt,
+            # nor restore the tree's ownership. See scripts/ci-lfs-cache.sh.
+          path: cache/lfs-tree.tzst
+       - name: Unpack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh unpack cache/lfs-tree.tzst
+       - name: Create the LFS tree
          run: |
           set -eu
-          sudo mkdir -p "$LFS"
+            # $LFS is the LFS tree being BUILT, not a distro rootfs. Stage 1
+            # cross-compiles into $LFS/tools using the runner's own gcc, per
+            # the LFS book ch. 4-5. The previous step downloaded a cirruslabs
+            # Ubuntu rootfs from a URL that 404s, and cirruslabs ships Tart
+            # OCI images rather than rootfs tarballs, so there was nothing to
+            # point it at.
+          sudo mkdir -p "$LFS" "$SOURCES"
           sudo chmod 755 "$LFS"
-            # Download cirruslabs Ubuntu arm64 rootfs
-          echo "[provision] fetching cirruslabs Ubuntu arm64 rootfs"
-          curl -fsSL "https://github.com/cirruslabs/ubuntu/releases/download/latest/ubuntu-arm64-rootfs.tar" \
-              | sudo tar xf - -C "$LFS"
-            # Create lfs user
-          sudo useradd -m -s /bin/bash lfs
-          sudo chown -R lfs:lfs "$LFS"
-       - name: Build cross-toolchain
+       - name: Install LFS host build dependencies
          run: |
           set -eu
-          sudo bash images/gnunix-base/stages/01-cross-toolchain.sh
+            # LFS host-system requirements not already on the runner image.
+            # texinfo (makeinfo) is needed by binutils and gcc; the rest are
+            # cheap and keep the stage scripts from discovering gaps mid-build.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+              texinfo gawk bison flex m4 gettext \
+              libisl-dev python3 rsync zstd xz-utils
+       - name: Build stage 'cross'
+         run: |
+          set -eu
+            # build.sh --ci owns the environment (LFS_TGT, LC_ALL, PATH),
+            # runs tools/fetch-sources.sh first, and honours the
+            # $LFS/.lfs-stages/*.done markers. Calling the stage script
+            # directly skipped all of that.
+          sudo bash images/gnunix-base/build.sh --ci --only=cross
+       - name: Pack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh pack cache/lfs-tree.tzst
        - name: Save LFS cache
          uses: actions/cache/save@v4
          if: steps.cachekey.outputs.key != ''
          with:
           key: ${{ steps.cachekey.outputs.key }}
-          path: ${{ env.LFS }}
+          path: cache/lfs-tree.tzst
 
   temp-tools:
     needs: [meta, cross-toolchain]
@@ -155,23 +179,53 @@ jobs:
           VER="${{ needs.meta.outputs.version }}"
           HASH=$(sha256sum images/gnunix-base/stages/02-temp-tools.sh | awk '{print $1}')
           echo "key=lfs-temp-${VER}-${HASH}" >> "$GITHUB_OUTPUT"
-          echo "restore=lfs-temp-${VER}-" >> "$GITHUB_OUTPUT"
+            # Fall back to the PREVIOUS stage's tree, not just this stage's.
+            # With only the lfs-temp- prefix, the very first run of this job
+            # always missed (nothing had ever saved an lfs-temp- key) and
+            # started from an empty $LFS.
+          {
+            echo "restore<<EOF"
+            echo "lfs-temp-${VER}-"
+            echo "lfs-cross-${VER}-"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
        - name: Restore LFS cache
          uses: actions/cache/restore@v4
          with:
           key: ${{ steps.cachekey.outputs.key }}
           restore-keys: ${{ steps.cachekey.outputs.restore }}
-          path: ${{ env.LFS }}
-       - name: Build temp-tools
+            # A workspace file, not $LFS itself: actions/cache runs as the
+            # unprivileged runner and cannot write under root-owned /mnt,
+            # nor restore the tree's ownership. See scripts/ci-lfs-cache.sh.
+          path: cache/lfs-tree.tzst
+       - name: Unpack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh unpack cache/lfs-tree.tzst
+       - name: Install LFS host build dependencies
          run: |
           set -eu
-          sudo bash images/gnunix-base/stages/02-temp-tools.sh
+            # LFS host-system requirements not already on the runner image.
+            # texinfo (makeinfo) is needed by binutils and gcc; the rest are
+            # cheap and keep the stage scripts from discovering gaps mid-build.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+              texinfo gawk bison flex m4 gettext \
+              libisl-dev python3 rsync zstd xz-utils
+       - name: Build stage 'temp-tools'
+         run: |
+          set -eu
+            # build.sh --ci owns the environment (LFS_TGT, LC_ALL, PATH),
+            # runs tools/fetch-sources.sh first, and honours the
+            # $LFS/.lfs-stages/*.done markers. Calling the stage script
+            # directly skipped all of that.
+          sudo bash images/gnunix-base/build.sh --ci --only=temp-tools
+       - name: Pack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh pack cache/lfs-tree.tzst
        - name: Save LFS cache
          uses: actions/cache/save@v4
          if: steps.cachekey.outputs.key != ''
          with:
           key: ${{ steps.cachekey.outputs.key }}
-          path: ${{ env.LFS }}
+          path: cache/lfs-tree.tzst
 
   chroot:
     needs: [meta, temp-tools]
@@ -189,23 +243,50 @@ jobs:
           VER="${{ needs.meta.outputs.version }}"
           HASH=$(sha256sum images/gnunix-base/stages/03-chroot.sh | awk '{print $1}')
           echo "key=lfs-chroot-${VER}-${HASH}" >> "$GITHUB_OUTPUT"
-          echo "restore=lfs-chroot-${VER}-" >> "$GITHUB_OUTPUT"
+            # Ordered fallback down the stage chain (see temp-tools above).
+          {
+            echo "restore<<EOF"
+            echo "lfs-chroot-${VER}-"
+            echo "lfs-temp-${VER}-"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
        - name: Restore LFS cache
          uses: actions/cache/restore@v4
          with:
           key: ${{ steps.cachekey.outputs.key }}
           restore-keys: ${{ steps.cachekey.outputs.restore }}
-          path: ${{ env.LFS }}
-       - name: Build chroot system
+            # A workspace file, not $LFS itself: actions/cache runs as the
+            # unprivileged runner and cannot write under root-owned /mnt,
+            # nor restore the tree's ownership. See scripts/ci-lfs-cache.sh.
+          path: cache/lfs-tree.tzst
+       - name: Unpack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh unpack cache/lfs-tree.tzst
+       - name: Install LFS host build dependencies
          run: |
           set -eu
-          sudo bash images/gnunix-base/stages/03-chroot.sh
+            # LFS host-system requirements not already on the runner image.
+            # texinfo (makeinfo) is needed by binutils and gcc; the rest are
+            # cheap and keep the stage scripts from discovering gaps mid-build.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+              texinfo gawk bison flex m4 gettext \
+              libisl-dev python3 rsync zstd xz-utils
+       - name: Build stage 'chroot'
+         run: |
+          set -eu
+            # build.sh --ci owns the environment (LFS_TGT, LC_ALL, PATH),
+            # runs tools/fetch-sources.sh first, and honours the
+            # $LFS/.lfs-stages/*.done markers. Calling the stage script
+            # directly skipped all of that.
+          sudo bash images/gnunix-base/build.sh --ci --only=chroot
+       - name: Pack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh pack cache/lfs-tree.tzst
        - name: Save LFS cache
          uses: actions/cache/save@v4
          if: steps.cachekey.outputs.key != ''
          with:
           key: ${{ steps.cachekey.outputs.key }}
-          path: ${{ env.LFS }}
+          path: cache/lfs-tree.tzst
 
   finalize:
     needs: [meta, chroot]
@@ -221,20 +302,35 @@ jobs:
          with:
           key: lfs-chroot-${{ needs.meta.outputs.version }}-
           restore-keys: lfs-chroot-${{ needs.meta.outputs.version }}-
-          path: ${{ env.LFS }}
-       - name: Finalize + pack
+            # See scripts/ci-lfs-cache.sh: the cache holds a root-written
+            # tarball, not $LFS, so ownership survives the round trip.
+          path: cache/lfs-tree.tzst
+       - name: Unpack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh unpack cache/lfs-tree.tzst
+       - name: Install LFS host build dependencies
          run: |
           set -eu
-          sudo bash images/gnunix-base/stages/04-finalize.sh
-       - name: Compress disk image
+            # LFS host-system requirements not already on the runner image.
+            # texinfo (makeinfo) is needed by binutils and gcc; the rest are
+            # cheap and keep the stage scripts from discovering gaps mid-build.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+              texinfo gawk bison flex m4 gettext \
+              libisl-dev python3 rsync zstd xz-utils
+       - name: Finalize rootfs
          run: |
           set -eu
-          VER="${{ needs.meta.outputs.version }}"
-          ARCH="${{ needs.meta.outputs.arch }}"
-          OUT="$REPO_ROOT/cache/artifacts"
-          mkdir -p "$OUT"
-          zstd -10 -f -k "$LFS/../gnunix-base-disk.img" \
-              -o "$OUT/gnunix-base-${ARCH}-${VER}.img.zst"
+          sudo bash images/gnunix-base/build.sh --ci --only=finalize
+       - name: Build and compress disk image
+         run: |
+          set -eu
+            # --only=package runs packaging/mkimage.sh (which writes
+            # $LFS/../gnunix-base-disk.img) and then compresses it to the
+            # canonical cache/artifacts/ name. The previous version never
+            # invoked mkimage.sh at all and compressed a file that the
+            # finalize stage does not create.
+          sudo bash images/gnunix-base/build.sh --ci --only=package
+          ls -lh cache/artifacts/
        - name: Upload base artifact
          uses: actions/upload-artifact@v4
          with:
