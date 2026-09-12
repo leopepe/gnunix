@@ -4,15 +4,24 @@
 # tools/cpe-map.json, queries NVD per package (virtualMatchString),
 # filters by CVSS >= 7.0 (HIGH/CRITICAL).
 #
-# If critical CVEs found: opens one consolidated labeled issue per
-# scan run, titled `CVE Report - <ISO-timestamp>`, containing a table
-# of all findings. Deduped by exact title across open and closed
-# issues. No image rebuild is triggered from here — a rebuild from
-# unchanged pins would emit a bit-identical vulnerable image.
-# Remediation is a pin bump via Renovate, which flows through the
+# Findings are maintained in ONE durable issue with a stable title,
+# `CVE Report — open HIGH/CRITICAL findings`, whose body is rewritten
+# on each scan. A fingerprint of the finding set is embedded in the
+# body, so a scan that finds the same CVEs as the last one writes
+# nothing at all; only a real delta produces an edit plus a comment
+# naming the CVEs added and dropped.
+#
+# The previous version titled each report `CVE Report - <ISO-timestamp>`
+# and deduped on an exact title match. The embedded timestamp made every
+# title unique, so the dedup never matched and each scheduled run opened
+# another issue — eight open duplicates within a week.
+#
+# No image rebuild is triggered from here — a rebuild from unchanged
+# pins would emit a bit-identical vulnerable image. Remediation is a
+# batched CVE-release PR (ADR-023 § Part B) which flows through the
 # existing v* tag -> build.yml pipeline.
 #
-# If no CVEs: silent exit.
+# If no CVEs: closes the report issue if one is open; otherwise silent.
 #
 # Rate limiting: unauthenticated NVD allows 5 requests / 30 s, so the
 # script sleeps ~7 s between queries (~64 packages = ~8 min); the
@@ -56,40 +65,29 @@ jobs:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: bash tools/security-scan.sh
 
-      - name: Open consolidated CVE report issue
-        if: steps.scan.outputs.cves != ''
+      - name: Sync the CVE report issue
+        # Runs unconditionally: a scan with zero findings must be able to
+        # close a report that a previous scan opened.
         uses: actions/github-script@v7
         with:
           script: |
             const labels = ['security', 'auto-triggered'];
+
+            // One durable report issue, identified by a STABLE title.
+            // The previous version titled each report `CVE Report - <ISO
+            // timestamp>` and deduped on an exact title match, so the
+            // timestamp guaranteed the dedup never matched and every
+            // scheduled run opened another issue — 8 open duplicates in
+            // the first week. The title is now constant and the scan
+            // edits that one issue in place.
+            const TITLE = 'CVE Report — open HIGH/CRITICAL findings';
+
             const findings = (process.env.FINDINGS_TSV || '')
               .split('\n')
               .filter(l => l.trim() !== '');
-            if (findings.length === 0) {
-              core.warning('cves=true but FINDINGS_TSV is empty');
-              return;
-            }
 
-            // Build a timestamped title for this scan run.
-            const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
-            const title = `CVE Report - ${now}`;
-
-            // Dedup: skip if an issue with this exact title exists.
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'all',
-              labels: labels.join(','),
-              per_page: 100,
-            });
-            const existing = issues.find(i => i.title === title);
-            if (existing) {
-              core.info(`Report issue already exists: #${existing.number}`);
-              return;
-            }
-
-            // Build the issue body with a table of all findings.
             const rows = [];
+            const ids = [];
             for (const line of findings) {
               const [cveId, pkg, version, score, severity, url] =
                 line.split('\t');
@@ -97,35 +95,114 @@ jobs:
                 core.warning(`Skipping malformed finding line: ${line}`);
                 continue;
               }
-              const cols = [
-                cveId, pkg, version,
-                score, severity,
-                `[link](${url})`,
-              ];
-              rows.push('| ' + cols.join(' | ') + ' |');
+              ids.push(cveId);
+              rows.push('| ' + [
+                cveId, pkg, version, score, severity, `[link](${url})`,
+              ].join(' | ') + ' |');
             }
 
+            // Fingerprint the finding SET, not the run. Two scans that
+            // find the same CVEs produce the same fingerprint, so a
+            // quiet day writes nothing and generates no notification.
+            const fingerprint = ids.slice().sort().join(',');
+            const MARKER = '<!-- cve-fingerprint: ';
+            const stamp = `${MARKER}${fingerprint} -->`;
+
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: labels.join(','),
+              per_page: 100,
+            });
+            const existing = open.find(i => i.title === TITLE);
+
+            // Zero findings: close the report if one is open, else stay silent.
+            if (rows.length === 0) {
+              if (!existing) {
+                core.info('No findings and no open report — nothing to do.');
+                return;
+              }
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: 'Scan is clean — no HIGH/CRITICAL findings against the '
+                    + 'current `tools/manifest.json` pins. Closing.',
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                state: 'closed',
+              });
+              core.info(`Closed #${existing.number}`);
+              return;
+            }
+
+            const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
             const body = [
               '## CVE Scan Report',
               '',
-              `Scan timestamp: ${now}`,
-              `Total findings: ${rows.length}`,
+              `Last scan: ${now}`,
+              `Open findings: ${rows.length}`,
               '',
               '| CVE | Package | Version | CVSS | Severity | Reference |',
               '|-----|---------|---------|------|----------|-----------|',
               ...rows,
               '',
               '---',
-              '_Auto-detected by [security-scan.yml]' +
-                '(.github/workflows/security-scan.yml). Remediate by' +
-                ' bumping the affected pins in `tools/manifest.json`' +
-                ' (Renovate PR -> merge -> v* tag -> build.yml)._',
+              '_Maintained in place by [security-scan.yml]'
+                + '(.github/workflows/security-scan.yml); this issue is'
+                + ' rewritten on each scan rather than reopened. Remediate by'
+                + ' bumping the affected pins in `tools/manifest.json`'
+                + ' (batched CVE-release PR -> v* tag -> build.yml, per'
+                + ' ADR-023 § Part B)._',
+              '',
+              stamp,
             ].join('\n');
 
-            await github.rest.issues.create({
+            if (!existing) {
+              const { data: created } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: TITLE,
+                labels,
+                body,
+              });
+              core.info(`Opened #${created.number} with ${rows.length} findings`);
+              return;
+            }
+
+            // Compare against the fingerprint recorded in the issue body.
+            const prevBody = existing.body || '';
+            const m = prevBody.match(/<!-- cve-fingerprint: (.*?) -->/);
+            const prev = m ? m[1] : null;
+            const prevIds = prev ? prev.split(',').filter(Boolean) : [];
+
+            if (prev === fingerprint) {
+              core.info(`#${existing.number} unchanged (${rows.length} findings) — not touching it.`);
+              return;
+            }
+
+            await github.rest.issues.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title,
-              labels,
+              issue_number: existing.number,
               body,
             });
+
+            // Only comment on a real delta, so the issue's notification
+            // history reads as a changelog rather than a heartbeat.
+            const added = ids.filter(i => !prevIds.includes(i));
+            const gone  = prevIds.filter(i => !ids.includes(i));
+            const parts = [`Findings updated — ${rows.length} open.`];
+            if (added.length) parts.push(`New: ${added.join(', ')}`);
+            if (gone.length)  parts.push(`No longer reported: ${gone.join(', ')}`);
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: existing.number,
+              body: parts.join('\n\n'),
+            });
+            core.info(`Updated #${existing.number}: +${added.length} -${gone.length}`);
