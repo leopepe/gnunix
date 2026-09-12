@@ -119,7 +119,12 @@ jobs:
          with:
           key: ${{ steps.cachekey.outputs.key }}
           restore-keys: ${{ steps.cachekey.outputs.restore }}
-          path: ${{ env.LFS }}
+            # A workspace file, not $LFS itself: actions/cache runs as the
+            # unprivileged runner and cannot write under root-owned /mnt,
+            # nor restore the tree's ownership. See scripts/ci-lfs-cache.sh.
+          path: cache/lfs-tree.tzst
+       - name: Unpack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh unpack cache/lfs-tree.tzst
        - name: Create the LFS tree
          run: |
           set -eu
@@ -149,12 +154,14 @@ jobs:
             # $LFS/.lfs-stages/*.done markers. Calling the stage script
             # directly skipped all of that.
           sudo bash images/gnunix-base/build.sh --ci --only=cross
+       - name: Pack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh pack cache/lfs-tree.tzst
        - name: Save LFS cache
          uses: actions/cache/save@v4
          if: steps.cachekey.outputs.key != ''
          with:
           key: ${{ steps.cachekey.outputs.key }}
-          path: ${{ env.LFS }}
+          path: cache/lfs-tree.tzst
 
   temp-tools:
     needs: [meta, cross-toolchain]
@@ -187,7 +194,12 @@ jobs:
          with:
           key: ${{ steps.cachekey.outputs.key }}
           restore-keys: ${{ steps.cachekey.outputs.restore }}
-          path: ${{ env.LFS }}
+            # A workspace file, not $LFS itself: actions/cache runs as the
+            # unprivileged runner and cannot write under root-owned /mnt,
+            # nor restore the tree's ownership. See scripts/ci-lfs-cache.sh.
+          path: cache/lfs-tree.tzst
+       - name: Unpack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh unpack cache/lfs-tree.tzst
        - name: Install LFS host build dependencies
          run: |
           set -eu
@@ -206,12 +218,14 @@ jobs:
             # $LFS/.lfs-stages/*.done markers. Calling the stage script
             # directly skipped all of that.
           sudo bash images/gnunix-base/build.sh --ci --only=temp-tools
+       - name: Pack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh pack cache/lfs-tree.tzst
        - name: Save LFS cache
          uses: actions/cache/save@v4
          if: steps.cachekey.outputs.key != ''
          with:
           key: ${{ steps.cachekey.outputs.key }}
-          path: ${{ env.LFS }}
+          path: cache/lfs-tree.tzst
 
   chroot:
     needs: [meta, temp-tools]
@@ -241,7 +255,12 @@ jobs:
          with:
           key: ${{ steps.cachekey.outputs.key }}
           restore-keys: ${{ steps.cachekey.outputs.restore }}
-          path: ${{ env.LFS }}
+            # A workspace file, not $LFS itself: actions/cache runs as the
+            # unprivileged runner and cannot write under root-owned /mnt,
+            # nor restore the tree's ownership. See scripts/ci-lfs-cache.sh.
+          path: cache/lfs-tree.tzst
+       - name: Unpack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh unpack cache/lfs-tree.tzst
        - name: Install LFS host build dependencies
          run: |
           set -eu
@@ -260,12 +279,14 @@ jobs:
             # $LFS/.lfs-stages/*.done markers. Calling the stage script
             # directly skipped all of that.
           sudo bash images/gnunix-base/build.sh --ci --only=chroot
+       - name: Pack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh pack cache/lfs-tree.tzst
        - name: Save LFS cache
          uses: actions/cache/save@v4
          if: steps.cachekey.outputs.key != ''
          with:
           key: ${{ steps.cachekey.outputs.key }}
-          path: ${{ env.LFS }}
+          path: cache/lfs-tree.tzst
 
   finalize:
     needs: [meta, chroot]
@@ -281,7 +302,11 @@ jobs:
          with:
           key: lfs-chroot-${{ needs.meta.outputs.version }}-
           restore-keys: lfs-chroot-${{ needs.meta.outputs.version }}-
-          path: ${{ env.LFS }}
+            # See scripts/ci-lfs-cache.sh: the cache holds a root-written
+            # tarball, not $LFS, so ownership survives the round trip.
+          path: cache/lfs-tree.tzst
+       - name: Unpack the LFS tree
+         run: sudo scripts/ci-lfs-cache.sh unpack cache/lfs-tree.tzst
        - name: Install LFS host build dependencies
          run: |
           set -eu
