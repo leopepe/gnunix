@@ -232,12 +232,6 @@ if ! pkg_skip libxcrypt; then
   pkg_mark libxcrypt
 fi
 
-# Python is built further down, next to ninja and meson, because that is
-# where it is first needed (usbutils is a meson project). It is not a
-# GRUB dependency, despite an earlier comment here saying so: GRUB 2.12
-# configures from the release tarball without python — that requirement
-# applies to a git checkout's autogen.sh.
-
 # shadow — LFS book chapter 8.5 needs --without-libbsd (avoids libbsd
 # dependency for readpassphrase) and a few other specific flags + seds.
 # Built before the generic loop so the loop can skip it.
@@ -269,39 +263,6 @@ fi
 # util-linux — needs flags to disable optional features (liblastlog2 wants
 # sqlite3, pylibmount wants python, etc.). Same flags as the temp-tools
 # build but with --docdir set. LFS book chapter 8.13.
-# bzip2 — block-sorting compression utility + libbz2. Built before the
-# main autotools loop because (a) the temp-tools tar was configured
-# with lbzip2 on PATH and hardcodes it as the bz2 decompressor, so any
-# .tar.bz2 extraction inside the chroot fails with `lbzip2: Cannot
-# exec` until bzip2 is on the rootfs PATH; (b) the loop below extracts
-# libusb (.tar.bz2) and passes --use-compress-program=bzip2, which
-# requires bzip2 to be live by the time that iteration runs.
-# bzip2 is Makefile-only (no ./configure), so it gets its own block
-# rather than slotting into the autotools loop.
-if ! pkg_skip bzip2; then
-  v=$ver_bzip2
-  fname=$(pkg_file bzip2)
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  cd "$d/bzip2-$v"
-  echo "[chroot-inner] building bzip2-$v"
-  hardening_export "bzip2" native
-  # Patch the shared-library Makefile to honour the hardening LDFLAGS
-  # we just exported. Upstream's Makefile-libbz2_so hardcodes the link
-  # line; sed in -Wl,--as-needed -Wl,-z,relro etc. so libbz2.so ships
-  # with the same RELRO+BIND_NOW posture as the rest of the base.
-  sed -i 's|^all: \(.*\)|LDFLAGS += '"$LDFLAGS"'\nall: \1|' Makefile-libbz2_so
-  make -f Makefile-libbz2_so
-  make clean
-  make -j$JOBS
-  make PREFIX=/usr install
-  install -Dm 0755 libbz2.so.1.0.8 /usr/lib/libbz2.so.1.0.8
-  ln -sf libbz2.so.1.0.8 /usr/lib/libbz2.so.1.0
-  ln -sf libbz2.so.1.0   /usr/lib/libbz2.so.1
-  ln -sf libbz2.so.1     /usr/lib/libbz2.so
-  cd /; rm -rf "$d"
-  pkg_mark bzip2
-fi
-
 if ! pkg_skip util-linux; then
   v=$ver_util_linux
   fname=$(pkg_file util-linux)
@@ -326,8 +287,9 @@ fi
 # Loop the rest of base packages with default ./configure --prefix=/usr.
 # shadow + util-linux omitted (built above with custom flags).
 # openssl omitted (built below with its custom ./config script).
-# iputils omitted: uses meson which requires Python (not bootstrapped); ping
-# can come via Nix userland or a later phase.
+# iputils omitted: meson build, and meson left the base with issue #161
+# (python stayed — GRUB needs it; meson and ninja did not survive).
+# ping comes from the Nix userland.
 #
 # Order matters for kmod: it must be built before eudev, so eudev's
 # ./configure --enable-kmod can find libkmod. The rest of the new
@@ -336,10 +298,9 @@ fi
 for entry in \
   bash coreutils diffutils file findutils gawk grep gzip sed tar xz \
   iproute2 dhcpcd less vim e2fsprogs zlib expat \
-  ncurses readline pam \
+  ncurses readline \
   kmod procps-ng psmisc sysklogd \
-  popt cronie logrotate \
-  hwdata
+  popt cronie logrotate
 do
   pkg_skip "$entry" && continue
   v=$(pkg_ver "$entry")
@@ -347,18 +308,7 @@ do
   url=$(pkg_url "$entry")
   fname=$(basename "$url")
   d=$(mktemp -d)
-  # tar in the rootfs was built with lbzip2 autodetected on the
-  # builder host's PATH and hardcodes it as the .bz2 decompressor —
-  # but lbzip2 isn't in the final rootfs. For any *.tar.bz2 source,
-  # force bzip2 (built in its own block above) via
-  # --use-compress-program. Other formats use tar's native path.
-  # No package in this loop ships as .tar.bz2 today — libusb, which
-  # did, now builds after eudev for libudev — so this arm is kept for
-  # the next one rather than removed.
-  case "$fname" in
-    *.tar.bz2) tar --use-compress-program=bzip2 -xf "$SOURCES/$fname" -C "$d" ;;
-    *)         tar -xf "$SOURCES/$fname" -C "$d" ;;
-  esac
+  tar -xf "$SOURCES/$fname" -C "$d"
   inner=$(ls "$d" | head -n1)
   cd "$d/$inner"
   echo "[chroot-inner] building $entry-$v"
@@ -412,10 +362,13 @@ if ! pkg_skip openssl; then
   pkg_mark openssl
 fi
 
-# sysvinit + eudev (dbus + elogind deferred — both need Python/meson which
-# we haven't bootstrapped. dbus is optional for our Phase 2 minimum:
-# sshd/init/network/nix-daemon all run without it. Comes back in a later
-# phase via Nix userland or once Python lands).
+# sysvinit + eudev.
+#
+# dbus and elogind are NOT built here and are not "deferred": per ADR-025
+# they are declared in nix/desktop.nix and installed into the system
+# profile, and issue #161 dropped their (never-built) manifest entries.
+# The base's own boot path — sshd, init, network, nix-daemon — runs
+# without either.
 for entry in sysvinit eudev; do
   pkg_skip "$entry" && continue
   v=$(pkg_ver "$entry")
@@ -443,157 +396,6 @@ for entry in sysvinit eudev; do
   pkg_mark "$entry"
 done
 
-# libusb — must come AFTER eudev, which provides libudev.
-#
-# It used to sit at the end of the main autotools loop, which runs before
-# eudev is built, so its configure found no libudev header and stopped:
-#   configure: error: udev support requested but libudev header not installed
-# libusb enables udev support by default and uses it to enumerate devices
-# via /dev/bus/usb; usbutils below links against the result, and its own
-# comment already notes the eudev dependency.
-#
-# Own block rather than the loop: the loop runs before eudev, and the
-# source ships only as .tar.bz2 (see the tar note in that loop).
-if ! pkg_skip libusb; then
-  v=$ver_libusb
-  fname=$(pkg_file libusb)
-  d=$(mktemp -d)
-  tar --use-compress-program=bzip2 -xf "$SOURCES/$fname" -C "$d"
-  cd "$d/libusb-$v"
-  echo "[chroot-inner] building libusb-$v"
-  hardening_export "libusb" native
-  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var \
-    --disable-static
-  make -j$JOBS
-  make install
-  cd /; rm -rf "$d"
-  pkg_mark libusb
-fi
-
-# Python + ninja + meson — the build stack usbutils needs.
-#
-# All three carried the same "bind-mounted from apt" claim as perl and
-# pkgconf, and it was just as false. usbutils is a meson project, so the
-# stage stopped at `meson: command not found` (run 34714821005) the
-# moment libusb stopped failing ahead of it.
-#
-# Order is forced: meson is Python, and ninja bootstraps with Python.
-# Each is installed the way tools/manifest.json documents for it.
-if ! pkg_skip python; then
-  v=$ver_python
-  fname=$(pkg_file python)
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  # The tarball unpacks to Python-<v>, capitalised, so resolve it rather
-  # than assuming <name>-<version>.
-  inner=$(ls "$d" | head -n1)
-  cd "$d/$inner"
-  echo "[chroot-inner] building python-$v"
-  hardening_export "python" native
-  # --with-system-expat: expat is already built in the loop above, so
-  # don't compile the bundled copy. --without-ensurepip: meson arrives
-  # by vendor-copy below, and nothing here wants pip in the image.
-  # --enable-optimizations is deliberately NOT set: PGO roughly doubles
-  # an already ~10 min build for a interpreter used only at build time.
-  ./configure --prefix=/usr --enable-shared \
-    --with-system-expat --without-ensurepip
-  make -j$JOBS
-  make install
-  cd /; rm -rf "$d"
-  pkg_mark python
-fi
-
-# python<major>.<minor>, e.g. 3.12 — meson's vendor-copy target below.
-py_mm=$(echo "$ver_python" | cut -d. -f1,2)
-
-if ! pkg_skip ninja; then
-  v=$ver_ninja
-  fname=$(pkg_file ninja)
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  cd "$d/ninja-$v"
-  echo "[chroot-inner] building ninja-$v"
-  hardening_export "ninja" native
-  # No autotools: bootstrap with the interpreter just installed, then
-  # drop the single binary in place (per the manifest note).
-  python3 configure.py --bootstrap
-  install -v -m755 ninja /usr/bin/ninja
-  cd /; rm -rf "$d"
-  pkg_mark ninja
-fi
-
-if ! pkg_skip meson; then
-  v=$ver_meson
-  fname=$(pkg_file meson)
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  cd "$d/meson-$v"
-  echo "[chroot-inner] installing meson-$v (vendor-copy)"
-  # Vendor-copy per the manifest note: meson is pure Python, and copying
-  # meson.py plus its package onto sys.path avoids bootstrapping pip or
-  # setuptools into the image for a build-time-only tool.
-  install -v -m755 meson.py /usr/bin/meson
-  install -v -d "/usr/lib/python${py_mm}/site-packages"
-  cp -a mesonbuild "/usr/lib/python${py_mm}/site-packages/"
-  meson --version
-  cd /; rm -rf "$d"
-  pkg_mark meson
-fi
-
-# pciutils + dmidecode — Makefile-only (no ./configure), so they don't
-# fit the autotools loop. Hardware introspection.
-# (cronie was originally dcron in this block; we switched to cronie
-# upstream of here because its tarball mirrors are dead. cronie is
-# autotools, so it's now in the loop above.)
-for entry in pciutils dmidecode; do
-  pkg_skip "$entry" && continue
-  v=$(pkg_ver "$entry")
-  url=$(pkg_url "$entry")
-  fname=$(basename "$url")
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  inner=$(ls "$d" | head -n1)
-  cd "$d/$inner"
-  echo "[chroot-inner] building $entry-$v"
-  hardening_export "$entry" native
-  case "$entry" in
-    pciutils)
-      # pciutils Makefile honours PREFIX (uppercase) and SBINDIR.
-      # SHARED=yes keeps libpci dynamic so future packages can link
-      # against it without a static-copy fight.
-      make -j$JOBS PREFIX=/usr SBINDIR=/usr/sbin SHARED=yes
-      make install install-lib PREFIX=/usr SBINDIR=/usr/sbin SHARED=yes
-      ;;
-    dmidecode)
-      # dmidecode Makefile uses lowercase prefix.
-      make -j$JOBS prefix=/usr
-      make install prefix=/usr
-      ;;
-  esac
-  cd /; rm -rf "$d"
-  pkg_mark "$entry"
-done
-
-# usbutils — meson build. Depends on hwdata being installed (above) so
-# lsusb can resolve vendor/product IDs to names; depends on libudev
-# from eudev for hotplug. /usr/share/hwdata/usb.ids is what hwdata's
-# install lays down.
-if ! pkg_skip usbutils; then
-  v=$ver_usbutils
-  fname=$(pkg_file usbutils)
-  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
-  cd "$d/usbutils-$v"
-  echo "[chroot-inner] building usbutils-$v (meson)"
-  hardening_export "usbutils" native
-  # usbutils v018 dropped all project options — there is no
-  # meson_options.txt and `meson.build` declares no `option(...)`. The
-  # earlier `-Dsystemdshutdowndir=...` flag now triggers
-  # `ERROR: Unknown options: "systemdshutdowndir"`. Vanilla `meson
-  # setup` is sufficient; v018 builds lsusb/lsusb.py/usbhid-dump
-  # without any systemd-shutdown integration.
-  meson setup build --prefix=/usr --buildtype=release
-  meson compile -C build
-  meson install -C build
-  cd /; rm -rf "$d"
-  pkg_mark usbutils
-fi
-
 # openssh
 if ! pkg_skip openssh; then
   v=$ver_openssh
@@ -608,6 +410,48 @@ if ! pkg_skip openssh; then
   chown -v root:sys /var/lib/sshd
   make install
   pkg_mark openssh
+fi
+
+# Python — a build dependency of GRUB, and of nothing else in this stage.
+#
+# This block sat further down the file until issue #161, removed on the
+# strength of a comment claiming "GRUB 2.12 configures from the release
+# tarball without python — that requirement applies to a git checkout's
+# autogen.sh". That is false. grub-2.12's configure calls AM_PATH_PYTHON
+# unconditionally and aborts on a release tarball just the same:
+#
+#   checking target system type... aarch64-unknown-none
+#   checking for a Python interpreter with version >= 2.6... none
+#   configure: error: no suitable Python interpreter found
+#
+# (run 34765691034, the chroot stage, 15:44:57 — grub is the only package
+# in this script configured with --target, so the trace is unambiguous.)
+#
+# The claim looked true only because python was built earlier in the same
+# stage for usbutils, so GRUB always found one. Removing usbutils removed
+# GRUB's interpreter with it. Built here rather than further up so the
+# ordering states the dependency: python exists for the block below it.
+#
+# --with-system-expat: expat is built in the loop above, so don't compile
+# the bundled copy. --without-ensurepip: nothing here wants pip in the
+# image. --enable-optimizations is deliberately NOT set — PGO roughly
+# doubles the build of an interpreter used only at build time.
+if ! pkg_skip python; then
+  v=$ver_python
+  fname=$(pkg_file python)
+  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
+  # The tarball unpacks to Python-<v>, capitalised, so resolve it rather
+  # than assuming <name>-<version>.
+  inner=$(ls "$d" | head -n1)
+  cd "$d/$inner"
+  echo "[chroot-inner] building python-$v"
+  hardening_export "python" native
+  ./configure --prefix=/usr --enable-shared \
+    --with-system-expat --without-ensurepip
+  make -j$JOBS
+  make install
+  cd /; rm -rf "$d"
+  pkg_mark python
 fi
 
 # grub (EFI for arm64)

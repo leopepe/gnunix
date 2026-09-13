@@ -51,10 +51,6 @@
     "vendor": "kernel",
     "product": "iproute2"
   },
-  "iputils": {
-    "vendor": "iputils_project",
-    "product": "iputils"
-  },
   "dhcpcd": {
     "vendor": "dhcpcd_project",
     "product": "dhcpcd"
@@ -69,6 +65,10 @@
   "openssl": {
     "vendor": "openssl",
     "product": "openssl"
+  },
+  "expat": {
+    "vendor": "libexpat_project",
+    "product": "libexpat"
   },
   "zlib": {
     "vendor": "zlib",
@@ -98,6 +98,10 @@
     "vendor": "libxcrypt_project",
     "product": "libxcrypt"
   },
+  "python": {
+    "vendor": "python",
+    "product": "python"
+  },
   "perl": {
     "vendor": "perl",
     "product": "perl"
@@ -117,18 +121,6 @@
   "pkgconf": {
     "vendor": "pkgconf",
     "product": "pkgconf"
-  },
-  "python": {
-    "vendor": "python",
-    "product": "python"
-  },
-  "pam": {
-    "vendor": "linux-pam",
-    "product": "linux-pam"
-  },
-  "expat": {
-    "vendor": "libexpat_project",
-    "product": "libexpat"
   },
   "file": {
     "vendor": "file_project",
@@ -194,14 +186,6 @@
     "vendor": "sysklogd_project",
     "product": "sysklogd"
   },
-  "pciutils": {
-    "vendor": "pciutils_project",
-    "product": "pciutils"
-  },
-  "dmidecode": {
-    "vendor": "dmidecode_project",
-    "product": "dmidecode"
-  },
   "popt": {
     "vendor": "popt_project",
     "product": "popt"
@@ -214,30 +198,6 @@
     "vendor": "logrotate_project",
     "product": "logrotate"
   },
-  "meson": {
-    "vendor": "mesonbuild",
-    "product": "meson"
-  },
-  "ninja": {
-    "vendor": "ninja-build",
-    "product": "ninja"
-  },
-  "hwdata": {
-    "vendor": "hwdata_project",
-    "product": "hwdata"
-  },
-  "bzip2": {
-    "vendor": "bzip",
-    "product": "bzip2"
-  },
-  "libusb": {
-    "vendor": "libusb",
-    "product": "libusb"
-  },
-  "usbutils": {
-    "vendor": "kernel",
-    "product": "usbutils"
-  },
   "sysvinit": {
     "vendor": "sysvinit_project",
     "product": "sysvinit"
@@ -245,14 +205,6 @@
   "eudev": {
     "vendor": "eudev_project",
     "product": "eudev"
-  },
-  "dbus": {
-    "vendor": "freedesktop",
-    "product": "dbus"
-  },
-  "elogind": {
-    "vendor": "elogind_project",
-    "product": "elogind"
   },
   "grub": {
     "vendor": "gnu",

@@ -34,6 +34,6 @@ apt-get install -y --no-install-recommends \
   wget curl ca-certificates \
   parted dosfstools e2fsprogs gdisk \
   grub-efi-arm64-bin grub-common \
-  gperf pkgconf meson ninja-build
+  gperf pkgconf
 
 echo "[build-deps] done"

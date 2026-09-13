@@ -145,11 +145,6 @@
       "url": "https://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-6.10.0.tar.xz",
       "sha256": "91a62f82737b44905a00fa803369c447d549e914e9a2a4018fdd75b1d54e8dce"
     },
-    "iputils": {
-      "version": "20240905",
-      "url": "https://github.com/iputils/iputils/archive/refs/tags/20240905.tar.gz",
-      "sha256": "055b4e6e4f298c97fd5848898099e59b4590db63fac3f7ad4fa796354ad44403"
-    },
     "dhcpcd": {
       "version": "10.1.0",
       "url": "https://github.com/NetworkConfiguration/dhcpcd/releases/download/v10.1.0/dhcpcd-10.1.0.tar.xz",
@@ -200,6 +195,11 @@
       "url": "https://github.com/besser82/libxcrypt/releases/download/v4.4.36/libxcrypt-4.4.36.tar.xz",
       "sha256": "e5e1f4caee0a01de2aee26e3138807d6d3ca2b8e67287966d1fefd65e1fd8943"
     },
+    "python": {
+      "version": "3.12.5",
+      "url": "https://www.python.org/ftp/python/3.12.5/Python-3.12.5.tar.xz",
+      "sha256": "fa8a2e12c5e620b09f53e65bcd87550d2e5a1e2e04bf8ba991dcc55113876397"
+    },
     "perl": {
       "version": "5.38.2",
       "url": "https://www.cpan.org/src/5.0/perl-5.38.2.tar.xz",
@@ -224,16 +224,6 @@
       "version": "2.3.0",
       "url": "https://distfiles.ariadne.space/pkgconf/pkgconf-2.3.0.tar.xz",
       "sha256": "3a9080ac51d03615e7c1910a0a2a8df08424892b5f13b0628a204d3fcce0ea8b"
-    },
-    "python": {
-      "version": "3.12.5",
-      "url": "https://www.python.org/ftp/python/3.12.5/Python-3.12.5.tar.xz",
-      "sha256": "fa8a2e12c5e620b09f53e65bcd87550d2e5a1e2e04bf8ba991dcc55113876397"
-    },
-    "pam": {
-      "version": "1.6.1",
-      "url": "https://github.com/linux-pam/linux-pam/releases/download/v1.6.1/Linux-PAM-1.6.1.tar.xz",
-      "sha256": "f8923c740159052d719dbfc2a2f81942d68dd34fcaf61c706a02c9b80feeef8e"
     },
     "expat": {
       "version": "2.6.4",
@@ -322,17 +312,6 @@
       "url": "https://github.com/troglobit/sysklogd/releases/download/v2.6.1/sysklogd-2.6.1.tar.gz",
       "sha256": "e35d5c5f55019976302ac9818890bd6b6858db257506f0e9afaa718a8dee9cc3"
     },
-    "pciutils": {
-      "$note": "kernel.org's /software/ path 404s; /pub/software/ on the edge mirror is the canonical path.",
-      "version": "3.13.0",
-      "url": "https://mirrors.edge.kernel.org/pub/software/utils/pciutils/pciutils-3.13.0.tar.xz",
-      "sha256": "77f11f78298502634d1af50308f15a5788629f6cf45cba376f5009aea4cb4926"
-    },
-    "dmidecode": {
-      "version": "3.6",
-      "url": "https://download.savannah.gnu.org/releases/dmidecode/dmidecode-3.6.tar.xz",
-      "sha256": "e40c65f3ec3dafe31ad8349a4ef1a97122d38f65004ed66575e1a8d575dd8bae"
-    },
     "$logrotate_stack_note": "popt is a build-dep of logrotate, cronie is the scheduler that makes logrotate functional. We switched from dcron to cronie because Dillon's original tarball is gone from every mirror we tried — cronie is actively maintained (Fedora/RHEL upstream) and has the same /etc/crontab + /etc/cron.d + crond paths Slackware-style cron consumers expect.",
     "popt": {
       "version": "1.19",
@@ -350,43 +329,6 @@
       "version": "3.21.0",
       "url": "https://github.com/logrotate/logrotate/releases/download/3.21.0/logrotate-3.21.0.tar.xz",
       "sha256": "8fa12015e3b8415c121fc9c0ca53aa872f7b0702f543afda7e32b6c4900f6516"
-    },
-    "$usbutils_stack_note": "meson + ninja unlock USB introspection (usbutils needs meson at build) and also enable a follow-up that lets us finally build iputils (which has been deferred because of the meson dep).",
-    "meson": {
-      "$note": "Python-based build system. Installed via vendor-copy (cp mesonbuild + meson.py into /usr) — no pip bootstrap required.",
-      "version": "1.5.0",
-      "url": "https://github.com/mesonbuild/meson/releases/download/1.5.0/meson-1.5.0.tar.gz",
-      "sha256": "45d7b8653c1e5139df35b33be2dd5b2d040c5b2c6129f9a7c890d507e33312b8"
-    },
-    "ninja": {
-      "$note": "Build via `python3 configure.py --bootstrap` then drop the binary in /usr/bin. No autotools.",
-      "version": "1.12.1",
-      "url": "https://github.com/ninja-build/ninja/archive/refs/tags/v1.12.1.tar.gz",
-      "sha256": "821bdff48a3f683bc4bb3b6f0b5fe7b2d647cf65d52aeb63328c91a6c6df285a"
-    },
-    "hwdata": {
-      "$note": "Device ID database used by lspci / lsusb. Autotools.",
-      "version": "0.391",
-      "url": "https://github.com/vcrhonek/hwdata/archive/refs/tags/v0.391.tar.gz",
-      "sha256": "620fe1c22922a3d1bd1062424e9cc6b954acea2f83b72ff0cb45144981cb1975"
-    },
-    "bzip2": {
-      "$note": "Block-sorting compression utility + libbz2. Needed in base because (a) the temp-tools tar was configured with lbzip2 on PATH and hardcodes it as the bz2 decompressor — the rootfs has neither lbzip2 nor bzip2, so any .tar.bz2 extraction fails with `lbzip2: Cannot exec`; and (b) libusb (below) only ships .tar.bz2. The autotools loop in 03b-chroot-inner.sh passes --use-compress-program=bzip2 to tar for any *.tar.bz2 source so the chroot doesn't depend on tar's compile-time autodetect.",
-      "version": "1.0.8",
-      "url": "https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz",
-      "sha256": "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"
-    },
-    "libusb": {
-      "$note": "Userspace USB API. usbutils' lsusb links libusb-1.0 to enumerate devices via /dev/bus/usb/* — the procfs path was removed from modern kernels years ago. Must build before usbutils.",
-      "version": "1.0.29",
-      "url": "https://github.com/libusb/libusb/releases/download/v1.0.29/libusb-1.0.29.tar.bz2",
-      "sha256": "5977fc950f8d1395ccea9bd48c06b3f808fd3c2c961b44b0c2e6e29fc3a70a85"
-    },
-    "usbutils": {
-      "$note": "lsusb. Meson build; depends on libusb-1.0 (above) + hwdata for the device-name lookup tables.",
-      "version": "018",
-      "url": "https://www.kernel.org/pub/linux/utils/usb/usbutils/usbutils-018.tar.xz",
-      "sha256": "83f68b59b58547589c00266e82671864627593ab4362d8c807f50eea923cad93"
     }
   },
   "init_and_session": {
@@ -399,16 +341,6 @@
       "version": "3.2.14",
       "url": "https://github.com/eudev-project/eudev/releases/download/v3.2.14/eudev-3.2.14.tar.gz",
       "sha256": "8da4319102f24abbf7fff5ce9c416af848df163b29590e666d334cc1927f006f"
-    },
-    "dbus": {
-      "version": "1.14.10",
-      "url": "https://dbus.freedesktop.org/releases/dbus/dbus-1.14.10.tar.xz",
-      "sha256": "ba1f21d2bd9d339da2d4aa8780c09df32fea87998b73da24f49ab9df1e36a50f"
-    },
-    "elogind": {
-      "version": "252.9",
-      "url": "https://github.com/elogind/elogind/archive/refs/tags/v252.9.tar.gz",
-      "sha256": "7af8caa8225a406e77fb99c9f33dba5e1f0a94f0e1277c9d91dcfc016f116d85"
     }
   },
   "bootloader": {

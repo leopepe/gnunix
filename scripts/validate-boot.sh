@@ -16,8 +16,9 @@ VM_OR_IMG="${1:-}"
 # Detect mode: if the argument is a path to a .img file, use CI mode.
 # Otherwise, treat it as a Tart VM name.
 # Shared post-boot assertions. Phase 2 minimum: sshd + a default route.
-# dbus and elogind are deferred (they need the Python/meson bootstrap), so
-# they warn rather than fail.
+# dbus and elogind are not part of gnunix-base at all: per ADR-025 they are
+# declared in nix/desktop.nix and only the desktop image has them. They warn
+# rather than fail so this same check can run against a desktop image.
 SMOKE_CHECKS='
   set -e
   echo "uname: $(uname -a)"

@@ -58,9 +58,10 @@ install -Dm 0644 "$REPO_ROOT/images/gnunix-base/grub.cfg" "$LFS/boot/grub/grub.c
 # (see packaging/mkimage.sh). Here we only stage the config + grub modules.
 
 echo "[finalize] enable services (chmod +x BSD-style)"
-# dbus + elogind are deferred (need Python/meson we don't bootstrap yet) so
-# leave their rc scripts non-executable — otherwise rc.M wastes time and
-# spams errors trying to start nonexistent binaries.
+# dbus + elogind are not in gnunix-base: per ADR-025 they come from
+# nix/desktop.nix, and images/gnunix-desktop/build.sh chmod +x's these two
+# scripts once the system profile carries the binaries. Leaving them
+# non-executable here stops rc.M from spamming errors on base and minimal.
 chmod +x "$LFS/etc/rc.d/rc.sshd" \
          "$LFS/etc/rc.d/rc.nix-daemon" \
          "$LFS/etc/rc.d/rc.network" \
