@@ -195,6 +195,11 @@
       "url": "https://github.com/besser82/libxcrypt/releases/download/v4.4.36/libxcrypt-4.4.36.tar.xz",
       "sha256": "e5e1f4caee0a01de2aee26e3138807d6d3ca2b8e67287966d1fefd65e1fd8943"
     },
+    "python": {
+      "version": "3.12.5",
+      "url": "https://www.python.org/ftp/python/3.12.5/Python-3.12.5.tar.xz",
+      "sha256": "fa8a2e12c5e620b09f53e65bcd87550d2e5a1e2e04bf8ba991dcc55113876397"
+    },
     "perl": {
       "version": "5.38.2",
       "url": "https://www.cpan.org/src/5.0/perl-5.38.2.tar.xz",
@@ -219,6 +224,11 @@
       "version": "2.3.0",
       "url": "https://distfiles.ariadne.space/pkgconf/pkgconf-2.3.0.tar.xz",
       "sha256": "3a9080ac51d03615e7c1910a0a2a8df08424892b5f13b0628a204d3fcce0ea8b"
+    },
+    "expat": {
+      "version": "2.6.4",
+      "url": "https://github.com/libexpat/libexpat/releases/download/R_2_6_4/expat-2.6.4.tar.xz",
+      "sha256": "a695629dae047055b37d50a0ff4776d1d45d0a4c842cf4ccee158441f55ff7ee"
     },
     "file": {
       "version": "5.45",

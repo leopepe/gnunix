@@ -66,6 +66,10 @@
     "vendor": "openssl",
     "product": "openssl"
   },
+  "expat": {
+    "vendor": "libexpat_project",
+    "product": "libexpat"
+  },
   "zlib": {
     "vendor": "zlib",
     "product": "zlib"
@@ -93,6 +97,10 @@
   "libxcrypt": {
     "vendor": "libxcrypt_project",
     "product": "libxcrypt"
+  },
+  "python": {
+    "vendor": "python",
+    "product": "python"
   },
   "perl": {
     "vendor": "perl",

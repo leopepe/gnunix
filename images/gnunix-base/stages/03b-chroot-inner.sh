@@ -287,7 +287,8 @@ fi
 # Loop the rest of base packages with default ./configure --prefix=/usr.
 # shadow + util-linux omitted (built above with custom flags).
 # openssl omitted (built below with its custom ./config script).
-# iputils omitted: meson build, and meson left the base with issue #161;
+# iputils omitted: meson build, and meson left the base with issue #161
+# (python stayed — GRUB needs it; meson and ninja did not survive).
 # ping comes from the Nix userland.
 #
 # Order matters for kmod: it must be built before eudev, so eudev's
@@ -296,7 +297,7 @@ fi
 # the base toolchain.
 for entry in \
   bash coreutils diffutils file findutils gawk grep gzip sed tar xz \
-  iproute2 dhcpcd less vim e2fsprogs zlib \
+  iproute2 dhcpcd less vim e2fsprogs zlib expat \
   ncurses readline \
   kmod procps-ng psmisc sysklogd \
   popt cronie logrotate
@@ -409,6 +410,48 @@ if ! pkg_skip openssh; then
   chown -v root:sys /var/lib/sshd
   make install
   pkg_mark openssh
+fi
+
+# Python — a build dependency of GRUB, and of nothing else in this stage.
+#
+# This block sat further down the file until issue #161, removed on the
+# strength of a comment claiming "GRUB 2.12 configures from the release
+# tarball without python — that requirement applies to a git checkout's
+# autogen.sh". That is false. grub-2.12's configure calls AM_PATH_PYTHON
+# unconditionally and aborts on a release tarball just the same:
+#
+#   checking target system type... aarch64-unknown-none
+#   checking for a Python interpreter with version >= 2.6... none
+#   configure: error: no suitable Python interpreter found
+#
+# (run 34765691034, the chroot stage, 15:44:57 — grub is the only package
+# in this script configured with --target, so the trace is unambiguous.)
+#
+# The claim looked true only because python was built earlier in the same
+# stage for usbutils, so GRUB always found one. Removing usbutils removed
+# GRUB's interpreter with it. Built here rather than further up so the
+# ordering states the dependency: python exists for the block below it.
+#
+# --with-system-expat: expat is built in the loop above, so don't compile
+# the bundled copy. --without-ensurepip: nothing here wants pip in the
+# image. --enable-optimizations is deliberately NOT set — PGO roughly
+# doubles the build of an interpreter used only at build time.
+if ! pkg_skip python; then
+  v=$ver_python
+  fname=$(pkg_file python)
+  d=$(mktemp -d); tar -xf "$SOURCES/$fname" -C "$d"
+  # The tarball unpacks to Python-<v>, capitalised, so resolve it rather
+  # than assuming <name>-<version>.
+  inner=$(ls "$d" | head -n1)
+  cd "$d/$inner"
+  echo "[chroot-inner] building python-$v"
+  hardening_export "python" native
+  ./configure --prefix=/usr --enable-shared \
+    --with-system-expat --without-ensurepip
+  make -j$JOBS
+  make install
+  cd /; rm -rf "$d"
+  pkg_mark python
 fi
 
 # grub (EFI for arm64)
