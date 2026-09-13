@@ -17,6 +17,10 @@
 #   KVER       kernel version (e.g. 6.12.20) — needed to pick the
 #              right modules from /lib/modules/$KVER/
 #   SCRIPT_DIR directory containing init script (default: dirname $0)
+#   BUSYBOX_STATIC
+#              path to a statically linked busybox to stage as the
+#              initramfs's userland. Set by the caller (ADR-025); falls
+#              back to a channel lookup when unset.
 
 set -euo pipefail
 
@@ -25,43 +29,40 @@ OUT_DIR=${OUT_DIR:-/tmp/initramfs-out}
 KVER=${KVER:-$(uname -r)}
 
 # --- check prereqs ---------------------------------------------------
-SP=/nix/var/nix/profiles/system
 for t in cpio gzip find install; do
   command -v "$t" >/dev/null || { echo "[build-initramfs] missing tool: $t" >&2; exit 1; }
 done
 
-# Realise the static busybox ADR-017 § "Initramfs design" calls for.
+# The static busybox ADR-017 § "Initramfs design" calls for, supplied by
+# the caller. Per ADR-025 it is built from the flake's pinned nixpkgs on
+# whichever machine drives the build and staged as a plain file:
+# images/installer/build.sh realises `#initramfsBusybox` on the runner and
+# passes the path in here.
 #
-# The ADR spells the attribute `nixpkgs.busybox.static`; that attribute
-# does not exist. Neither does `nixpkgs.busybox-sandbox-shell.static`,
-# which this script used to fall back to:
-#   error: attribute 'static' in selection path
-#          'nixpkgs.busybox-sandbox-shell.static' not found
-# `pkgsStatic.busybox` is the same package linked against musl, and it
-# substitutes from cache.nixos.org rather than building locally.
+# This script used to realise it itself, which meant a nix run inside the
+# chroot. That needed a nixpkgs channel the image does not subscribe to:
+#   error: file 'nixpkgs' was not found in the Nix search path
+# and, before that, `sandbox = false`, because nix's sandbox uses
+# pivot_root(2) and gets EINVAL in a chroot.
 #
-# Plain `nixpkgs.busybox` is NOT a substitute: it is dynamically linked
-# against a glibc in /nix/store that the initramfs does not contain, so
-# the copied binary would fail to exec as PID 1.
-#
-# nix-build --no-out-link keeps this out of any profile: busybox must not
-# end up on the live system's PATH (ADR-001, GNU userland), and the
-# rootfs squashfs is assembled by mkiso.sh before this script runs.
-export PATH=/nix/var/nix/profiles/default/bin:$PATH
+# It must be STATIC. Plain `nixpkgs.busybox` is dynamically linked against
+# a glibc in /nix/store that the initramfs does not carry, so it would
+# fail to exec as PID 1. It must also stay out of every Nix profile:
+# busybox never joins the live system's PATH (ADR-001, GNU userland).
 BB=${BUSYBOX_STATIC:-}
 if [ -z "$BB" ]; then
-  echo "[build-initramfs] realising nixpkgs.pkgsStatic.busybox"
+  # The Tart route (build.sh's non-CI path) runs mkiso.sh over ssh inside
+  # the builder VM, which has no flake checkout to build from -- it falls
+  # back to the VM's own channel.
+  echo "[build-initramfs] BUSYBOX_STATIC unset; realising nixpkgs.pkgsStatic.busybox from the channel"
+  export PATH=/nix/var/nix/profiles/default/bin:$PATH
   # stdout is the store path; nix's progress output goes to stderr and is
-  # left alone so it lands in the job log.
+  # left alone so it lands in the build log.
   BB_OUT=$(nix-build '<nixpkgs>' -A pkgsStatic.busybox --no-out-link | tail -1) || BB_OUT=""
-  [ -n "$BB_OUT" ] && [ -x "$BB_OUT/bin/busybox" ] && BB="$BB_OUT/bin/busybox"
+  [ -n "$BB_OUT" ] && BB="$BB_OUT/bin/busybox"
 fi
-if [ -z "$BB" ]; then
-  echo "[build-initramfs] nix-build failed; falling back to $SP"
-  nix-env -p "$SP" -iA nixpkgs.pkgsStatic.busybox 2>&1 | tail -3 || true
-  [ -x "$SP/bin/busybox" ] && BB="$SP/bin/busybox"
-fi
-[ -n "$BB" ] && [ -x "$BB" ] || { echo "[build-initramfs] no static busybox available" >&2; exit 1; }
+[ -n "$BB" ] || { echo "[build-initramfs] no static busybox: set \$BUSYBOX_STATIC (CI stages 'nix build .#initramfsBusybox') or subscribe this machine to a nixpkgs channel" >&2; exit 1; }
+[ -x "$BB" ] || { echo "[build-initramfs] not executable: $BB" >&2; exit 1; }
 echo "[build-initramfs] busybox: $BB"
 
 # Modules we need to load from inside initramfs init. Per ADR-017 these
