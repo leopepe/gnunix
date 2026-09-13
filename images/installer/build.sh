@@ -68,7 +68,20 @@ if [ "$CI_MODE" = "1" ]; then
     umount "$MNT"         2>/dev/null || true
     losetup -d "$LOOP"    2>/dev/null || true
   }
-  ci_cleanup() { ci_unmount; rm -rf "$WORK"; }
+  # The ISO phase mounts a SECOND tree at $WORK/chroot. If it fails before
+  # its own teardown, rm -rf "$WORK" walks into a live sysfs and spews
+  # "Operation not permitted" for every entry under /sys/module.
+  iso_unmount() {
+    [ -n "${CHROOT:-}" ] || return 0
+    umount "$CHROOT/sys"     2>/dev/null || true
+    umount "$CHROOT/proc"    2>/dev/null || true
+    umount "$CHROOT/dev/pts" 2>/dev/null || true
+    umount "$CHROOT/dev"     2>/dev/null || true
+    umount "$CHROOT"         2>/dev/null || true
+    [ -n "${LOOP2:-}" ] && losetup -d "$LOOP2" 2>/dev/null || true
+    return 0
+  }
+  ci_cleanup() { iso_unmount; ci_unmount; rm -rf "$WORK"; }
   trap 'ci_cleanup' EXIT
 
   mount "$ROOT_PART" "$MNT"
@@ -139,7 +152,8 @@ export PATH=/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/installer-bu
 export HOME=/root
 export USER=root
 BUILD_PROFILE=/nix/var/nix/profiles/installer-build
-mkdir -p "$BUILD_PROFILE"
+# Parent only -- nix-env -p makes $BUILD_PROFILE a symlink itself.
+mkdir -p "$(dirname "$BUILD_PROFILE")"
 nix-env -p "$BUILD_PROFILE" \
     -iA nixpkgs.xorriso \
       nixpkgs.squashfsTools \
@@ -235,11 +249,12 @@ OSRELEASE_EOF
   mount -t proc  proc   "$CHROOT/proc"    2>/dev/null || true
   mount -t sysfs sysfs  "$CHROOT/sys"     2>/dev/null || true
 
-  chroot "$CHROOT" /bin/bash <<'ISO_EOF'
+  # <<'ISO_EOF' is quoted, so ${ARCH} inside it is NOT expanded by the host
+  # -- it reached bash literally and set -u killed the script with
+  # "ARCH: unbound variable". Pass them through env(1) instead.
+  chroot "$CHROOT" /usr/bin/env ARCH="$ARCH" VER="$VER" /bin/bash <<'ISO_EOF'
 set -euo pipefail
 export PATH=/nix/var/nix/profiles/system/bin:/nix/var/nix/profiles/installer-build/bin:$PATH
-export ARCH=${ARCH}
-export VER=${VER}
 cd /root
 mkdir -p iso
 bash /root/installer/iso/mkiso.sh / /root/gnunix-installer.iso
