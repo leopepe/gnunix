@@ -64,15 +64,18 @@ if [ "$CI_MODE" = "1" ]; then
         # Unwind in reverse order: the kernel filesystems sit on top of
         # $MNT, which sits on the loop device. Tearing down out of order
         # leaves a busy mount and a leaked loop device behind.
-    ci_cleanup() {
+    ci_unmount() {
       umount "$MNT/sys"     2>/dev/null || true
       umount "$MNT/proc"    2>/dev/null || true
       umount "$MNT/dev/pts" 2>/dev/null || true
       umount "$MNT/dev"     2>/dev/null || true
       umount "$MNT"         2>/dev/null || true
       losetup -d "$LOOP"    2>/dev/null || true
-      rm -rf "$WORK"
     }
+        # $WORK holds base.img, which is the artifact this stage emits --
+        # so releasing the mounts and deleting the workspace are separate
+        # steps. Only the error path does both.
+    ci_cleanup() { ci_unmount; rm -rf "$WORK"; }
     trap 'ci_cleanup' EXIT
 
     mount "$ROOT_PART" "$MNT"
@@ -120,10 +123,11 @@ if [ "$CI_MODE" = "1" ]; then
         PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
         /bin/bash /root/install-gnunix-minimal.sh
 
-        # Sync and cleanup.
+        # Release the mounts but KEEP $WORK: base.img still lives there and
+        # is what gets copied out below.
     sync
-    ci_cleanup
-    trap - EXIT
+    ci_unmount
+    trap 'rm -rf "$WORK"' EXIT
 
         # Emit the final artifact.
     ART_DIR="$REPO_ROOT/cache/artifacts"
