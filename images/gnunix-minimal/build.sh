@@ -56,11 +56,25 @@ if [ "$CI_MODE" = "1" ]; then
 
         # Mount the disk image partitions.
     LOOP=$(losetup --show -fP "$BASE_IMG") || { echo "[build-minimal-ci] losetup failed" >&2; exit 1; }
-    trap 'losetup -d "$LOOP" 2>/dev/null || true; rm -rf "$WORK"' EXIT
 
     ROOT_PART="${LOOP}p2"
     MNT="$WORK/mnt"
     mkdir -p "$MNT"
+
+        # Unwind in reverse order: the kernel filesystems sit on top of
+        # $MNT, which sits on the loop device. Tearing down out of order
+        # leaves a busy mount and a leaked loop device behind.
+    ci_cleanup() {
+      umount "$MNT/sys"     2>/dev/null || true
+      umount "$MNT/proc"    2>/dev/null || true
+      umount "$MNT/dev/pts" 2>/dev/null || true
+      umount "$MNT/dev"     2>/dev/null || true
+      umount "$MNT"         2>/dev/null || true
+      losetup -d "$LOOP"    2>/dev/null || true
+      rm -rf "$WORK"
+    }
+    trap 'ci_cleanup' EXIT
+
     mount "$ROOT_PART" "$MNT"
 
         # The Nix tarball must be available. In CI mode, it comes from
@@ -82,21 +96,33 @@ if [ "$CI_MODE" = "1" ]; then
     cp "$TARBALL" "$MNT/root/$TARBALL_NAME"
     cp "$REPO_ROOT/images/gnunix-minimal/install-gnunix-minimal.sh" "$MNT/root/install-gnunix-minimal.sh"
 
+        # The installer runs nix-store and nix-env inside the rootfs, and
+        # both need the kernel filesystems. Without these binds nix fails
+        # on /proc/self/exe and /dev/null. Same set as stages/03-chroot.sh.
+    mount --bind /dev     "$MNT/dev"
+    mount --bind /dev/pts "$MNT/dev/pts"
+    mount -t proc  proc   "$MNT/proc"
+    mount -t sysfs sysfs  "$MNT/sys"
+
         # Run the installer inside the mounted rootfs.
-        # The installer uses /nix as its working directory; we need to
-        # ensure the Nix daemon is accessible. Since we're on the host,
-        # the Nix daemon at /nix/var/nix/profiles/default is the host's
-        # Nix — we just need its binaries to extract and load the store.
+        #
+        # `chroot DIR CMD VAR=value` passes VAR=value as a positional
+        # ARGUMENT, not an environment variable -- install-gnunix-minimal.sh
+        # reads $NIX_TARBALL from the environment, so those assignments were
+        # silently ignored and it fell back to its hardcoded default. That
+        # default happens to match today's manifest pin; the next Nix bump
+        # would have broken it. Route through env(1) so they are real.
     echo "[build-minimal-ci] running install-gnunix-minimal.sh"
-    chroot "$MNT" /bin/bash /root/install-gnunix-minimal.sh \
+    chroot "$MNT" /usr/bin/env -i \
         NIX_TARBALL="/root/$TARBALL_NAME" \
         HOME=/root \
-        PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        TERM="${TERM:-dumb}" \
+        PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+        /bin/bash /root/install-gnunix-minimal.sh
 
         # Sync and cleanup.
     sync
-    umount "$MNT"
-    losetup -d "$LOOP"
+    ci_cleanup
     trap - EXIT
 
         # Emit the final artifact.
@@ -107,13 +133,9 @@ if [ "$CI_MODE" = "1" ]; then
     cp "$BASE_IMG" "$RAW_OUT"
     ls -lh "$RAW_OUT"
 
-    if command -v zstd >/dev/null 2>&1; then
-      ZST_OUT="$RAW_OUT.zst"
-      echo "[build-minimal-ci] compressing → $ZST_OUT (level 10, backgrounded)"
-      rm -f "$ZST_OUT"
-      ( zstd -10 -f -k "$RAW_OUT" -o "$ZST_OUT" && ls -lh "$ZST_OUT" ) &
-      echo "[build-minimal-ci]   zstd pid=$! (will finish in background)"
-    fi
+        # Compression is the workflow's "Compress + upload" step, not ours.
+        # This used to run `zstd ... &` and then exit immediately, leaving a
+        # detached writer racing the workflow against the same output path.
 
     echo "[build-minimal-ci] === gnunix-minimal $CORE_VER built (CI). ==="
     echo "  Raw disk image: $RAW_OUT"
