@@ -16,19 +16,66 @@ lives at `~/Documents/hyground/analysis/gnunix-nix-wayland-distro-strategy.md`.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  Nix layer (managed by nixpkgs / home-manager)      │
-│   Wayland compositor, portals, fonts, apps          │
+│  Nix layer                                           │
+│                                                      │
+│   system profile — /nix/var/nix/profiles/system      │
+│     Wayland compositor, portals, dbus + elogind,     │
+│     greetd (ADR-009, ADR-020). Declared in           │
+│     flake.nix + nix/*.nix, pinned by flake.lock,     │
+│     installed with `nix-env --set` (ADR-025).        │
+│     Ships with the release.                          │
+│                                                      │
+│   per-user — ~/.nix-profile, home-manager (ADR-025)  │
+│     the user's own apps and dotfiles. Not the        │
+│     release; the repo's flake never touches $HOME.   │
 ├─────────────────────────────────────────────────────┤
 │  LFS base (built from source, arm64)                 │
 │   kernel, glibc, coreutils,                          │
 │   sysvinit + BSD /etc/rc.d/,                         │
 │   eudev, network, nix daemon                         │
-│   (dbus + elogind sourced from nixpkgs               │
-│    into /nix/var/nix/profiles/system, ADR-009)       │
+│   pinned in tools/manifest.json (ADR-007, ADR-011)   │
 ├─────────────────────────────────────────────────────┤
 │  qemu / Tart (arm64 VM for testing / distribution)    │
 └─────────────────────────────────────────────────────┘
 ```
+
+The Nix layer has two tiers and ADR-025 governs both, differently: the system
+profile is declarative and reproducible from one commit; the per-user profile
+is imperative and the user's business. The repo's flake never reaches into
+`$HOME`, and a user's profile never edits the release.
+
+*Legend: ADR-001 (init), ADR-003 (multi-user Nix), ADR-007 (aarch64 LFS),
+ADR-009 + ADR-020 (Wayland substrate), ADR-011 (hardening), ADR-025
+(declarative system profile + per-user config style).*
+
+## How the system profile is built
+
+```
+repo (one commit)                 runner (ubuntu-22.04-arm)        image
+─────────────────                 ─────────────────────────        ─────
+flake.nix + nix/*.nix   ──┐
+tools/manifest.json       │──►  nix build .#<name>Profile  ──►  nix copy --to $MNT
+  .nix.channel            │       (resolves via flake.lock)         │
+flake.lock (exact rev)  ──┘                                          ▼
+                                                        chroot $MNT nix-env \
+                                                          --profile /nix/var/nix/…/system \
+                                                          --set $OUT
+```
+
+Nothing builds Nix packages inside the chroot: the only in-chroot command is
+the atomic profile swap (ADR-025). Renovate bumps `flake.lock` as a single-pin
+PR (ADR-023).
+
+**Known gap (ADR-025).** The profile itself is boot-persistent — it is a
+symlink on the ext4 root pointing into `/nix/store` on the same filesystem —
+but nothing puts `/nix/var/nix/profiles/system/bin` on an interactive `PATH`.
+`/etc/profile.d/nix-daemon.sh` sources only the *default* profile. The system
+profile is reached today through explicit exports in session wrappers and
+absolute paths in `rc.d`, `greetd` and `hyprland.conf`. The named remedy is an
+`/etc/profile.d/nix-system-profile.sh` drop-in, scoped as its own change.
+
+*Legend: ADR-021 (hosted `ubuntu-22.04-arm`), ADR-023 (Renovate single-pin),
+ADR-025 (flake-declared profiles, build-on-runner, `--set` install).*
 
 ## Image lineage
 
@@ -81,12 +128,12 @@ See `docs/adrs/` for full ADRs. Headlines:
 - **ADR-001:** sysvinit + BSD `/etc/rc.d/`
 - **ADR-002:** elogind for seat management
 - **ADR-003:** multi-user Nix daemon
-- **ADR-004:** plain Nix profiles + home-manager (no NixOS modules)
+- **ADR-004:** plain Nix profiles + home-manager (no NixOS modules) *(Superseded by ADR-025; see ADR-025 for the current model. Its home-manager, hand-curated-`/etc` and NixOS-module decisions are absorbed there unchanged; its rejection of flakes-as-system-config is what ADR-025 corrects.)*
 - **ADR-005:** developer workstation, this Mac first
 - **ADR-006:** GRUB EFI bootloader
 - **ADR-007:** LFS-ARM (aarch64)
 - **ADR-008:** Renovate + GitHub Releases for image publishing
-- **ADR-009:** Sway + greetd; dbus/elogind/greetd/sway sourced from nixpkgs into `/nix/var/nix/profiles/system`
+- **ADR-009:** Sway + greetd; dbus/elogind/greetd/sway sourced from nixpkgs into `/nix/var/nix/profiles/system` *(Amended by ADR-020 + ADR-025: Hyprland is the reference session, and the profile is now flake-declared rather than installed with `nix-env -iA`.)*
 - **ADR-010:** Multi-arch axis + per-platform packagers (generic-uefi, rpi-native, nuc-installer); i686 out of scope
 - **ADR-011:** Compile-time hardening flags for `gnunix-base` — `_FORTIFY_SOURCE=3`, `-fstack-protector-strong`, `-fstack-clash-protection`, PIE, full RELRO + BIND_NOW, `-mbranch-protection=standard` (aarch64); delivered via `manifest.json:hardening` + `lib/hardening.sh` helper
 - **ADR-012:** Module-first kernel — only boot-critical drivers stay `=y` in `kernel.config`; everything else becomes `=m` in `kernel.modules.config` and auto-loads via eudev MODALIAS coldplug; `/etc/modules-load.d/*.conf` + `rc.modules` for explicit overlays
@@ -100,12 +147,24 @@ See `docs/adrs/` for full ADRs. Headlines:
 - **ADR-020:** Reference compositor switched Sway → **Hyprland**; Sway demoted to optional install profile. *(Amends ADR-009. Amended by ADR-022.)*
 - **ADR-021:** Hosted runners only — LFS build runs in CI on `ubuntu-22.04-arm` via chroot, split into four cacheable stages (cross-toolchain, temp-tools, chroot, finalize). Self-hosted runners forbidden. *(Amends ADR-008, ADR-010, ADR-016.)*
 - **ADR-022:** Add **`desktop-cosmic`** as a fourth optional installer compositor — System76 COSMIC, init-agnostic (uses `dbus-run-session`, not `systemd --user`), integrates with elogind per ADR-002. Pulled at install time per ADR-015/019; not pre-baked into `gnunix-desktop` — Hyprland remains the reference. *(Amends ADR-015, ADR-020.)*
+- **ADR-024:** Declarative Nix profiles — system package sets live in a flake. *(Superseded by ADR-025, which absorbs it in full; see ADR-025 for the current model.)*
+- **[ADR-025](adrs/ADR-025-declarative-system-flakes.md):** The flake is the source of truth for system package sets. `flake.nix` + `nix/*.nix` declare one `buildEnv` per image, `flake.lock` pins nixpkgs to a revision, the closure is built on the runner and installed by replacing `/nix/var/nix/profiles/system` atomically with `nix-env --profile … --set`. `nix-env -iA` and `nix-channel` establish no system state; no Nix build runs in a chroot. Per-user config stays home-manager + `~/.nix-profile`. *(Supersedes ADR-004, ADR-024. Amends ADR-009, ADR-017.)*
 
 ## Key invariants
 
 - **No systemd, anywhere in the base.** Adding it pulls in logind/networkd/journald and breaks ADR-001/002/006.
-- **No NixOS modules.** Userland config is via home-manager only (ADR-004).
+- **No NixOS modules.** The system package set is a `buildEnv` declared in
+  `flake.nix`; per-user config is home-manager only (both ADR-025). Neither is
+  a `configuration.nix`, and adding one breaks ADR-001. A `nixosConfigurations`
+  output in the flake needs a new ADR, not a review.
+- **The flake is the declaration.** What a released image contains is readable
+  from `flake.nix` + `nix/*.nix` and reproducible from one commit via
+  `flake.lock` (ADR-025). `nix-env -iA` and `nix-channel` establish no system
+  state.
+- **No Nix build inside a chroot.** Profiles are built on the runner and copied
+  in; the only in-chroot Nix command is `nix-env --profile … --set` (ADR-025).
+  `nix-env -iA` / `nix-channel` in an image `build.sh` is a regression.
 - **Linear image lineage.** A new variant gets a new directory under `images/variants/`, not an inline branch in an existing image.
-- **Pinned everything.** Every external version lives in `tools/manifest.json`; Renovate is the only path that changes those pins.
+- **Pinned everything.** Every external version lives in `tools/manifest.json`, and the Nix layer's nixpkgs revision in `flake.lock` (ADR-025); Renovate is the only path that changes those pins (ADR-023).
 - **Static base, dynamic userland.** When in doubt, the change goes in Nix, not in `/etc`.
 - **No self-hosted CI runners.** Per ADR-021. Workflows that pin self-hosted labels are a regression.

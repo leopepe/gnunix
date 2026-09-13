@@ -1,6 +1,6 @@
 # ADR-008: Dependency updates with Renovate, image release via GitHub
 
-**Status:** Superseded by [ADR-023](ADR-023-cve-hotfix-batch-and-ci-rebuild.md) (amended by [ADR-016](ADR-016-ci-split-build-and-validation.md), [ADR-018](ADR-018-artifact-taxonomy.md), [ADR-021](ADR-021-hosted-runners-only.md))
+**Status:** Superseded by [ADR-023](ADR-023-cve-hotfix-batch-and-ci-rebuild.md) (previously amended by [ADR-018](ADR-018-artifact-taxonomy.md), [ADR-021](ADR-021-hosted-runners-only.md); ADR-016 also amended it but is itself superseded by ADR-021)
 **Date:** 2026-05-10
 **Amended:** 2026-05-15 — runner topology revised by ADR-016; artifact taxonomy, naming grammar, and release-dependency flow specified by ADR-018. 2026-05-19 — ADR-021 collapses the "local Mac / hosted Linux" split: the LFS build runs in CI on `ubuntu-22.04-arm` via chroot, split into four cacheable stages.
 
