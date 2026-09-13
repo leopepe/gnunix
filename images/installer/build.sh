@@ -52,12 +52,33 @@ if [ "$CI_MODE" = "1" ]; then
 
   # Mount the disk image partitions.
   LOOP=$(losetup --show -fP "$BASE_IMG") || { echo "[build-installer-ci] losetup failed" >&2; exit 1; }
-  trap 'losetup -d "$LOOP" 2>/dev/null || true; rm -rf "$WORK"' EXIT
 
   ROOT_PART="${LOOP}p2"
   MNT="$WORK/mnt"
   mkdir -p "$MNT"
+
+  # Unwind in reverse order: the kernel filesystems sit on top of $MNT,
+  # which sits on the loop device. $WORK removal is separate because it
+  # holds base.img and the ISO pulled back out of the chroot.
+  ci_unmount() {
+    umount "$MNT/sys"     2>/dev/null || true
+    umount "$MNT/proc"    2>/dev/null || true
+    umount "$MNT/dev/pts" 2>/dev/null || true
+    umount "$MNT/dev"     2>/dev/null || true
+    umount "$MNT"         2>/dev/null || true
+    losetup -d "$LOOP"    2>/dev/null || true
+  }
+  ci_cleanup() { ci_unmount; rm -rf "$WORK"; }
+  trap 'ci_cleanup' EXIT
+
   mount "$ROOT_PART" "$MNT"
+
+  # nix-env needs the kernel filesystems: /proc/self/exe, /dev/null and a
+  # pty for its progress output.
+  mount --bind /dev     "$MNT/dev"
+  mount --bind /dev/pts "$MNT/dev/pts"
+  mount -t proc  proc   "$MNT/proc"
+  mount -t sysfs sysfs  "$MNT/sys"
 
   # Stage the installer payload (everything under images/installer/
   # except build.sh and README.md) into the mounted rootfs.
@@ -78,10 +99,18 @@ if [ "$CI_MODE" = "1" ]; then
 set -euo pipefail
 export NIX_STORE_DIR=/nix/store
 export NIX_STATE_DIR=/nix/var/nix
-export NIX_REMOTE=daemon
+# NOT daemon: nix-daemon is not running inside this chroot, and a daemon
+# connection fails with "cannot connect to socket at
+# '/nix/var/nix/daemon-socket/socket'". We are root, so use the local store.
+export NIX_REMOTE=
 export PATH=/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export HOME=/root
 export USER=root
+# -iA nixpkgs.<attr> resolves against the nixpkgs channel, which the base
+# image does not subscribe to. Without this the build fails with
+#   error: attribute 'nixpkgs' in selection path 'nixpkgs.newt' not found
+nix-channel --add "https://nixos.org/channels/nixos-25.11" nixpkgs
+nix-channel --update
 nix-env -p /nix/var/nix/profiles/system -iA nixpkgs.newt 2>&1 | tail -3 || true
 PROVISION_EOF
 
@@ -91,7 +120,7 @@ PROVISION_EOF
 set -euo pipefail
 export NIX_STORE_DIR=/nix/store
 export NIX_STATE_DIR=/nix/var/nix
-export NIX_REMOTE=daemon
+export NIX_REMOTE=
 export PATH=/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/installer-build/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export HOME=/root
 export USER=root
@@ -139,8 +168,12 @@ WRAP_EOF
   echo "[build-installer-ci] patching /etc/inittab"
   INITTAB="$MNT/etc/inittab"
   if [ -f "$INITTAB" ]; then
-    sed -i.bak \
-        -e 's|^[0-9]:.*agetty.*tty1.*|1:2345:respawn:/usr/local/sbin/gnunix-installer-getty|'
+        # The continuation backslash was missing after -e, so sed ran with
+        # no file ("sed: no input files") and "$INITTAB" was executed as a
+        # command on the next line. Dropped the .bak too: it would ship a
+        # stray /etc/inittab.bak inside the released image.
+    sed -i \
+        -e 's|^[0-9]:.*agetty.*tty1.*|1:2345:respawn:/usr/local/sbin/gnunix-installer-getty|' \
         "$INITTAB"
     grep -q '^2:.*agetty.*tty2' "$INITTAB" \
         || echo '2:2345:respawn:/sbin/agetty 38400 tty2 linux' >> "$INITTAB"
@@ -165,11 +198,11 @@ VARIANT_ID="installer"
 HOME_URL="https://github.com/leopepe/gnunix"
 OSRELEASE_EOF
 
-  # Sync + unmount.
+  # Sync + unmount. $WORK survives: base.img and the ISO pulled out of the
+  # chroot both live there.
   sync
-  umount "$MNT"
-  losetup -d "$LOOP"
-  trap - EXIT
+  ci_unmount
+  trap 'rm -rf "$WORK"' EXIT
 
   # Assemble the hybrid EFI ISO.
   echo "[build-installer-ci] assembling hybrid EFI ISO"
@@ -181,6 +214,13 @@ OSRELEASE_EOF
   mkdir -p "$CHROOT"
   mount "$ROOT_PART" "$CHROOT" 2>/dev/null || true
 
+  # mkiso.sh runs mksquashfs and xorriso in here, both of which need the
+  # kernel filesystems just as nix-env did above.
+  mount --bind /dev     "$CHROOT/dev"     2>/dev/null || true
+  mount --bind /dev/pts "$CHROOT/dev/pts" 2>/dev/null || true
+  mount -t proc  proc   "$CHROOT/proc"    2>/dev/null || true
+  mount -t sysfs sysfs  "$CHROOT/sys"     2>/dev/null || true
+
   chroot "$CHROOT" /bin/bash <<'ISO_EOF'
 set -euo pipefail
 export PATH=/nix/var/nix/profiles/system/bin:/nix/var/nix/profiles/installer-build/bin:$PATH
@@ -191,16 +231,27 @@ mkdir -p iso
 bash /root/installer/iso/mkiso.sh / /root/gnunix-installer.iso
 ISO_EOF
 
-  chroot "$CHROOT" /bin/sh -c "umount / && sync" 2>/dev/null || true
-  rm -rf "$CHROOT"
-  losetup -d "$LOOP2" 2>/dev/null || true
+  # Release in reverse order. `chroot ... umount /` could never have
+  # worked -- a process cannot unmount the filesystem it is running from --
+  # and with the binds in place it would leave $CHROOT busy, so rm -rf
+  # fails and the loop device leaks.
+  sync
+  umount "$CHROOT/sys"     2>/dev/null || true
+  umount "$CHROOT/proc"    2>/dev/null || true
+  umount "$CHROOT/dev/pts" 2>/dev/null || true
+  umount "$CHROOT/dev"     2>/dev/null || true
 
-  # Pull the ISO back to the host.
+  # Pull the ISO back to the host. $CHROOT is still mounted -- that is
+  # where the ISO lives -- so this must happen before it is released.
   if [ -f "$WORK/chroot/root/gnunix-installer.iso" ]; then
     mkdir -p "$ART"
     echo "[build-installer-ci] fetching ISO → $OUT_ISO"
     cp "$WORK/chroot/root/gnunix-installer.iso" "$OUT_ISO"
+    umount "$CHROOT"       2>/dev/null || true
+    losetup -d "$LOOP2"    2>/dev/null || true
   elif [ -f "$BASE_IMG" ]; then
+    umount "$CHROOT"       2>/dev/null || true
+    losetup -d "$LOOP2"    2>/dev/null || true
     # Fallback: the ISO might have been assembled inside the image.
     # Try to extract it.
     mkdir -p "$ART"
