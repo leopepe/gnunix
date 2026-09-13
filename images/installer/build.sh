@@ -154,12 +154,29 @@ if [ "$CI_MODE" = "1" ]; then
   OUT_SYS=$(nix build --no-link --print-out-paths "$REPO_ROOT#installerProfile")
   OUT_TOOLS=$(nix build --no-link --print-out-paths "$REPO_ROOT#installerBuildTools")
 
+  # The initramfs payload, and the last nix run that was still happening
+  # inside the chroot. build-initramfs.sh reached for it as
+  # `nix-build '<nixpkgs>' -A pkgsStatic.busybox`, which needs a channel --
+  # and ADR-025 removed the nix-channel subscription this image never had
+  # on its own:
+  #   error: file 'nixpkgs' was not found in the Nix search path
+  # Built here instead and handed to the script as $BUSYBOX_STATIC.
+  OUT_BB=$(nix build --no-link --print-out-paths "$REPO_ROOT#initramfsBusybox")
+
   # `nix copy --to <dir>` writes a local store rooted at that directory,
   # which is exactly the mounted image.
   echo "[build-installer-ci] copying closures into the image"
   echo "  system:          $OUT_SYS"
   echo "  installer-build: $OUT_TOOLS"
   nix copy --no-check-sigs --to "$MNT" "$OUT_SYS" "$OUT_TOOLS"
+
+  # busybox is staged as a plain file next to the rest of the ISO-build
+  # payload rather than nix copy'd into the image's store. It is initramfs
+  # content, not a system package: keeping it out of the store keeps it out
+  # of every profile and out of anything that walks /nix/store.
+  BUSYBOX_STAGED="$BUILD_PAYLOAD/busybox-static"
+  echo "  initramfs busybox: $OUT_BB"
+  install -m 0755 "$OUT_BB/bin/busybox" "$BUSYBOX_STAGED"
 
   # --set replaces each profile atomically with the derivation we built
   # instead of stacking generations. Two variables from the runner are
@@ -266,24 +283,17 @@ OSRELEASE_EOF
   # <<'ISO_EOF' is quoted, so ${ARCH} inside it is NOT expanded by the host
   # -- it reached bash literally and set -u killed the script with
   # "ARCH: unbound variable". Pass them through env(1) instead.
-  chroot "$CHROOT" /usr/bin/env ARCH="$ARCH" VER="$VER" /bin/bash <<'ISO_EOF'
+  chroot "$CHROOT" /usr/bin/env ARCH="$ARCH" VER="$VER" \
+      BUSYBOX_STATIC=/root/installer/busybox-static /bin/bash <<'ISO_EOF'
 set -euo pipefail
-# The exception to ADR-025: the two profiles above are built on the runner,
-# but this one nix run stays inside the chroot. build-initramfs.sh realises
-# a static busybox out of nixpkgs and is invoked by mkiso.sh from within the
-# live rootfs, so there is no runner-side entry point to hoist it to yet.
-# Converting it is separate work; until then this chroot needs a full Nix
-# environment. Without "sandbox = false" the build dies on pivot_root(2),
-# which returns EINVAL inside a chroot:
-#   error: cannot pivot old root directory onto
-#          '/nix/store/...-user-environment.drv.chroot/root/real-root'
-export NIX_STORE_DIR=/nix/store
-export NIX_STATE_DIR=/nix/var/nix
-export NIX_REMOTE=
-export NIX_CONFIG="sandbox = false"
+# ADR-025 now holds with no carve-out: nothing in here runs nix. The last
+# in-chroot nix run was build-initramfs.sh realising pkgsStatic.busybox;
+# build.sh builds it on the runner and passes the staged path in as
+# $BUSYBOX_STATIC. That also retires the "sandbox = false" workaround --
+# nix's sandbox uses pivot_root(2), which returns EINVAL inside a chroot.
 export HOME=/root
 export USER=root
-export PATH=/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/system/bin:/nix/var/nix/profiles/installer-build/bin:$PATH
+export PATH=/nix/var/nix/profiles/system/bin:/nix/var/nix/profiles/installer-build/bin:$PATH
 cd /root
 mkdir -p iso
 bash /root/installer/iso/mkiso.sh / /root/gnunix-installer.iso
