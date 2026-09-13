@@ -106,6 +106,20 @@ if [ "$CI_MODE" = "1" ]; then
         "$MNT/usr/local/sbin/gnunix-installer"
   fi
 
+  # The ISO phase below runs `bash /root/installer/iso/mkiso.sh`, but only
+  # profiles/ and the installer binary were ever staged -- and to
+  # /usr/local/share, not /root. mkiso.sh and the initramfs builder it
+  # calls were never copied in at all:
+  #     bash: /root/installer/iso/mkiso.sh: No such file or directory
+  # The comment above this block already claimed "everything under
+  # images/installer/ except build.sh and README.md"; this makes it true.
+  BUILD_PAYLOAD="$MNT/root/installer"
+  install -d -m 0755 "$BUILD_PAYLOAD"
+  for d in iso initramfs installer; do
+    [ -d "$REPO_ROOT/images/installer/$d" ] || continue
+    cp -a "$REPO_ROOT/images/installer/$d" "$BUILD_PAYLOAD/$d"
+  done
+
   # Install the TUI package (newt/whiptail) into the system profile.
   echo "[build-installer-ci] installing whiptail (newt) into system profile"
   chroot "$MNT" /bin/bash <<'PROVISION_EOF'
