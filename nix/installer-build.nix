@@ -3,10 +3,11 @@
 # Never installed on the target system.
 #
 # busybox here is the ISO builder's own shell utilities, NOT the initramfs
-# payload. The initramfs needs a statically linked busybox and realises
-# `pkgsStatic.busybox` itself (see initramfs/build-initramfs.sh): plain
-# busybox is dynamically linked against a glibc the initrd does not carry,
-# so it would not exec. The installed userland stays GNU either way.
+# payload. The initramfs needs a statically linked busybox, which the flake
+# exposes separately as `initramfsBusybox` (pkgsStatic.busybox) and
+# build.sh stages as a plain file: plain busybox is dynamically linked
+# against a glibc the initrd does not carry, so it would not exec. The
+# installed userland stays GNU either way.
 pkgs:
 
 with pkgs; [

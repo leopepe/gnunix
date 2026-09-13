@@ -26,6 +26,12 @@
 
         minimalProfile =
           profile "gnunix-minimal" (import ./nix/minimal.nix pkgs);
+
+        # Not a profile: this is the initramfs payload (ADR-017), a single
+        # static binary that images/installer/build.sh stages as a plain
+        # file. It must never reach a system profile -- the installed
+        # userland stays GNU (ADR-001).
+        initramfsBusybox = pkgs.pkgsStatic.busybox;
       };
     };
 }
