@@ -76,8 +76,8 @@ MANIFEST_JSON="$REPO_ROOT/tools/manifest.json"
   echo "url_kernel=$(jq -r .kernel.url "$MANIFEST_JSON")"
   for section in base_packages init_and_session bootloader; do
     # `to_entries[] | select(.value|type=="object") | .key` skips the
-    # documentation keys like "$slackware_parity_note" / "$logrotate_stack_note"
-    # that ship as string values inside otherwise-object-only sections. Same
+    # documentation keys like "$slackware_parity_note" that ship as string
+    # values inside otherwise-object-only sections. Same
     # guard pattern as tools/fetch-sources.sh (PR #24) and
     # scripts/lint/manifest-schema.sh — without it, the inner indexer trips
     # on the first string key with "Cannot index string with string 'version'".

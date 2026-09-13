@@ -123,6 +123,53 @@ if [ "$CI_MODE" = "1" ]; then
         PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
         /bin/bash /root/install-gnunix-minimal.sh
 
+        # Build the system profile on the runner and swap it into the image.
+        #
+        # ADR-025: nix-env --set points the profile at exactly this
+        # derivation in one rename(2), and nothing is BUILT inside the
+        # chroot -- so there is no sandbox to pivot_root, no daemon socket
+        # to miss and no channel to subscribe to. The only command that
+        # runs in there registers a generation and relinks a symlink.
+        #
+        # Ordering is not free-floating: install-gnunix-minimal.sh above
+        # has to have created /nix/store and loaded the store DB before
+        # `nix copy --to "$MNT"` has anywhere to write, and before the
+        # image's own nix-env exists to be exec'd.
+        #
+        # Issue #161 is what gives this a reason to exist. Until
+        # nix/minimal.nix was populated, minimalProfile was an empty
+        # buildEnv and ADR-025 open question 3 asked whether it earned its
+        # place; it now carries the logging, cron and process-inspection
+        # userland that used to be compiled into gnunix-base.
+    echo "[build-minimal-ci] building minimalProfile on the runner"
+    OUT=$(nix build --no-link --print-out-paths "$REPO_ROOT#minimalProfile")
+    echo "[build-minimal-ci] copying closure into the image: $OUT"
+    nix copy --no-check-sigs --to "$MNT" "$OUT"
+
+        # HOME and NIX_REMOTE are both wrong on the other side of the
+        # chroot: $HOME does not exist in the image, and a NIX_REMOTE=daemon
+        # inherited from the runner sends nix-env after a socket nothing is
+        # listening on in there.
+    echo "[build-minimal-ci] setting /nix/var/nix/profiles/system"
+    chroot "$MNT" /usr/bin/env HOME=/root NIX_REMOTE= \
+        /nix/var/nix/profiles/default/bin/nix-env \
+        --profile /nix/var/nix/profiles/system --set "$OUT"
+
+        # Fail loudly here rather than at boot. buildEnv silently drops any
+        # subtree missing from pathsToLink, so a profile that built fine can
+        # still contain no daemon at all -- see the /sbin note in
+        # nix/profile.nix. rc.syslogd and rc.crond would then "skip" their
+        # service and the image would boot green with no logging and no cron.
+    for b in syslogd crond; do
+      if [ ! -x "$MNT/nix/var/nix/profiles/system/sbin/$b" ] \
+         && [ ! -x "$MNT/nix/var/nix/profiles/system/bin/$b" ]; then
+        echo "[build-minimal-ci] $b missing from the system profile" >&2
+        ls "$MNT/nix/var/nix/profiles/system/" >&2 || true
+        exit 1
+      fi
+    done
+    echo "[build-minimal-ci] system profile OK"
+
         # Release the mounts but KEEP $WORK: base.img still lives there and
         # is what gets copied out below.
     sync

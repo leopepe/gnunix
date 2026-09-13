@@ -82,12 +82,13 @@ It WARNs (but doesn't fail) when `dbus-daemon` or `elogind` isn't running. Neith
 
 ## What's in the manifest
 
-`tools/manifest.json` pins every package with sha256 — **52 unique source tarballs** today (41 base packages, the toolchain and its gcc prereqs, sysvinit + eudev, grub, and the kernel; `linux_headers` and `kernel` share one tarball). Highlights:
+`tools/manifest.json` pins every package with sha256 — **46 unique source tarballs** today (35 base packages, the toolchain and its gcc prereqs, sysvinit + eudev, grub, and the kernel; `linux_headers` and `kernel` share one tarball). It was 64 before issue #161. Highlights:
 
 - **Toolchain**: binutils 2.43.1, gcc 14.2.0 (with gmp 6.3.0, mpfr 4.2.1, mpc 1.3.1, isl 0.27), linux 6.12.20, glibc 2.40.
 - **Chroot temp-tools**: m4 1.4.20 (1.4.19 has a glibc-2.40 gnulib bug), perl 5.38.2 (5.40 has a locale.c codegen bug), python 3.12.5 (a GRUB build dep — see item 8), bison 3.8.2, flex 2.6.4, gperf 3.1, pkgconf 2.3.0, libxcrypt 4.4.36 (provides `crypt()` which glibc-2.40 dropped).
 - **Base**: bash 5.2.32, coreutils 9.5, util-linux 2.40.2, shadow 4.16.0 (`--without-libbsd`), openssh 9.9p1, openssl 3.3.2, sysvinit 3.10, eudev 3.2.14, grub 2.12.
-- **Not in the base**: dbus, elogind and iputils are deliberately absent. dbus and elogind are declared in `nix/desktop.nix` (ADR-025); `ping` comes from the Nix userland. Issue #161 removed their manifest entries, which were downloaded on every build and never compiled.
+- **Not in the base**: dbus, elogind and iputils are deliberately absent — dbus and elogind are declared in `nix/desktop.nix` (ADR-025), `ping` comes from the Nix userland, and #161 removed their manifest entries, which were downloaded on every build and never compiled.
+- **Moved to the Nix system profile** (`nix/minimal.nix`, #161): sysklogd, cronie, logrotate, popt, procps-ng, psmisc, pciutils, usbutils, dmidecode. Same tools, same `rc.syslogd` / `rc.crond`, but patched by a `flake.lock` bump instead of an LFS chroot rebuild and a new base release. `/etc/syslog.conf`, `/etc/logrotate.conf` and `/etc/cron.d/logrotate` stay in the base — they configure the binaries wherever those live.
 
 ## Why the build looks the way it does (key non-obvious choices)
 

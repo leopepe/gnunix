@@ -1,34 +1,55 @@
 #!/bin/sh
-# /etc/rc.d/rc.syslogd — system log daemon (sysklogd from troglobit fork;
-# same project Slackware 15.0 ships).
+# /etc/rc.d/rc.syslogd — system log daemon (sysklogd from the troglobit
+# fork; the same project Slackware 15.0 ships).
 #
-# sysklogd 2.x is the modern continuation of the BSD sysklogd. It
-# supervises both syslogd (the daemon reading /dev/log + UDP 514) and
-# klogd (kernel-ring-buffer collector). Both daemons fork and write
-# their pids to /run/syslogd.pid and /run/klogd.pid by default.
+# sysklogd 2.x supervises both syslogd (the daemon reading /dev/log + UDP
+# 514) and klogd (kernel-ring-buffer collector). Both fork and write their
+# pids to /run/syslogd.pid and /run/klogd.pid by default.
 #
 # Reads /etc/syslog.conf for routing rules.
+#
+# The binaries come from the Nix system profile, not /usr/sbin: issue #161
+# moved sysklogd out of the LFS base so a CVE in it is a flake.lock bump
+# rather than an LFS chroot rebuild (ADR-025). Resolved by absolute path
+# because /etc/profile is not sourced by init — the same reason rc.dbus,
+# rc.elogind and rc.greetd do it.
+#
+# sbin before bin: nixpkgs' sysklogd is plain autotools and installs to
+# $out/sbin. bin is tried second so the script keeps working if that ever
+# changes, and /usr/sbin last so a base that still carries sysklogd (any
+# image built before #161) boots unchanged.
 
-SYSLOGD=/usr/sbin/syslogd
-KLOGD=/usr/sbin/klogd
 SYSLOGD_PID=/run/syslogd.pid
 KLOGD_PID=/run/klogd.pid
 
+find_bin() {
+  for d in /nix/var/nix/profiles/system/sbin \
+           /nix/var/nix/profiles/system/bin \
+           /usr/sbin; do
+    if [ -x "$d/$1" ]; then
+      printf '%s\n' "$d/$1"
+      return 0
+    fi
+  done
+  return 1
+}
+
 case "${1:-start}" in
   start)
-    if [ ! -x "$SYSLOGD" ]; then
-      echo "[rc.syslogd] $SYSLOGD not found; skipping"
+    SYSLOGD=$(find_bin syslogd) || {
+      echo "[rc.syslogd] syslogd not found in the system profile or /usr/sbin; skipping"
       exit 0
-    fi
+    }
     # Ensure /var/log exists (rc.S re-creates /run each boot but /var/log
     # is persistent — covers a fresh rootfs that has no logs yet).
     install -d -m 0755 /var/log
+    echo "[rc.syslogd] $SYSLOGD"
     "$SYSLOGD"
-    # klogd may not exist on builds that disable it; tolerate.
-    [ -x "$KLOGD" ] && "$KLOGD"
+    # klogd may be absent on builds that disable it; tolerate.
+    KLOGD=$(find_bin klogd) && "$KLOGD"
     ;;
   stop)
-    [ -f "$KLOGD_PID" ]  && kill "$(cat "$KLOGD_PID")"  2>/dev/null
+    [ -f "$KLOGD_PID" ]   && kill "$(cat "$KLOGD_PID")"   2>/dev/null
     [ -f "$SYSLOGD_PID" ] && kill "$(cat "$SYSLOGD_PID")" 2>/dev/null
     rm -f "$KLOGD_PID" "$SYSLOGD_PID"
     ;;

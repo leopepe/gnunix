@@ -7,7 +7,34 @@ export PAGER=less
 export PS1='\u@\h:\w\$ '
 umask 022
 
-# Nix daemon environment, if Nix is installed.
-if [ -e /etc/profile.d/nix-daemon.sh ]; then
-  . /etc/profile.d/nix-daemon.sh
-fi
+# /etc/profile.d drop-ins.
+#
+# Two of them are sourced by name, in this order, because PATH precedence
+# is a decision and not something to leave to alphabetical sorting. Each
+# PREPENDS, so the last one sourced ends up first on PATH:
+#
+#   1. nix-system-profile.sh  — what the release ships (ADR-025)
+#   2. nix-daemon.sh          — Nix itself, and the user's ~/.nix-profile
+#
+# giving  ~/.nix-profile : system profile : /usr/local : /usr/sbin:/usr/bin
+#
+# A user who installs their own build of a shipped tool gets theirs; the
+# release's build wins over the LFS base, which is the point of moving
+# userland into the profile (issue #161). Session wrappers deliberately use
+# the opposite order — start-wayland-session.sh puts the system profile
+# first, because its job is to launch the compositor the release shipped.
+#
+# Note this file is NOT read by init. /etc/rc.d scripts exec their daemons
+# by absolute path precisely because none of the above exists for them.
+for _f in /etc/profile.d/nix-system-profile.sh /etc/profile.d/nix-daemon.sh; do
+  [ -r "$_f" ] && . "$_f"
+done
+
+# Anything else dropped in, in name order.
+for _f in /etc/profile.d/*.sh; do
+  case "$_f" in
+    */nix-system-profile.sh | */nix-daemon.sh) continue ;;
+  esac
+  [ -r "$_f" ] && . "$_f"
+done
+unset _f
