@@ -125,7 +125,10 @@ nix-channel --update
 
 # Install system packages into the system profile.
 SP=/nix/var/nix/profiles/system
-mkdir -p "$SP"
+# Create the PARENT only. nix-env -p makes $SP itself a symlink to the
+# generation it builds; pre-creating it as a directory breaks that with
+#   error: filesystem error: read_symlink: Invalid argument [...]
+mkdir -p "$(dirname "$SP")"
 nix-env -p "$SP" -iA \
   nixpkgs.dbus \
   nixpkgs.elogind \
