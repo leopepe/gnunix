@@ -56,12 +56,34 @@ if [ "$CI_MODE" = "1" ]; then
 
      # Mount the disk image partitions.
     LOOP=$(losetup --show -fP "$BASE_IMG") || { echo "[build-desktop-ci] losetup failed" >&2; exit 1; }
-    trap 'losetup -d "$LOOP" 2>/dev/null || true; rm -rf "$WORK"' EXIT
 
     ROOT_PART="${LOOP}p2"
     MNT="$WORK/mnt"
     mkdir -p "$MNT"
+
+        # Unwind in reverse order: the kernel filesystems sit on top of
+        # $MNT, which sits on the loop device. $WORK removal is separate
+        # because it holds base.img, the artifact this stage emits.
+    ci_unmount() {
+      umount "$MNT/sys"     2>/dev/null || true
+      umount "$MNT/proc"    2>/dev/null || true
+      umount "$MNT/dev/pts" 2>/dev/null || true
+      umount "$MNT/dev"     2>/dev/null || true
+      umount "$MNT"         2>/dev/null || true
+      losetup -d "$LOOP"    2>/dev/null || true
+    }
+    ci_cleanup() { ci_unmount; rm -rf "$WORK"; }
+    trap 'ci_cleanup' EXIT
+
     mount "$ROOT_PART" "$MNT"
+
+        # nix-env needs the kernel filesystems: /proc/self/exe, /dev/null
+        # and a pty for its progress output. Without these it fails with
+        # "Could not open /proc/stat" and then dies on the store lock.
+    mount --bind /dev     "$MNT/dev"
+    mount --bind /dev/pts "$MNT/dev/pts"
+    mount -t proc  proc   "$MNT/proc"
+    mount -t sysfs sysfs  "$MNT/sys"
 
      # Install the installer payload (etc/ tree) into the mounted rootfs.
     echo "[build-desktop-ci] installing /etc configs"
@@ -81,7 +103,11 @@ if [ "$CI_MODE" = "1" ]; then
 set -euo pipefail
 export NIX_STORE_DIR=/nix/store
 export NIX_STATE_DIR=/nix/var/nix
-export NIX_REMOTE=daemon
+# NOT NIX_REMOTE=daemon: nix-daemon is installed but not running inside
+# this chroot, so a daemon connection fails with
+#   error: cannot connect to socket at '/nix/var/nix/daemon-socket/socket'
+# We are root and own the store, so the local store is the correct mode.
+export NIX_REMOTE=
 export PATH=/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/system/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export HOME=/root
 export USER=root
@@ -291,11 +317,12 @@ VIRTIO_EOF
       fi
     done
 
-     # Sync + unmount.
+     # Sync + unmount. $WORK survives: base.img is the artifact emitted
+     # below, so releasing the mounts and deleting the workspace are
+     # separate steps.
     sync
-    umount "$MNT"
-    losetup -d "$LOOP"
-    trap - EXIT
+    ci_unmount
+    trap 'rm -rf "$WORK"' EXIT
 
      # Emit the final artifact.
     ART_DIR="$REPO_ROOT/cache/artifacts"
@@ -305,13 +332,9 @@ VIRTIO_EOF
     cp "$BASE_IMG" "$RAW_OUT"
     ls -lh "$RAW_OUT"
 
-    if command -v zstd >/dev/null 2>&1; then
-      ZST_OUT="$RAW_OUT.zst"
-      echo "[build-desktop-ci] compressing → $ZST_OUT (level 10, backgrounded)"
-      rm -f "$ZST_OUT"
-       ( zstd -10 -f -k "$RAW_OUT" -o "$ZST_OUT" && ls -lh "$ZST_OUT" ) &
-      echo "[build-desktop-ci]   zstd pid=$! (will finish in background)"
-    fi
+        # Compression is the workflow's "Compress + upload" step, not ours.
+        # A backgrounded zstd here would race the workflow over the same
+        # output path and the script would exit before it finished.
 
     echo "[build-desktop-ci] === gnunix-desktop $VER built (CI). ==="
     echo "  Raw disk image: $RAW_OUT"
