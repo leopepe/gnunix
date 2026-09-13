@@ -108,6 +108,13 @@ export NIX_STATE_DIR=/nix/var/nix
 #   error: cannot connect to socket at '/nix/var/nix/daemon-socket/socket'
 # We are root and own the store, so the local store is the correct mode.
 export NIX_REMOTE=
+# Nix's sandbox sets each build up with pivot_root(2), which fails with
+# EINVAL inside a chroot:
+#   error: cannot pivot old root directory onto
+#          '/nix/store/...-nixpkgs-25.11.drv.chroot/root/real-root'
+# NIX_CONFIG applies to every nix call below without touching the image's
+# own /etc/nix/nix.conf, which keeps sandbox = true for the running system.
+export NIX_CONFIG="sandbox = false"
 export PATH=/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/system/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export HOME=/root
 export USER=root
