@@ -72,10 +72,23 @@ echo "[install-nix] initializing store database (--load-db)"
 
 echo "[install-nix] installing bootstrap nix + cacert into the default profile"
 # HOME must be set so nix-env writes the per-user state somewhere sane.
-HOME=/root "$NIX_INSTALLED_NIX/bin/nix-env" -i "$NIX_INSTALLED_NIX" \
-  --profile /nix/var/nix/profiles/default
-HOME=/root "$NIX_INSTALLED_NIX/bin/nix-env" -i "$NIX_INSTALLED_CACERT" \
-  --profile /nix/var/nix/profiles/default
+#
+# --option sandbox false: nix-env builds a user-environment derivation, and
+# Nix's sandbox sets that build up with pivot_root(2). Inside a chroot that
+# fails with EINVAL:
+#
+#   error: cannot pivot old root directory onto
+#          '/nix/store/...-user-environment.drv.chroot/root/real-root'
+#
+# This affects the BOOTSTRAP only. The installed system keeps sandbox = true
+# via /etc/nix/nix.conf below -- that file is written after these two calls,
+# so the flag cannot leak into the image. The user-environment derivation
+# only symlinks store paths that are already present, so there is nothing
+# for a sandbox to isolate here anyway.
+HOME=/root "$NIX_INSTALLED_NIX/bin/nix-env" --option sandbox false \
+  -i "$NIX_INSTALLED_NIX" --profile /nix/var/nix/profiles/default
+HOME=/root "$NIX_INSTALLED_NIX/bin/nix-env" --option sandbox false \
+  -i "$NIX_INSTALLED_CACERT" --profile /nix/var/nix/profiles/default
 
 echo "[install-nix] writing /etc/nix/nix.conf"
 install -d -m 0755 /etc/nix
