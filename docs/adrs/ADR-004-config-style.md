@@ -1,7 +1,8 @@
 # ADR-004: Configuration style — plain Nix profiles + home-manager
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-025](ADR-025-declarative-system-flakes.md)
 **Date:** 2026-05-10
+**Superseded:** 2026-09-13 — ADR-025 replaces this ADR. Its *Out of scope* line "Flakes-as-system-config: same reason" conflated a NixOS module system (which owns init, services, users and mounts) with a flake producing a `pkgs.buildEnv` (which is a symlink tree and owns none of them). Banning both under one rationale left `nix-env -iA` against a moving `nix-channel` as the only permitted way to fill a system profile. The architectural split defended here is correct and survives; so do the home-manager decision for the per-user layer, the hand-curated system files, and the ban on NixOS modules — all absorbed into ADR-025. Only the treatment of flakes was wrong.
 
 ## Decision
 
