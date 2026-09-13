@@ -2,7 +2,7 @@
 
 **Status:** Accepted (amended by [ADR-020](ADR-020-compositor-switch-hyprland.md))
 **Date:** 2026-05-13
-**Amended:** 2026-05-15 — default compositor switched to Hyprland by ADR-020; Sway demoted to an optional installer profile. The substrate (greetd + tuigreet, dbus/elogind from nixpkgs, Wayland-only) is unchanged.
+**Amended:** 2026-05-15 — default compositor switched to Hyprland by ADR-020; Sway demoted to an optional installer profile. The substrate (greetd + tuigreet, dbus/elogind from nixpkgs, Wayland-only) is unchanged. 2026-09-13 — ADR-024 moves the Wayland package set from imperative `nix-env -iA` into `nix/desktop.nix`; the stack itself is unchanged.
 
 ## Context
 

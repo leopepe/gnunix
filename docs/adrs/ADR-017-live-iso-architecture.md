@@ -2,6 +2,7 @@
 
 **Status:** Proposed
 **Date:** 2026-05-15
+**Amended:** 2026-09-13 — ADR-024 moves the ISO build toolchain into `nix/installer-build.nix`; the ISO layout is unchanged.
 
 ## Context
 

@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-05-10
+**Amended:** 2026-09-13 — ADR-024 declares system package sets in `flake.nix` and installs them by replacing the system profile; the prohibition on NixOS modules is unchanged.
 
 ## Decision
 

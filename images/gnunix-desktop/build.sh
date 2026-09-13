@@ -17,9 +17,9 @@
 #    7. Emit raw disk image + zstd compressed artifact.
 #
 # Per ADR-021: --ci runs on a local disk image (no Tart).
-# The image is loop-mounted, the Nix layer is installed via
-# nix-env in a chroot, configs are installed, and the final
-# image is emitted.
+# The image is loop-mounted, the Nix layer is built on the runner
+# from the flake and its closure copied in (ADR-024), configs are
+# installed, and the final image is emitted.
 
 set -euo pipefail
 
@@ -39,8 +39,8 @@ if [ "$CI_MODE" = "1" ]; then
        # === CI mode: work on a local disk image ===
        #
        # The minimal image is a zstd-compressed artifact. We decompress
-       # it, loop-mount the partitions, install the Wayland layer via
-       # chroot + nix-env, and emit the final image.
+       # it, loop-mount the partitions, move the Wayland layer's closure
+       # in from the runner's store, and emit the final image.
 
     echo "[build-desktop-ci] CI mode — installing Wayland layer on disk image"
 
@@ -77,9 +77,10 @@ if [ "$CI_MODE" = "1" ]; then
 
     mount "$ROOT_PART" "$MNT"
 
-        # nix-env needs the kernel filesystems: /proc/self/exe, /dev/null
-        # and a pty for its progress output. Without these it fails with
-        # "Could not open /proc/stat" and then dies on the store lock.
+        # Nix no longer needs these -- its closure is built on the runner
+        # and copied in. They stay for the non-Nix chroot work below:
+        # groupadd/useradd want /dev/null and a writable lock on /etc, and
+        # anything resolving /proc/self/exe dies without /proc.
     mount --bind /dev     "$MNT/dev"
     mount --bind /dev/pts "$MNT/dev/pts"
     mount -t proc  proc   "$MNT/proc"
@@ -94,75 +95,51 @@ if [ "$CI_MODE" = "1" ]; then
       cp -a "$REPO_ROOT/images/gnunix-desktop/etc/"* "$MNT/etc/"
     fi
 
-     # Install the Nix packages via nix-env in chroot.
-     # nix-env works directly on the Nix store — it doesn't need the
-     # daemon running. We just need the Nix binaries on PATH and the
-     # NIX_STORE_DIR pointing to the mounted rootfs's store.
-    echo "[build-desktop-ci] installing Nix packages (channel: $CHANNEL)"
-    chroot "$MNT" /bin/bash <<'INNER_EOF'
-set -euo pipefail
-export NIX_STORE_DIR=/nix/store
-export NIX_STATE_DIR=/nix/var/nix
-# NOT NIX_REMOTE=daemon: nix-daemon is installed but not running inside
-# this chroot, so a daemon connection fails with
-#   error: cannot connect to socket at '/nix/var/nix/daemon-socket/socket'
-# We are root and own the store, so the local store is the correct mode.
-export NIX_REMOTE=
-# Nix's sandbox sets each build up with pivot_root(2), which fails with
-# EINVAL inside a chroot:
-#   error: cannot pivot old root directory onto
-#          '/nix/store/...-nixpkgs-25.11.drv.chroot/root/real-root'
-# NIX_CONFIG applies to every nix call below without touching the image's
-# own /etc/nix/nix.conf, which keeps sandbox = true for the running system.
-export NIX_CONFIG="sandbox = false"
-export PATH=/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/system/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-export HOME=/root
-export USER=root
+        # Build the system profile on the runner (native aarch64), then
+        # move its closure into the image. ADR-024: no nix runs inside the
+        # chroot any more, which retires the whole failure class around it
+        # -- no channel to subscribe to, no pivot_root sandbox error, no
+        # daemon socket to miss. The flake.lock pins nixpkgs, so $CHANNEL
+        # no longer selects anything here.
+    echo "[build-desktop-ci] building desktopProfile on the runner"
+    OUT=$(nix build --no-link --print-out-paths "$REPO_ROOT#desktopProfile")
+    echo "[build-desktop-ci] copying closure into the image: $OUT"
+        # `nix copy --to <dir>` writes a local store rooted at that
+        # directory, which is exactly the mounted image.
+    nix copy --no-check-sigs --to "$MNT" "$OUT"
 
-# Subscribe to the nixpkgs channel.
-nix-channel --add "https://nixos.org/channels/${CHANNEL:-nixos-25.11}" nixpkgs
-nix-channel --update
+        # --set replaces the profile atomically with this derivation
+        # instead of stacking generations. Two variables from the runner
+        # are wrong on the other side of the chroot and must be overridden:
+        # $HOME does not exist inside the image, and a NIX_REMOTE=daemon
+        # inherited from the runner sends nix-env after a socket that
+        # nothing is listening on in there.
+    chroot "$MNT" /usr/bin/env HOME=/root NIX_REMOTE= \
+        /nix/var/nix/profiles/default/bin/nix-env \
+        --profile /nix/var/nix/profiles/system --set "$OUT"
 
-# Install system packages into the system profile.
-SP=/nix/var/nix/profiles/system
-# Create the PARENT only. nix-env -p makes $SP itself a symlink to the
-# generation it builds; pre-creating it as a directory breaks that with
-#   error: filesystem error: read_symlink: Invalid argument [...]
-mkdir -p "$(dirname "$SP")"
-nix-env -p "$SP" -iA \
-  nixpkgs.dbus \
-  nixpkgs.elogind \
-  nixpkgs.greetd \
-  nixpkgs.tuigreet \
-  nixpkgs.hyprland \
-  nixpkgs.xdg-desktop-portal-hyprland \
-  nixpkgs.hyprpaper \
-  nixpkgs.foot \
-  nixpkgs.wayland-utils \
-  nixpkgs.xkeyboard_config \
-  nixpkgs.procps \
-  nixpkgs.kmod \
-  nixpkgs.mesa \
-  nixpkgs.waybar
-
-echo "[build-desktop-ci] nix-env packages installed"
-INNER_EOF
+        # Two views of the same profile. $SYS_HOST is what we can READ
+        # here -- the closure exists in the runner's own store, which the
+        # image's copy is a clone of. $SYS_IMG is what we must WRITE into
+        # the image: a symlink or a config naming $MNT/... would dangle
+        # the moment the image boots on its own.
+    SYS_HOST="$OUT"
+    SYS_IMG=/nix/var/nix/profiles/system
 
      # Wire up kmod symlinks.
     echo "[build-desktop-ci] wiring kmod symlinks"
-    SP="$MNT/nix/var/nix/profiles/system"
     install -d -m 0755 "$MNT/sbin"
     for tool in modprobe insmod rmmod lsmod kmod; do
-      if [ -x "$SP/bin/$tool" ]; then
-        ln -sfn "$SP/bin/$tool" "$MNT/sbin/$tool"
+      if [ -x "$SYS_HOST/bin/$tool" ]; then
+        ln -sfn "$SYS_IMG/bin/$tool" "$MNT/sbin/$tool"
       fi
     done
 
      # Convenience symlinks for dbus/elogind.
     install -d -m 0755 "$MNT/usr/local/bin"
     for tool in dbus-daemon dbus-uuidgen dbus-send loginctl; do
-      if [ -x "$SP/bin/$tool" ]; then
-        ln -sfn "$SP/bin/$tool" "$MNT/usr/local/bin/$tool"
+      if [ -x "$SYS_HOST/bin/$tool" ]; then
+        ln -sfn "$SYS_IMG/bin/$tool" "$MNT/usr/local/bin/$tool"
       fi
     done
 
@@ -202,7 +179,6 @@ USER_EOF
      # Install payload configs.
     echo "[build-desktop-ci] installing Wayland configs"
     PAYLOAD_DIR="$REPO_ROOT/images/gnunix-desktop"
-    SYSTEM_PROFILE="$MNT/nix/var/nix/profiles/system"
 
      # greetd config.
     if [ -f "$PAYLOAD_DIR/etc/greetd/config.toml" ]; then
@@ -250,24 +226,28 @@ NSS_EOF
     fi
 
      # machine-id.
-    if [ ! -f "$MNT/etc/machine-id" ] && [ -x "$SYSTEM_PROFILE/bin/dbus-uuidgen" ]; then
+    if [ ! -f "$MNT/etc/machine-id" ] && [ -x "$SYS_HOST/bin/dbus-uuidgen" ]; then
       install -d -m 0755 "$MNT/var/lib/dbus"
-      "$SYSTEM_PROFILE/bin/dbus-uuidgen" --ensure="$MNT/var/lib/dbus/machine-id"
+      "$SYS_HOST/bin/dbus-uuidgen" --ensure="$MNT/var/lib/dbus/machine-id"
       ln -sfn /var/lib/dbus/machine-id "$MNT/etc/machine-id"
     fi
 
      # dbus config rewrites.
-    SP_SHARE="$SYSTEM_PROFILE/share/dbus-1"
+        # Read the stock config from the runner's store, but rewrite the
+        # includedir to the in-image path: this file is consumed by the
+        # booted system, not by us.
+    SP_SHARE="$SYS_HOST/share/dbus-1"
+    SP_SHARE_IMG="$SYS_IMG/share/dbus-1"
     if [ -f "$SP_SHARE/system.conf" ]; then
       sed -E "
         s|<include[^>]*>/etc/dbus-1/system\\.conf</include>||
-        s|<includedir>system\\.d</includedir>|<includedir>${SP_SHARE}/system.d</includedir>|
+        s|<includedir>system\\.d</includedir>|<includedir>${SP_SHARE_IMG}/system.d</includedir>|
       " "$SP_SHARE/system.conf" > "$MNT/etc/dbus-1/system.conf"
     fi
     if [ -f "$SP_SHARE/session.conf" ]; then
       sed -E "
         s|<include[^>]*>/etc/dbus-1/session\\.conf</include>||
-        s|<includedir>session\\.d</includedir>|<includedir>${SP_SHARE}/session.d</includedir>|
+        s|<includedir>session\\.d</includedir>|<includedir>${SP_SHARE_IMG}/session.d</includedir>|
       " "$SP_SHARE/session.conf" > "$MNT/etc/dbus-1/session.conf"
     fi
 
@@ -291,8 +271,8 @@ export __EGL_VENDOR_LIBRARY_DIRS="/nix/var/nix/profiles/system/share/glvnd/egl_v
 export LIBGL_DRIVERS_PATH="/nix/var/nix/profiles/system/lib/dri"
 export LD_LIBRARY_PATH="/nix/var/nix/profiles/system/lib:\${LD_LIBRARY_PATH:-}"
 export WLR_NO_HARDWARE_CURSORS=1
-$SYSTEM_PROFILE/bin/loginctl 2>&1 | head -10 || true
-exec $SYSTEM_PROFILE/bin/Hyprland
+/nix/var/nix/profiles/system/bin/loginctl 2>&1 | head -10 || true
+exec /nix/var/nix/profiles/system/bin/Hyprland
 WRAPPER_EOF
     chmod 0755 "$MNT/usr/local/bin/start-wayland-session.sh"
     touch "$MNT/var/log/wayland-session.log"
@@ -300,14 +280,14 @@ WRAPPER_EOF
 
      # PAM symlink.
     install -d -m 0755 "$MNT/lib/security"
-    if [ -f "$SYSTEM_PROFILE/lib/security/pam_elogind.so" ]; then
-      ln -sfn "$SYSTEM_PROFILE/lib/security/pam_elogind.so" "$MNT/lib/security/pam_elogind.so"
+    if [ -f "$SYS_HOST/lib/security/pam_elogind.so" ]; then
+      ln -sfn "$SYS_IMG/lib/security/pam_elogind.so" "$MNT/lib/security/pam_elogind.so"
     fi
 
      # udev rules from elogind.
     echo "[build-desktop-ci] installing elogind udev rules"
     install -d -m 0755 "$MNT/etc/udev/rules.d"
-    for r in "$SYSTEM_PROFILE"/lib/udev/rules.d/7?-*.rules; do
+    for r in "$SYS_HOST"/lib/udev/rules.d/7?-*.rules; do
       [ -f "$r" ] && install -m 0644 "$r" "$MNT/etc/udev/rules.d/$(basename "$r")"
     done
 
