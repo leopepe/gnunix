@@ -302,12 +302,28 @@ jobs:
             # downstream debug cycle from ~18 min into ~30s.
             #
             # Key on everything that changes what the stage produces: the
-            # stage script, both kernel config fragments, and the pinned
-            # kernel version. Miss any of them and a bumped kernel would
-            # silently reuse the old vmlinuz.
+            # stage script, both kernel config fragments, the pinned kernel
+            # version -- and every file the stage INSTALLS. Miss any of them
+            # and a bumped kernel would silently reuse the old vmlinuz.
+            #
+            # The installed files were the gap. 04-finalize.sh copies
+            # images/gnunix-base/etc/** (inittab, profile, fstab.template,
+            # hostname, resolv.conf.tpl, syslog.conf, logrotate.conf,
+            # logrotate.d/*, cron.d/*, and all 13 rc.d scripts) plus
+            # grub.cfg into the tree. Editing any of them left this key
+            # unchanged, so the job took an exact cache hit, run_stage saw
+            # .lfs-stages/finalize.done in the restored tree and skipped the
+            # stage outright -- and the image shipped the OLD copy with no
+            # error anywhere. Same failure shape as #146, one directory over.
+            #
+            # sha256sum (not cat) so a rename or a move changes the key too:
+            # the path is part of each line.
           HASH=$( { cat images/gnunix-base/stages/04-finalize.sh \
                         images/gnunix-base/kernel.config \
                         images/gnunix-base/kernel.modules.config
+                    find images/gnunix-base/etc -type f -print0 \
+                      | sort -z | xargs -0 sha256sum
+                    sha256sum images/gnunix-base/grub.cfg
                     jq -r .kernel.version tools/manifest.json
                   } | sha256sum | awk '{print $1}')
           echo "key=lfs-final-${VER}-${HASH}" >> "$GITHUB_OUTPUT"
