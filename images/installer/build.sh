@@ -66,6 +66,9 @@ if [ "$CI_MODE" = "1" ]; then
     umount "$MNT/dev/pts" 2>/dev/null || true
     umount "$MNT/dev"     2>/dev/null || true
     umount "$MNT"         2>/dev/null || true
+    # Lazy recursive detach as a last resort: a single busy mount left
+    # behind is enough for the rm -rf below to walk into the host's /dev.
+    umount -R -l "$MNT"   2>/dev/null || true
     losetup -d "$LOOP"    2>/dev/null || true
   }
   # The ISO phase mounts a SECOND tree at $WORK/chroot. If it fails before
@@ -78,10 +81,28 @@ if [ "$CI_MODE" = "1" ]; then
     umount "$CHROOT/dev/pts" 2>/dev/null || true
     umount "$CHROOT/dev"     2>/dev/null || true
     umount "$CHROOT"         2>/dev/null || true
+    umount -R -l "$CHROOT"   2>/dev/null || true
     [ -n "${LOOP2:-}" ] && losetup -d "$LOOP2" 2>/dev/null || true
     return 0
   }
-  ci_cleanup() { iso_unmount; ci_unmount; rm -rf "$WORK"; }
+  # Guard the rm: /dev, /proc and /sys are BIND mounts of the host's own
+  # kernel filesystems. When the ISO phase died with them still mounted,
+  # rm -rf "$WORK" deleted the runner's device nodes -- every later step
+  # then failed with "could not open '/dev/null'". Refuse to delete a tree
+  # that still has something mounted under it.
+  work_is_mounted() {
+    command -v findmnt >/dev/null 2>&1 || return 1
+    findmnt -rn -o TARGET | grep -q "^$WORK/"
+  }
+  ci_cleanup() {
+    iso_unmount
+    ci_unmount
+    if work_is_mounted; then
+      echo "[build-installer-ci] WARN: $WORK still has mounts; not removing it" >&2
+      return 0
+    fi
+    rm -rf "$WORK"
+  }
   trap 'ci_cleanup' EXIT
 
   mount "$ROOT_PART" "$MNT"
@@ -244,7 +265,10 @@ OSRELEASE_EOF
   # chroot both live there.
   sync
   ci_unmount
-  trap 'rm -rf "$WORK"' EXIT
+  # The EXIT trap stays 'ci_cleanup'. Narrowing it to 'rm -rf "$WORK"'
+  # here meant that when the ISO phase below failed, its /dev, /proc and
+  # /sys binds were never unmounted and the rm walked straight into them.
+  # ci_unmount is idempotent, so running it a second time costs nothing.
 
   # Assemble the hybrid EFI ISO.
   echo "[build-installer-ci] assembling hybrid EFI ISO"
@@ -268,7 +292,19 @@ OSRELEASE_EOF
   # "ARCH: unbound variable". Pass them through env(1) instead.
   chroot "$CHROOT" /usr/bin/env ARCH="$ARCH" VER="$VER" /bin/bash <<'ISO_EOF'
 set -euo pipefail
-export PATH=/nix/var/nix/profiles/system/bin:/nix/var/nix/profiles/installer-build/bin:$PATH
+# mkiso.sh calls build-initramfs.sh, which realises a static busybox out
+# of nixpkgs -- so this chroot needs the same Nix environment as the two
+# provisioning blocks above. Without "sandbox = false" the profile build
+# dies the same way theirs did:
+#   error: cannot pivot old root directory onto
+#          '/nix/store/...-user-environment.drv.chroot/root/real-root'
+export NIX_STORE_DIR=/nix/store
+export NIX_STATE_DIR=/nix/var/nix
+export NIX_REMOTE=
+export NIX_CONFIG="sandbox = false"
+export HOME=/root
+export USER=root
+export PATH=/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/system/bin:/nix/var/nix/profiles/installer-build/bin:$PATH
 cd /root
 mkdir -p iso
 bash /root/installer/iso/mkiso.sh / /root/gnunix-installer.iso
