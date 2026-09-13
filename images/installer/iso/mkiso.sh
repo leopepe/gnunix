@@ -121,9 +121,23 @@ menuentry "Memory test (placeholder)" {
 EOF
 
 # Build a FAT efi.img containing /EFI/BOOT/<EFI_BIN>.
-# Size: ~4 MiB is plenty; round up.
+#
+# The comment here always said "~4 MiB is plenty", but the arithmetic
+# produced binary-size + 1 MiB -- about 1.2 MiB for a grub-mkimage
+# arm64-efi payload, and mkfs.vfat rejected it:
+#   mkfs.vfat: Attempting to create a too small or a too large filesystem
+# FAT16 is defined to start at 4085 clusters, and dosfstools picks four
+# 512-byte sectors per cluster at these sizes, so its own floor for -F 16
+# is 16 MiB (measured against dosfstools 4.2: 8 MiB fails, 16 MiB works).
+# Floor the image there rather than pinning -s 1, which would work today
+# but caps the filesystem at 32 MiB if the GRUB payload ever grows.
+# 16 MiB of mostly-zero ESP is the same order Fedora and Debian ship.
 EFI_IMG="$WORK/efi.img"
+EFI_MIN_KB=16384
 EFI_SIZE_KB=$(( ($(stat -c %s "$WORK/$EFI_BIN") / 1024) + 1024 ))
+if [ "$EFI_SIZE_KB" -lt "$EFI_MIN_KB" ]; then
+  EFI_SIZE_KB=$EFI_MIN_KB
+fi
 dd if=/dev/zero of="$EFI_IMG" bs=1K count=$EFI_SIZE_KB status=none
 mkfs.vfat -F 16 -n EFI "$EFI_IMG" >/dev/null
 mmd -i "$EFI_IMG" ::/EFI
