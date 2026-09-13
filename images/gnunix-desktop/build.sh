@@ -181,14 +181,23 @@ INNER_EOF
         -G video,input greeter 2>/dev/null || true
 
      # Create the unprivileged login user.
+        # These ran on the HOST, not in the image: there is no chroot here,
+        # so groupadd/useradd edited the runner's /etc/passwd and the
+        # image got nothing. `install -o user` then failed on the runner,
+        # which has no such user:
+        #     install: invalid user 'user'
     echo "[build-desktop-ci] creating login user"
-    for g in wheel video input render audio seat nixbld; do
-      getent group "$g" >/dev/null 2>&1 || groupadd -r "$g"
-    done
-    getent passwd user >/dev/null 2>&1 || \
-      useradd -m -u 1000 -s /bin/bash -G wheel,video,input,render,audio,seat,nixbld user 2>/dev/null || true
-    passwd -d user 2>/dev/null || true
-    install -d -m 0755 -o user -g user "$MNT/home/user/.config/hypr"
+    chroot "$MNT" /bin/bash <<'USER_EOF'
+set -eu
+for g in wheel video input render audio seat nixbld; do
+  getent group "$g" >/dev/null 2>&1 || groupadd -r "$g"
+done
+getent passwd user >/dev/null 2>&1 || \
+  useradd -m -u 1000 -s /bin/bash \
+      -G wheel,video,input,render,audio,seat,nixbld user
+passwd -d user >/dev/null 2>&1 || true
+install -d -m 0755 -o user -g user /home/user/.config/hypr
+USER_EOF
 
      # Install payload configs.
     echo "[build-desktop-ci] installing Wayland configs"
