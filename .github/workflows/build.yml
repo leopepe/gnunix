@@ -292,11 +292,35 @@ jobs:
       contains(github.event.inputs.images, 'gnunix-base')
     steps:
        - uses: actions/checkout@v4
+       - name: Compute cache key
+         id: cachekey
+         run: |
+          set -eu
+          VER="${{ needs.meta.outputs.version }}"
+            # This stage is dominated by the kernel build: 983s of its
+            # 1088s on run 34748680280. Caching its output turns every
+            # downstream debug cycle from ~18 min into ~30s.
+            #
+            # Key on everything that changes what the stage produces: the
+            # stage script, both kernel config fragments, and the pinned
+            # kernel version. Miss any of them and a bumped kernel would
+            # silently reuse the old vmlinuz.
+          HASH=$( { cat images/gnunix-base/stages/04-finalize.sh \
+                        images/gnunix-base/kernel.config \
+                        images/gnunix-base/kernel.modules.config
+                    jq -r .kernel.version tools/manifest.json
+                  } | sha256sum | awk '{print $1}')
+          echo "key=lfs-final-${VER}-${HASH}" >> "$GITHUB_OUTPUT"
+            # Predecessor only, never lfs-final- -- a self-prefix fallback
+            # would restore a tree whose .lfs-stages/finalize.done makes
+            # this stage skip the very work an edit just changed. See #146.
+          echo "restore=lfs-chroot-${VER}-" >> "$GITHUB_OUTPUT"
        - name: Restore LFS cache
+         id: restore
          uses: actions/cache/restore@v4
          with:
-          key: lfs-chroot-${{ needs.meta.outputs.version }}-
-          restore-keys: lfs-chroot-${{ needs.meta.outputs.version }}-
+          key: ${{ steps.cachekey.outputs.key }}
+          restore-keys: ${{ steps.cachekey.outputs.restore }}
             # See scripts/ci-lfs-cache.sh: the cache holds a root-written
             # tarball, not $LFS, so ownership survives the round trip.
           path: cache/lfs-tree.tzst
@@ -307,7 +331,22 @@ jobs:
        - name: Finalize rootfs
          run: |
           set -eu
+            # A no-op when the cache hit was exact: the restored tree
+            # carries .lfs-stages/finalize.done and run_stage skips it.
           sudo bash images/gnunix-base/build.sh --ci --only=finalize
+         # Repacking an exact hit would re-tar ~1.5 GB to produce a blob
+         # the cache already holds under this key. The earlier stages pack
+         # unconditionally; this one is the largest tree, so it is worth
+         # the extra condition.
+       - name: Pack the LFS tree
+         if: steps.restore.outputs.cache-hit != 'true'
+         run: sudo scripts/ci-lfs-cache.sh pack cache/lfs-tree.tzst
+       - name: Save LFS cache
+         if: steps.restore.outputs.cache-hit != 'true'
+         uses: actions/cache/save@v4
+         with:
+          key: ${{ steps.cachekey.outputs.key }}
+          path: cache/lfs-tree.tzst
        - name: Build and compress disk image
          run: |
           set -eu
