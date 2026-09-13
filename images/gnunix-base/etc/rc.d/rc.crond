@@ -1,28 +1,45 @@
 #!/bin/sh
-# /etc/rc.d/rc.crond — cronie cron daemon (Vixie-cron derivative, what
-# Fedora/RHEL/Arch ship). We pivoted to cronie from dcron because the
-# dcron tarball mirrors went dark; see chore PR.
+# /etc/rc.d/rc.crond — cronie cron daemon (the Vixie-cron derivative
+# Fedora/RHEL/Arch ship). We pivoted to cronie from dcron because the dcron
+# tarball mirrors went dark.
 #
 # Runs /etc/cron.{hourly,daily,weekly,monthly}/* on schedule and reads
 # system crontabs from /etc/cron.d/. Per-user crontabs live under
 # /var/spool/cron/crontabs/<user> (set up by `crontab -e`).
 #
 # Logrotate runs daily from /etc/cron.d/logrotate (shipped in the base
-# rootfs by 04-finalize.sh).
+# rootfs by 04-finalize.sh); logrotate itself now comes from the same Nix
+# system profile as crond.
+#
+# The binary comes from the Nix system profile, not /usr/sbin — issue #161
+# moved cronie out of the LFS base (ADR-025). See rc.syslogd for the
+# sbin-before-bin rationale and why init cannot rely on $PATH.
 
-CROND=/usr/sbin/crond
 PIDFILE=/run/crond.pid
+
+find_bin() {
+  for d in /nix/var/nix/profiles/system/sbin \
+           /nix/var/nix/profiles/system/bin \
+           /usr/sbin; do
+    if [ -x "$d/$1" ]; then
+      printf '%s\n' "$d/$1"
+      return 0
+    fi
+  done
+  return 1
+}
 
 case "${1:-start}" in
   start)
-    if [ ! -x "$CROND" ]; then
-      echo "[rc.crond] $CROND not found; skipping"
+    CROND=$(find_bin crond) || {
+      echo "[rc.crond] crond not found in the system profile or /usr/sbin; skipping"
       exit 0
-    fi
+    }
     # cronie daemonizes by default and writes its own pid to PIDFILE.
-    # It logs to syslog automatically when /dev/log exists — rc.M
-    # starts rc.syslogd before rc.crond, so the cron facility lands
-    # in /var/log/cron.
+    # It logs to syslog automatically when /dev/log exists — rc.M starts
+    # rc.syslogd before rc.crond, so the cron facility lands in
+    # /var/log/cron.
+    echo "[rc.crond] $CROND"
     "$CROND"
     ;;
   stop)

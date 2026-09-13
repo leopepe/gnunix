@@ -174,30 +174,6 @@
     "vendor": "kernel",
     "product": "kmod"
   },
-  "procps-ng": {
-    "vendor": "procps-ng_project",
-    "product": "procps-ng"
-  },
-  "psmisc": {
-    "vendor": "psmisc_project",
-    "product": "psmisc"
-  },
-  "sysklogd": {
-    "vendor": "sysklogd_project",
-    "product": "sysklogd"
-  },
-  "popt": {
-    "vendor": "popt_project",
-    "product": "popt"
-  },
-  "cronie": {
-    "vendor": "cronie_project",
-    "product": "cronie"
-  },
-  "logrotate": {
-    "vendor": "logrotate_project",
-    "product": "logrotate"
-  },
   "sysvinit": {
     "vendor": "sysvinit_project",
     "product": "sysvinit"

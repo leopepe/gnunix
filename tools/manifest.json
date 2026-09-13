@@ -295,40 +295,6 @@
       "version": "31",
       "url": "https://mirrors.kernel.org/pub/linux/utils/kernel/kmod/kmod-31.tar.xz",
       "sha256": "f5a6949043cc72c001b728d8c218609c5a15f3c33d75614b78c79418fcf00d80"
-    },
-    "procps-ng": {
-      "version": "4.0.4",
-      "url": "https://downloads.sourceforge.net/project/procps-ng/Production/procps-ng-4.0.4.tar.xz",
-      "sha256": "22870d6feb2478adb617ce4f09a787addaf2d260c5a8aa7b17d889a962c5e42e"
-    },
-    "psmisc": {
-      "version": "23.7",
-      "url": "https://downloads.sourceforge.net/project/psmisc/psmisc/psmisc-23.7.tar.xz",
-      "sha256": "58c55d9c1402474065adae669511c191de374b0871eec781239ab400b907c327"
-    },
-    "sysklogd": {
-      "$note": "troglobit fork — same project Slackware 15.0 ships as its default syslog daemon.",
-      "version": "2.6.1",
-      "url": "https://github.com/troglobit/sysklogd/releases/download/v2.6.1/sysklogd-2.6.1.tar.gz",
-      "sha256": "e35d5c5f55019976302ac9818890bd6b6858db257506f0e9afaa718a8dee9cc3"
-    },
-    "$logrotate_stack_note": "popt is a build-dep of logrotate, cronie is the scheduler that makes logrotate functional. We switched from dcron to cronie because Dillon's original tarball is gone from every mirror we tried — cronie is actively maintained (Fedora/RHEL upstream) and has the same /etc/crontab + /etc/cron.d + crond paths Slackware-style cron consumers expect.",
-    "popt": {
-      "version": "1.19",
-      "url": "http://ftp.rpm.org/popt/releases/popt-1.x/popt-1.19.tar.gz",
-      "sha256": "c25a4838fc8e4c1c8aacb8bd620edb3084a3d63bf8987fdad3ca2758c63240f9"
-    },
-    "cronie": {
-      "$note": "Replaces dcron. cronie 1.7.2 — actively maintained Vixie-cron derivative used by Fedora/RHEL/Arch. Same `crond` binary, same /etc/crontab + /etc/cron.d + /var/spool/cron paths.",
-      "version": "1.7.2",
-      "url": "https://github.com/cronie-crond/cronie/releases/download/cronie-1.7.2/cronie-1.7.2.tar.gz",
-      "sha256": "f1da374a15ba7605cf378347f96bc8b678d3d7c0765269c8242cfe5b0789c571"
-    },
-    "logrotate": {
-      "$note": "Order matters: build after popt (links libpopt) and after cronie (so we know we have a scheduler).",
-      "version": "3.21.0",
-      "url": "https://github.com/logrotate/logrotate/releases/download/3.21.0/logrotate-3.21.0.tar.xz",
-      "sha256": "8fa12015e3b8415c121fc9c0ca53aa872f7b0702f543afda7e32b6c4900f6516"
     }
   },
   "init_and_session": {

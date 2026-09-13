@@ -291,16 +291,18 @@ fi
 # (python stayed — GRUB needs it; meson and ninja did not survive).
 # ping comes from the Nix userland.
 #
+# sysklogd, cronie, logrotate, popt, procps-ng and psmisc are not here
+# either: issue #161 moved that userland to nix/minimal.nix, where a CVE
+# in any of them is a flake.lock bump instead of an LFS chroot rebuild
+# and a new base release. rc.syslogd and rc.crond exec them out of
+# /nix/var/nix/profiles/system.
+#
 # Order matters for kmod: it must be built before eudev, so eudev's
-# ./configure --enable-kmod can find libkmod. The rest of the new
-# Slackware-parity additions (procps-ng / psmisc / sysklogd) only need
-# the base toolchain.
+# ./configure --enable-kmod can find libkmod.
 for entry in \
   bash coreutils diffutils file findutils gawk grep gzip sed tar xz \
   iproute2 dhcpcd less vim e2fsprogs zlib expat \
-  ncurses readline \
-  kmod procps-ng psmisc sysklogd \
-  popt cronie logrotate
+  ncurses readline kmod
 do
   pkg_skip "$entry" && continue
   v=$(pkg_ver "$entry")
@@ -313,30 +315,10 @@ do
   cd "$d/$inner"
   echo "[chroot-inner] building $entry-$v"
   hardening_export "$entry" native
-  # Per-package configure flag overrides. Keep the list small — the
-  # default `./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var`
-  # is right for the vast majority. Add a case here only when a package
-  # genuinely needs a different invocation.
-  extra_flags=""
-  case "$entry" in
-    procps-ng|psmisc)
-      # The base ncurses install in this rootfs predates `--enable-pc-files`
-      # so anything that probes for ncurses via pkg-config fails to find
-      # `ncursesw.pc` / `ncurses.pc`. procps-ng (`top`) and psmisc
-      # (`pstree --color`) both go through that path. `--without-ncurses`
-      # builds the non-TUI subset (`ps`, `free`, `uptime`, `pstree`
-      # without color/cursor). Real TUI tools come back via Nix
-      # (`nix-env -iA nixpkgs.htop`). Proper fix is to rebuild ncurses
-      # with --enable-pc-files; tracked as follow-up.
-      extra_flags="--without-ncurses"
-      ;;
-  esac
   if [ -x ./configure ]; then
-    # shellcheck disable=SC2086
-    ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var $extra_flags || true
+    ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var || true
   elif [ -x ./autogen.sh ]; then
-    # shellcheck disable=SC2086
-    ./autogen.sh && ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var $extra_flags || true
+    ./autogen.sh && ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var || true
   fi
   make -j$JOBS
   make install

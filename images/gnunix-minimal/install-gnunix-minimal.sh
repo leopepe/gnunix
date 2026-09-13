@@ -112,6 +112,40 @@ export NIX_SSL_CERT_FILE=/nix/var/nix/profiles/default/etc/ssl/certs/ca-bundle.c
 EOF
 chmod 0644 /etc/profile.d/nix-daemon.sh
 
+echo "[install-nix] writing /etc/profile.d/nix-system-profile.sh"
+# The system profile on an interactive PATH. ADR-025 recorded this as a
+# named gap ("the system profile is boot-persistent; its presence on an
+# interactive PATH is not yet wired") and issue #161 makes it load-bearing:
+# ps, pstree, lspci and friends now live in the profile rather than in
+# /usr/bin, so without this file a tty or SSH login cannot type them.
+#
+# Sourced BEFORE nix-daemon.sh by /etc/profile, by name, so that the user's
+# own ~/.nix-profile (which nix-daemon.sh prepends) ends up ahead of the
+# system profile. See the ordering comment in /etc/profile.
+#
+# sbin as well as bin: nixpkgs does not normalise sbin into bin, and the
+# plain-autotools daemons in nix/minimal.nix install to $out/sbin.
+#
+# LD_LIBRARY_PATH is deliberately NOT set here, though ADR-025's sketch
+# listed it. Nix binaries carry their own RPATH into the store and do not
+# need it; exporting it for every login shell would instead put the
+# profile's glibc and friends ahead of the base's for every LFS binary the
+# user runs, which is a way to break `login` and `sshd`, not a way to make
+# the profile work. The desktop session wrapper still sets it, scoped to
+# the compositor, where Mesa and EGL genuinely require it.
+cat > /etc/profile.d/nix-system-profile.sh <<'EOF'
+# GNUnix system profile (ADR-025). Prepends the release's own package set.
+_gnunix_sys=/nix/var/nix/profiles/system
+if [ -d "$_gnunix_sys" ]; then
+  PATH="$_gnunix_sys/bin:$_gnunix_sys/sbin:$PATH"
+  MANPATH="$_gnunix_sys/share/man${MANPATH:+:$MANPATH}"
+  XDG_DATA_DIRS="$_gnunix_sys/share${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
+  export PATH MANPATH XDG_DATA_DIRS
+fi
+unset _gnunix_sys
+EOF
+chmod 0644 /etc/profile.d/nix-system-profile.sh
+
 # System-wide CA bundle: point the standard /etc/ssl/certs/ca-certificates.crt
 # at the Nix-installed bundle so non-Nix tools also use it.
 install -d -m 0755 /etc/ssl/certs
