@@ -31,10 +31,11 @@ apt-get install -y --no-install-recommends \
   grub-efi-arm64-bin grub-common \
   qemu-utils \
   sudo openssh-server \
-  gperf pkgconf meson ninja-build
+  gperf pkgconf
 
-# meson from apt may be an older version; we install it below from pip
-# to get a known-good version. ninja-build provides /usr/bin/ninja.
+# meson and ninja-build were dropped with issue #161: they existed only
+# for usbutils, the base's sole meson project, which the base no longer
+# builds.
 # gperf, pkgconf, bison, flex are all from the Ubuntu archive and
 # produce binaries compatible with the LFS build (they follow GNU
 # conventions; no special flags needed).

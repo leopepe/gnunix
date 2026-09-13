@@ -37,7 +37,7 @@ On success: `tart list` shows `gnunix-base-0.1.0`, and `tart run gnunix-base-0.1
 | fetch | `tools/fetch-sources.sh` (in chroot) | `/mnt/lfs/sources/*.tar.*` (or no-op if host already pre-fetched) | 0–15 min |
 | cross | `images/gnunix-base/stages/01-cross-toolchain.sh` | `$LFS/tools/bin/aarch64-lfs-linux-gnu-*` (binutils-pass1, gcc-pass1, headers, glibc, libstdc++) + the GCC limits.h chain fix | 1.5–3 h |
 | temp-tools | `images/gnunix-base/stages/02-temp-tools.sh` | minimal userspace in `$LFS/usr/` + `binutils-pass2` + `gcc-pass2` (native-named `cc`/`ld`/`ar`/...) | 1.5–2.5 h |
-| chroot | `images/gnunix-base/stages/03-chroot.sh` → `03b-chroot-inner.sh` | full LFS chapter 7 + chapter 8: bison, flex, gperf, pkgconf, perl, python, libxcrypt, shadow, util-linux, base packages, openssl, sysvinit, eudev, openssh, grub | 2–4 h |
+| chroot | `images/gnunix-base/stages/03-chroot.sh` → `03b-chroot-inner.sh` | full LFS chapter 7 + chapter 8: bison, flex, gperf, pkgconf, perl, libxcrypt, shadow, util-linux, base packages, openssl, sysvinit, eudev, openssh, grub | ~19 min |
 | finalize | `images/gnunix-base/stages/04-finalize.sh` | rc.d installed, kernel 6.12.20 built, GRUB EFI, locale, root pwd locked, strip | 30–60 min |
 | mkimage | `images/gnunix-base/packaging/mkimage.sh` (in VM) | GPT disk image at `/tmp/gnunix-base-disk.img` | 3–5 min |
 | import | `images/gnunix-base/packaging/tart-import.sh` (on host) | Tart VM `gnunix-base-<version>` | <30 s |
@@ -78,16 +78,16 @@ REUSE_BUILDER=1 tools/build-all.sh gnunix-base
 - `sshd` accepts the host's ed25519 key as root, with `pidof sshd` returning a PID.
 - `ip route get 1.1.1.1` resolves a default route.
 
-It WARNs (but doesn't fail) when `dbus-daemon` or `elogind` isn't running — both are deferred to a later phase (they need Python+meson bootstrap we haven't wired into stage 2 yet; the Nix layer or a future stage will bring them back).
+It WARNs (but doesn't fail) when `dbus-daemon` or `elogind` isn't running. Neither is part of `gnunix-base`: per [ADR-025](../adrs/ADR-025-declarative-system-flakes.md) they are declared in `nix/desktop.nix` and reach the image through the system profile, so only `gnunix-desktop` runs them. The check warns rather than fails so the same script can validate a desktop image.
 
 ## What's in the manifest
 
-`tools/manifest.json` pins every package with sha256. The 36 base + 4 toolchain + 4 init/session + 1 bootloader = **45 source tarballs**. Highlights:
+`tools/manifest.json` pins every package with sha256 — **50 unique source tarballs** today (39 base packages, the toolchain and its gcc prereqs, sysvinit + eudev, grub, and the kernel; `linux_headers` and `kernel` share one tarball). Highlights:
 
 - **Toolchain**: binutils 2.43.1, gcc 14.2.0 (with gmp 6.3.0, mpfr 4.2.1, mpc 1.3.1, isl 0.27), linux 6.12.20, glibc 2.40.
-- **Chroot temp-tools**: m4 1.4.20 (1.4.19 has a glibc-2.40 gnulib bug), perl 5.38.2 (5.40 has a locale.c codegen bug), python 3.12.5, bison 3.8.2, flex 2.6.4, gperf 3.1, pkgconf 2.3.0, libxcrypt 4.4.36 (provides `crypt()` which glibc-2.40 dropped).
+- **Chroot temp-tools**: m4 1.4.20 (1.4.19 has a glibc-2.40 gnulib bug), perl 5.38.2 (5.40 has a locale.c codegen bug), bison 3.8.2, flex 2.6.4, gperf 3.1, pkgconf 2.3.0, libxcrypt 4.4.36 (provides `crypt()` which glibc-2.40 dropped).
 - **Base**: bash 5.2.32, coreutils 9.5, util-linux 2.40.2, shadow 4.16.0 (`--without-libbsd`), openssh 9.9p1, openssl 3.3.2, sysvinit 3.10, eudev 3.2.14, grub 2.12.
-- **Deferred**: dbus, elogind, iputils — meson-based; need Python+meson which we haven't bootstrapped. iputils gives us `ping`; the others are session/IPC. The image boots and runs SSH/network without them.
+- **Not in the base**: dbus, elogind and iputils are deliberately absent. dbus and elogind are declared in `nix/desktop.nix` (ADR-025); `ping` comes from the Nix userland. Issue #161 removed their manifest entries, which were downloaded on every build and never compiled.
 
 ## Why the build looks the way it does (key non-obvious choices)
 
@@ -107,9 +107,9 @@ Each of these took an iteration to find; they're documented in the code where th
 
 7. **`03b-chroot-inner.sh` exports `FORCE_UNSAFE_CONFIGURE=1`** — coreutils' configure refuses to run as root without this. The chroot stage is necessarily root (we just `chroot`'d in without dropping privileges, per LFS chapter 7 convention).
 
-8. **`03b-chroot-inner.sh` patches `Modules/_uuidmodule.c` in the Python build** — configure detects `HAVE_UUID_GENERATE_TIME_SAFE` via a link test, but our libuuid's `<uuid/uuid.h>` doesn't expose the prototype. C11 treats the implicit declaration as a hard error. We prepend `#include <uuid/uuid.h>` + an explicit `extern int uuid_generate_time_safe(unsigned char *out);` before the function uses it.
+8. **The base builds no Python, meson or ninja** — they existed only to build `usbutils`, which issue #161 removed along with `libusb` and `hwdata`. Anything needing a meson project builds it in Nix, on the runner, not in the chroot.
 
-9. **`04-finalize.sh` chmod -x's `rc.dbus` and `rc.elogind`** — those services are deferred (meson/python bootstrap not done). Leaving the scripts +x would just spam errors on every boot when rc.M tries to start nonexistent binaries.
+9. **`04-finalize.sh` chmod -x's `rc.dbus` and `rc.elogind`** — their binaries live in the desktop system profile, not the base. `images/gnunix-desktop/build.sh` chmod +x's both once that profile is in place. Leaving them +x in the base would spam errors on every boot when rc.M tries to start binaries that aren't there.
 
 10. **`04-finalize.sh` creates `/var/lib/dhcpcd` with uid/gid 52** — dhcpcd drops privileges to a `dhcpcd` user (seeded in `03b-chroot-inner.sh`'s `/etc/passwd` and `/etc/group`) and chdirs to its home. Without the dir, dhcpcd silently fails to acquire a lease — no network, no smoke test pass.
 
@@ -141,7 +141,7 @@ These are all handled by the current pipeline. They're listed here so a future b
 - **`temp-tools` package error "Assumed value of MB_LEN_MAX wrong" or "PATH_MAX undeclared"** → cross-toolchain header chain. See item 1 above.
 - **`chroot` failing on shadow with "readpassphrase() is missing"** → shadow ≥4.16 wants libbsd's readpassphrase. LFS uses `--without-libbsd`. See `03b-chroot-inner.sh`'s shadow block.
 - **`chroot` failing on util-linux with "liblastlog2 selected, but required sqlite3"** → util-linux's generic configure pulls in liblastlog2 which needs sqlite3. We pass `--disable-liblastlog2`.
-- **`chroot` failing on Python 5.40.0's `locale.c`** → `PERL_LC_ALL_CATEGORY_POSITIONS_INIT` codegen bug. Pin to 5.38.2 (LTS line).
+- **`chroot` failing on perl 5.40.0's `locale.c`** → `PERL_LC_ALL_CATEGORY_POSITIONS_INIT` codegen bug. Pin to 5.38.2 (LTS line).
 - **`finalize` produces a kernel that won't boot ("VFS: Unable to mount root fs on unknown-block(0,0)")** → kernel cmdline used `root=LABEL=...` but virtio-blk probes after kernel tries to mount. See item 11.
 - **Image boots but `tart ip` returns "no IP address found"** → Apple's bootpd doesn't log dhcpcd-style leases. See item 14.
 - **Smoke test gets "Permission denied (publickey,password,keyboard-interactive)"** → host SSH key not installed in /root. See item 12; check `~/.ssh/id_ed25519.pub` exists before running `build-all.sh`.
@@ -151,5 +151,5 @@ These are all handled by the current pipeline. They're listed here so a future b
 With `gnunix-base-0.1.0` booting and SSH-reachable:
 
 1. Install the multi-user Nix daemon (ADR-003) — the static base now delegates userland to dynamic Nix.
-2. Bring back dbus + elogind via either a meson/python bootstrap in stage 2, or a Nix-managed install in stage 3.
+2. dbus + elogind arrive with `gnunix-desktop`, from `nix/desktop.nix` (ADR-025). They are not coming back to the LFS base.
 3. Move to Phase 4 (Wayland session via `gnunix-desktop`).
