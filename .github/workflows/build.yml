@@ -383,9 +383,135 @@ jobs:
          with:
           name: gnunix-base-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
+       - name: Compute Nix store cache key
+         id: nixkey
+         run: |
+          set -eu
+          VER="${{ needs.meta.outputs.version }}"
+            # flake.lock pins nixpkgs to one revision, so it alone decides
+            # which store paths `nix build` has to produce. flake.nix and
+            # nix/** deliberately do NOT key this cache: the Nix store is
+            # addressed by derivation hash and is purely additive, so a store
+            # restored from an older profile definition can only ever be
+            # MISSING paths -- nix then builds or substitutes them. It cannot
+            # serve a wrong one. That is the opposite of the LFS tree, whose
+            # .done markers make a stale restore skip real work.
+          LOCK=$(sha256sum flake.lock 2>/dev/null | awk '{print $1}')
+          LOCK=${LOCK:-nolock}
+          echo "key=nix-store-minimal-${VER}-${LOCK}" >> "$GITHUB_OUTPUT"
+            # No restore-keys. This is the first job in the chain to use
+            # Nix, so there is no predecessor to inherit from, and a
+            # `nix-store-minimal-${VER}-` self-prefix fallback is exactly the
+            # shape that poisoned main in #146.
+          echo "restore=" >> "$GITHUB_OUTPUT"
+       - name: Restore Nix store cache
+         id: nixcache
+         uses: actions/cache/restore@v4
+         with:
+          key: ${{ steps.nixkey.outputs.key }}
+          restore-keys: ${{ steps.nixkey.outputs.restore }}
+            # A workspace tarball, not /nix itself. Same constraint as the
+            # LFS stages (scripts/ci-lfs-cache.sh): actions/cache runs as the
+            # unprivileged `runner` user, so it can neither write root-owned
+            # /nix nor preserve store-path ownership on the way back.
+          path: cache/nix-store.tzst
+       - name: Provide Nix
+         run: |
+          set -eu
+            # 1. Unpack a cached /nix, if the restore found one. Root does the
+            #    extraction so ownership survives the round trip.
+          if [ -f cache/nix-store.tzst ]; then
+            sudo tar --use-compress-program=unzstd -xf cache/nix-store.tzst -C /
+          fi
+          NIX_VER=$(jq -r .nix.binary_version tools/manifest.json)
+          set -- /nix/store/*-nix-"$NIX_VER"/bin/nix
+          NIX_BIN=$1
+            # 2. Install only if the cache did not already provide it.
+            #
+            #    Pinned to tools/manifest.json .nix.binary_url -- the exact
+            #    tarball gnunix-minimal installs into the image, verified
+            #    against .nix.binary_sha256. Version parity is not cosmetic:
+            #    `nix copy --no-check-sigs --to "$MNT"` writes a store that
+            #    the image's own nix reads back, and the store DB schema is
+            #    version-bound. A floating installer (cachix/install-nix-action
+            #    defaults to whatever is current) would put a newer nix on the
+            #    runner than the one in the image, which is how you get a
+            #    store the target cannot open.
+          if [ ! -x "$NIX_BIN" ]; then
+            URL=$(jq -r .nix.binary_url tools/manifest.json)
+            SHA=$(jq -r .nix.binary_sha256 tools/manifest.json)
+            curl -fsSL --retry 3 -o /tmp/nix.tar.xz "$URL"
+            echo "$SHA  /tmp/nix.tar.xz" | sha256sum -c -
+            mkdir -p /tmp/nix-unpack
+            tar -xJf /tmp/nix.tar.xz -C /tmp/nix-unpack
+            set -- /tmp/nix-unpack/nix-"$NIX_VER"-*
+            UNPACK=$1
+              # The tarball's own ./install is skipped on purpose: it is
+              # interactive about an existing /nix, edits root's shell
+              # profile, and branches on daemon-vs-single-user. These two
+              # lines are what it does underneath -- copy the closure in,
+              # then register it in the store DB.
+            sudo mkdir -p /nix/store /nix/var/nix
+            sudo cp -a "$UNPACK"/store/* /nix/store/
+            set -- /nix/store/*-nix-"$NIX_VER"/bin/nix
+            NIX_BIN=$1
+              # root does the redirect too: the store DB it writes is
+              # root-owned, and `sudo cmd < file` would open .reginfo as the
+              # runner user instead (SC2024).
+            sudo sh -c 'exec "$1" --load-db < "$2"' _ \
+                "${NIX_BIN%/nix}/nix-store" "$UNPACK/.reginfo"
+          fi
+            # 3. sudo resets PATH to secure_path, and the image build scripts
+            #    are invoked as `sudo bash images/.../build.sh`. /usr/local/bin
+            #    is on secure_path; a store path is not. Re-linked on every run
+            #    because these live outside /nix and so are not in the cache.
+          for t in nix nix-store nix-env nix-build nix-shell; do
+            sudo ln -sf "${NIX_BIN%/nix}/$t" "/usr/local/bin/$t"
+          done
+            # 4. The build scripts call `nix build .#<profile>`, which needs
+            #    both experimental features. build-users-group is emptied on
+            #    purpose: this is a single-user root install on a throwaway
+            #    runner with no nixbld1..32, and a group naming users that do
+            #    not exist fails every build. The IMAGE keeps the multi-user
+            #    setup ADR-003 defines; this file is the runner's, not its.
+          sudo mkdir -p /etc/nix
+          printf '%s\n' \
+              'experimental-features = nix-command flakes' \
+              'build-users-group =' \
+              'max-jobs = auto' \
+              | sudo tee /etc/nix/nix.conf >/dev/null
+          sudo nix --version
        - name: Build gnunix-minimal
          run: |
           sudo bash images/gnunix-minimal/build.sh --ci
+       - name: Pack the Nix store
+         id: nixpack
+         if: steps.nixcache.outputs.cache-hit != 'true'
+         run: |
+          set -eu
+          mkdir -p cache
+          sudo tar --use-compress-program='zstd -3 -T0' -cf cache/nix-store.tzst -C / nix
+          sudo chown "$(id -u):$(id -g)" cache/nix-store.tzst
+          ls -lh cache/nix-store.tzst
+            # GitHub evicts caches LRU against a 10 GB per-REPOSITORY budget,
+            # and the four LFS stage caches already hold most of it. Those
+            # cost hours to rebuild; this one costs minutes off
+            # cache.nixos.org. So refuse to save a store large enough to
+            # evict them -- a missing Nix cache is slow, a missing LFS cache
+            # is a rebuild of the whole toolchain.
+          SZ=$(stat -c %s cache/nix-store.tzst)
+          if [ "$SZ" -gt $((1500 * 1024 * 1024)) ]; then
+            echo "store cache is $((SZ / 1024 / 1024)) MB, over the 1500 MB budget - not saving"
+            echo "save=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "save=true" >> "$GITHUB_OUTPUT"
+          fi
+       - name: Save Nix store cache
+         if: steps.nixcache.outputs.cache-hit != 'true' && steps.nixpack.outputs.save == 'true'
+         uses: actions/cache/save@v4
+         with:
+          key: ${{ steps.nixkey.outputs.key }}
+          path: cache/nix-store.tzst
        - name: Compress + upload
          run: |
           set -eu
@@ -417,9 +543,137 @@ jobs:
          with:
           name: gnunix-minimal-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
+       - name: Compute Nix store cache key
+         id: nixkey
+         run: |
+          set -eu
+          VER="${{ needs.meta.outputs.version }}"
+            # flake.lock pins nixpkgs to one revision, so it alone decides
+            # which store paths `nix build` has to produce. flake.nix and
+            # nix/** deliberately do NOT key this cache: the Nix store is
+            # addressed by derivation hash and is purely additive, so a store
+            # restored from an older profile definition can only ever be
+            # MISSING paths -- nix then builds or substitutes them. It cannot
+            # serve a wrong one. That is the opposite of the LFS tree, whose
+            # .done markers make a stale restore skip real work.
+          LOCK=$(sha256sum flake.lock 2>/dev/null | awk '{print $1}')
+          LOCK=${LOCK:-nolock}
+          echo "key=nix-store-desktop-${VER}-${LOCK}" >> "$GITHUB_OUTPUT"
+            # Fall back ONLY to the predecessor job, never to an older
+            # build of this same job's key. The fallback carries the FULL
+            # lock hash, not a `nix-store-minimal-${VER}-` prefix, so it can
+            # never match a store built against a different nixpkgs
+            # revision -- and never a previous run of this job. That is the
+            # shape that poisoned main in #146.
+          echo "restore=nix-store-minimal-${VER}-${LOCK}" >> "$GITHUB_OUTPUT"
+       - name: Restore Nix store cache
+         id: nixcache
+         uses: actions/cache/restore@v4
+         with:
+          key: ${{ steps.nixkey.outputs.key }}
+          restore-keys: ${{ steps.nixkey.outputs.restore }}
+            # A workspace tarball, not /nix itself. Same constraint as the
+            # LFS stages (scripts/ci-lfs-cache.sh): actions/cache runs as the
+            # unprivileged `runner` user, so it can neither write root-owned
+            # /nix nor preserve store-path ownership on the way back.
+          path: cache/nix-store.tzst
+       - name: Provide Nix
+         run: |
+          set -eu
+            # 1. Unpack a cached /nix, if the restore found one. Root does the
+            #    extraction so ownership survives the round trip.
+          if [ -f cache/nix-store.tzst ]; then
+            sudo tar --use-compress-program=unzstd -xf cache/nix-store.tzst -C /
+          fi
+          NIX_VER=$(jq -r .nix.binary_version tools/manifest.json)
+          set -- /nix/store/*-nix-"$NIX_VER"/bin/nix
+          NIX_BIN=$1
+            # 2. Install only if the cache did not already provide it.
+            #
+            #    Pinned to tools/manifest.json .nix.binary_url -- the exact
+            #    tarball gnunix-minimal installs into the image, verified
+            #    against .nix.binary_sha256. Version parity is not cosmetic:
+            #    `nix copy --no-check-sigs --to "$MNT"` writes a store that
+            #    the image's own nix reads back, and the store DB schema is
+            #    version-bound. A floating installer (cachix/install-nix-action
+            #    defaults to whatever is current) would put a newer nix on the
+            #    runner than the one in the image, which is how you get a
+            #    store the target cannot open.
+          if [ ! -x "$NIX_BIN" ]; then
+            URL=$(jq -r .nix.binary_url tools/manifest.json)
+            SHA=$(jq -r .nix.binary_sha256 tools/manifest.json)
+            curl -fsSL --retry 3 -o /tmp/nix.tar.xz "$URL"
+            echo "$SHA  /tmp/nix.tar.xz" | sha256sum -c -
+            mkdir -p /tmp/nix-unpack
+            tar -xJf /tmp/nix.tar.xz -C /tmp/nix-unpack
+            set -- /tmp/nix-unpack/nix-"$NIX_VER"-*
+            UNPACK=$1
+              # The tarball's own ./install is skipped on purpose: it is
+              # interactive about an existing /nix, edits root's shell
+              # profile, and branches on daemon-vs-single-user. These two
+              # lines are what it does underneath -- copy the closure in,
+              # then register it in the store DB.
+            sudo mkdir -p /nix/store /nix/var/nix
+            sudo cp -a "$UNPACK"/store/* /nix/store/
+            set -- /nix/store/*-nix-"$NIX_VER"/bin/nix
+            NIX_BIN=$1
+              # root does the redirect too: the store DB it writes is
+              # root-owned, and `sudo cmd < file` would open .reginfo as the
+              # runner user instead (SC2024).
+            sudo sh -c 'exec "$1" --load-db < "$2"' _ \
+                "${NIX_BIN%/nix}/nix-store" "$UNPACK/.reginfo"
+          fi
+            # 3. sudo resets PATH to secure_path, and the image build scripts
+            #    are invoked as `sudo bash images/.../build.sh`. /usr/local/bin
+            #    is on secure_path; a store path is not. Re-linked on every run
+            #    because these live outside /nix and so are not in the cache.
+          for t in nix nix-store nix-env nix-build nix-shell; do
+            sudo ln -sf "${NIX_BIN%/nix}/$t" "/usr/local/bin/$t"
+          done
+            # 4. The build scripts call `nix build .#<profile>`, which needs
+            #    both experimental features. build-users-group is emptied on
+            #    purpose: this is a single-user root install on a throwaway
+            #    runner with no nixbld1..32, and a group naming users that do
+            #    not exist fails every build. The IMAGE keeps the multi-user
+            #    setup ADR-003 defines; this file is the runner's, not its.
+          sudo mkdir -p /etc/nix
+          printf '%s\n' \
+              'experimental-features = nix-command flakes' \
+              'build-users-group =' \
+              'max-jobs = auto' \
+              | sudo tee /etc/nix/nix.conf >/dev/null
+          sudo nix --version
        - name: Build gnunix-desktop
          run: |
           sudo bash images/gnunix-desktop/build.sh --ci
+       - name: Pack the Nix store
+         id: nixpack
+         if: steps.nixcache.outputs.cache-hit != 'true'
+         run: |
+          set -eu
+          mkdir -p cache
+          sudo tar --use-compress-program='zstd -3 -T0' -cf cache/nix-store.tzst -C / nix
+          sudo chown "$(id -u):$(id -g)" cache/nix-store.tzst
+          ls -lh cache/nix-store.tzst
+            # GitHub evicts caches LRU against a 10 GB per-REPOSITORY budget,
+            # and the four LFS stage caches already hold most of it. Those
+            # cost hours to rebuild; this one costs minutes off
+            # cache.nixos.org. So refuse to save a store large enough to
+            # evict them -- a missing Nix cache is slow, a missing LFS cache
+            # is a rebuild of the whole toolchain.
+          SZ=$(stat -c %s cache/nix-store.tzst)
+          if [ "$SZ" -gt $((1500 * 1024 * 1024)) ]; then
+            echo "store cache is $((SZ / 1024 / 1024)) MB, over the 1500 MB budget - not saving"
+            echo "save=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "save=true" >> "$GITHUB_OUTPUT"
+          fi
+       - name: Save Nix store cache
+         if: steps.nixcache.outputs.cache-hit != 'true' && steps.nixpack.outputs.save == 'true'
+         uses: actions/cache/save@v4
+         with:
+          key: ${{ steps.nixkey.outputs.key }}
+          path: cache/nix-store.tzst
        - name: Compress + upload
          run: |
           set -eu
@@ -452,9 +706,137 @@ jobs:
          with:
           name: gnunix-minimal-${{ needs.meta.outputs.arch }}-${{ needs.meta.outputs.version }}
           path: cache/artifacts/
+       - name: Compute Nix store cache key
+         id: nixkey
+         run: |
+          set -eu
+          VER="${{ needs.meta.outputs.version }}"
+            # flake.lock pins nixpkgs to one revision, so it alone decides
+            # which store paths `nix build` has to produce. flake.nix and
+            # nix/** deliberately do NOT key this cache: the Nix store is
+            # addressed by derivation hash and is purely additive, so a store
+            # restored from an older profile definition can only ever be
+            # MISSING paths -- nix then builds or substitutes them. It cannot
+            # serve a wrong one. That is the opposite of the LFS tree, whose
+            # .done markers make a stale restore skip real work.
+          LOCK=$(sha256sum flake.lock 2>/dev/null | awk '{print $1}')
+          LOCK=${LOCK:-nolock}
+          echo "key=nix-store-installer-${VER}-${LOCK}" >> "$GITHUB_OUTPUT"
+            # Fall back ONLY to the predecessor job, never to an older
+            # build of this same job's key. The fallback carries the FULL
+            # lock hash, not a `nix-store-minimal-${VER}-` prefix, so it can
+            # never match a store built against a different nixpkgs
+            # revision -- and never a previous run of this job. That is the
+            # shape that poisoned main in #146.
+          echo "restore=nix-store-minimal-${VER}-${LOCK}" >> "$GITHUB_OUTPUT"
+       - name: Restore Nix store cache
+         id: nixcache
+         uses: actions/cache/restore@v4
+         with:
+          key: ${{ steps.nixkey.outputs.key }}
+          restore-keys: ${{ steps.nixkey.outputs.restore }}
+            # A workspace tarball, not /nix itself. Same constraint as the
+            # LFS stages (scripts/ci-lfs-cache.sh): actions/cache runs as the
+            # unprivileged `runner` user, so it can neither write root-owned
+            # /nix nor preserve store-path ownership on the way back.
+          path: cache/nix-store.tzst
+       - name: Provide Nix
+         run: |
+          set -eu
+            # 1. Unpack a cached /nix, if the restore found one. Root does the
+            #    extraction so ownership survives the round trip.
+          if [ -f cache/nix-store.tzst ]; then
+            sudo tar --use-compress-program=unzstd -xf cache/nix-store.tzst -C /
+          fi
+          NIX_VER=$(jq -r .nix.binary_version tools/manifest.json)
+          set -- /nix/store/*-nix-"$NIX_VER"/bin/nix
+          NIX_BIN=$1
+            # 2. Install only if the cache did not already provide it.
+            #
+            #    Pinned to tools/manifest.json .nix.binary_url -- the exact
+            #    tarball gnunix-minimal installs into the image, verified
+            #    against .nix.binary_sha256. Version parity is not cosmetic:
+            #    `nix copy --no-check-sigs --to "$MNT"` writes a store that
+            #    the image's own nix reads back, and the store DB schema is
+            #    version-bound. A floating installer (cachix/install-nix-action
+            #    defaults to whatever is current) would put a newer nix on the
+            #    runner than the one in the image, which is how you get a
+            #    store the target cannot open.
+          if [ ! -x "$NIX_BIN" ]; then
+            URL=$(jq -r .nix.binary_url tools/manifest.json)
+            SHA=$(jq -r .nix.binary_sha256 tools/manifest.json)
+            curl -fsSL --retry 3 -o /tmp/nix.tar.xz "$URL"
+            echo "$SHA  /tmp/nix.tar.xz" | sha256sum -c -
+            mkdir -p /tmp/nix-unpack
+            tar -xJf /tmp/nix.tar.xz -C /tmp/nix-unpack
+            set -- /tmp/nix-unpack/nix-"$NIX_VER"-*
+            UNPACK=$1
+              # The tarball's own ./install is skipped on purpose: it is
+              # interactive about an existing /nix, edits root's shell
+              # profile, and branches on daemon-vs-single-user. These two
+              # lines are what it does underneath -- copy the closure in,
+              # then register it in the store DB.
+            sudo mkdir -p /nix/store /nix/var/nix
+            sudo cp -a "$UNPACK"/store/* /nix/store/
+            set -- /nix/store/*-nix-"$NIX_VER"/bin/nix
+            NIX_BIN=$1
+              # root does the redirect too: the store DB it writes is
+              # root-owned, and `sudo cmd < file` would open .reginfo as the
+              # runner user instead (SC2024).
+            sudo sh -c 'exec "$1" --load-db < "$2"' _ \
+                "${NIX_BIN%/nix}/nix-store" "$UNPACK/.reginfo"
+          fi
+            # 3. sudo resets PATH to secure_path, and the image build scripts
+            #    are invoked as `sudo bash images/.../build.sh`. /usr/local/bin
+            #    is on secure_path; a store path is not. Re-linked on every run
+            #    because these live outside /nix and so are not in the cache.
+          for t in nix nix-store nix-env nix-build nix-shell; do
+            sudo ln -sf "${NIX_BIN%/nix}/$t" "/usr/local/bin/$t"
+          done
+            # 4. The build scripts call `nix build .#<profile>`, which needs
+            #    both experimental features. build-users-group is emptied on
+            #    purpose: this is a single-user root install on a throwaway
+            #    runner with no nixbld1..32, and a group naming users that do
+            #    not exist fails every build. The IMAGE keeps the multi-user
+            #    setup ADR-003 defines; this file is the runner's, not its.
+          sudo mkdir -p /etc/nix
+          printf '%s\n' \
+              'experimental-features = nix-command flakes' \
+              'build-users-group =' \
+              'max-jobs = auto' \
+              | sudo tee /etc/nix/nix.conf >/dev/null
+          sudo nix --version
        - name: Build gnunix-installer
          run: |
           sudo bash images/installer/build.sh --ci
+       - name: Pack the Nix store
+         id: nixpack
+         if: steps.nixcache.outputs.cache-hit != 'true'
+         run: |
+          set -eu
+          mkdir -p cache
+          sudo tar --use-compress-program='zstd -3 -T0' -cf cache/nix-store.tzst -C / nix
+          sudo chown "$(id -u):$(id -g)" cache/nix-store.tzst
+          ls -lh cache/nix-store.tzst
+            # GitHub evicts caches LRU against a 10 GB per-REPOSITORY budget,
+            # and the four LFS stage caches already hold most of it. Those
+            # cost hours to rebuild; this one costs minutes off
+            # cache.nixos.org. So refuse to save a store large enough to
+            # evict them -- a missing Nix cache is slow, a missing LFS cache
+            # is a rebuild of the whole toolchain.
+          SZ=$(stat -c %s cache/nix-store.tzst)
+          if [ "$SZ" -gt $((1500 * 1024 * 1024)) ]; then
+            echo "store cache is $((SZ / 1024 / 1024)) MB, over the 1500 MB budget - not saving"
+            echo "save=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "save=true" >> "$GITHUB_OUTPUT"
+          fi
+       - name: Save Nix store cache
+         if: steps.nixcache.outputs.cache-hit != 'true' && steps.nixpack.outputs.save == 'true'
+         uses: actions/cache/save@v4
+         with:
+          key: ${{ steps.nixkey.outputs.key }}
+          path: cache/nix-store.tzst
        - name: Compress + upload
          run: |
           set -eu

@@ -8,9 +8,10 @@
 # ISO. ISO comes out, build VM is discarded.
 #
 # Per ADR-021: --ci runs on a local disk image (no Tart).
-# The image is loop-mounted, the installer payload is staged,
-# the live environment is provisioned via chroot + nix-env,
-# and the ISO is assembled via mkiso.sh.
+# The image is loop-mounted, the installer payload is staged, the
+# live environment's two Nix profiles are built on the runner from
+# the flake and their closures copied in (ADR-025), and the ISO is
+# assembled via mkiso.sh.
 
 set -euo pipefail
 
@@ -35,8 +36,8 @@ if [ "$CI_MODE" = "1" ]; then
   # === CI mode: work on a local disk image ===
   #
   # The minimal image is a zstd-compressed artifact. We decompress
-  # it, loop-mount the partitions, stage the installer payload,
-  # provision the live environment, and assemble the ISO.
+  # it, loop-mount the partitions, stage the installer payload, move
+  # the Nix closures in from the runner's store, and assemble the ISO.
 
   echo "[build-installer-ci] CI mode — provisioning installer on disk image"
 
@@ -107,8 +108,9 @@ if [ "$CI_MODE" = "1" ]; then
 
   mount "$ROOT_PART" "$MNT"
 
-  # nix-env needs the kernel filesystems: /proc/self/exe, /dev/null and a
-  # pty for its progress output.
+  # Nix no longer builds anything in here -- both profiles are built on the
+  # runner and copied in. The binds stay for the chroot(1) calls below,
+  # which resolve binaries out of the image and need /proc and /dev to do it.
   mount --bind /dev     "$MNT/dev"
   mount --bind /dev/pts "$MNT/dev/pts"
   mount -t proc  proc   "$MNT/proc"
@@ -141,71 +143,45 @@ if [ "$CI_MODE" = "1" ]; then
     cp -a "$REPO_ROOT/images/installer/$d" "$BUILD_PAYLOAD/$d"
   done
 
-  # Install the TUI package (newt/whiptail) into the system profile.
-  echo "[build-installer-ci] installing whiptail (newt) into system profile"
-  chroot "$MNT" /bin/bash <<'PROVISION_EOF'
-set -euo pipefail
-export NIX_STORE_DIR=/nix/store
-export NIX_STATE_DIR=/nix/var/nix
-# NOT daemon: nix-daemon is not running inside this chroot, and a daemon
-# connection fails with "cannot connect to socket at
-# '/nix/var/nix/daemon-socket/socket'". We are root, so use the local store.
-export NIX_REMOTE=
-# Nix's sandbox sets each build up with pivot_root(2), which fails with
-# EINVAL inside a chroot:
-#   error: cannot pivot old root directory onto
-#          '/nix/store/...-nixpkgs-25.11.drv.chroot/root/real-root'
-# NIX_CONFIG applies to every nix call below without touching the image's
-# own /etc/nix/nix.conf, which keeps sandbox = true for the running system.
-export NIX_CONFIG="sandbox = false"
-export PATH=/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-export HOME=/root
-export USER=root
-# -iA nixpkgs.<attr> resolves against the nixpkgs channel, which the base
-# image does not subscribe to. Without this the build fails with
-#   error: attribute 'nixpkgs' in selection path 'nixpkgs.newt' not found
-nix-channel --add "https://nixos.org/channels/nixos-25.11" nixpkgs
-nix-channel --update
-nix-env -p /nix/var/nix/profiles/system -iA nixpkgs.newt 2>&1 | tail -3 || true
-PROVISION_EOF
+  # Build both profiles on the runner (native aarch64), then move their
+  # closures into the image. ADR-025: the provisioning nix runs no longer
+  # happen inside the chroot, which retires the whole failure class around
+  # them -- no channel to subscribe to, no pivot_root sandbox error, no
+  # daemon socket to miss.
+  # installerProfile is the live system's runtime (whiptail et al);
+  # installerBuildTools is the ISO assembly toolchain mkiso.sh needs.
+  echo "[build-installer-ci] building installer profiles on the runner"
+  OUT_SYS=$(nix build --no-link --print-out-paths "$REPO_ROOT#installerProfile")
+  OUT_TOOLS=$(nix build --no-link --print-out-paths "$REPO_ROOT#installerBuildTools")
 
-  # Install ISO build tools into a separate Nix profile.
-  echo "[build-installer-ci] installing ISO build tools"
-  chroot "$MNT" /bin/bash <<'TOOLS_EOF'
-set -euo pipefail
-export NIX_STORE_DIR=/nix/store
-export NIX_STATE_DIR=/nix/var/nix
-export NIX_REMOTE=
-# Nix's sandbox sets each build up with pivot_root(2), which fails with
-# EINVAL inside a chroot:
-#   error: cannot pivot old root directory onto
-#          '/nix/store/...-nixpkgs-25.11.drv.chroot/root/real-root'
-# NIX_CONFIG applies to every nix call below without touching the image's
-# own /etc/nix/nix.conf, which keeps sandbox = true for the running system.
-export NIX_CONFIG="sandbox = false"
-export PATH=/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/installer-build/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-export HOME=/root
-export USER=root
-BUILD_PROFILE=/nix/var/nix/profiles/installer-build
-# Parent only -- nix-env -p makes $BUILD_PROFILE a symlink itself.
-mkdir -p "$(dirname "$BUILD_PROFILE")"
-nix-env -p "$BUILD_PROFILE" \
-    -iA nixpkgs.xorriso \
-      nixpkgs.squashfsTools \
-      nixpkgs.cpio \
-      nixpkgs.mtools \
-      nixpkgs.dosfstools \
-      nixpkgs.busybox \
-      nixpkgs.grub2 \
-        2>&1 | tail -5 || true
-TOOLS_EOF
+  # `nix copy --to <dir>` writes a local store rooted at that directory,
+  # which is exactly the mounted image.
+  echo "[build-installer-ci] copying closures into the image"
+  echo "  system:          $OUT_SYS"
+  echo "  installer-build: $OUT_TOOLS"
+  nix copy --no-check-sigs --to "$MNT" "$OUT_SYS" "$OUT_TOOLS"
 
-  # Sanity-check the tools.
+  # --set replaces each profile atomically with the derivation we built
+  # instead of stacking generations. Two variables from the runner are
+  # wrong on the other side of the chroot and must be overridden: $HOME
+  # does not exist inside the image, and a NIX_REMOTE=daemon inherited
+  # from the runner sends nix-env after a socket that nothing is
+  # listening on in there.
+  IMG_NIX_ENV=/nix/var/nix/profiles/default/bin/nix-env
+  chroot "$MNT" /usr/bin/env HOME=/root NIX_REMOTE= "$IMG_NIX_ENV" \
+      --profile /nix/var/nix/profiles/system --set "$OUT_SYS"
+  chroot "$MNT" /usr/bin/env HOME=/root NIX_REMOTE= "$IMG_NIX_ENV" \
+      --profile /nix/var/nix/profiles/installer-build --set "$OUT_TOOLS"
+
+  # Sanity-check the tools. The profile closures are readable right here
+  # in the runner's own store, so probe $OUT_* rather than following
+  # $MNT/nix/var/nix/profiles/* -- those are symlinks to absolute
+  # /nix/store paths, which resolve against the HOST root, not the image.
   for t in sgdisk partprobe rsync blkid findmnt mkfs.vfat mkfs.ext4 \
             grub-install whiptail; do
     if ! chroot "$MNT" /bin/sh -c "command -v $t" >/dev/null 2>&1 && \
-        ! [ -x "$MNT/nix/var/nix/profiles/system/bin/$t" ] && \
-        ! [ -x "$MNT/nix/var/nix/profiles/installer-build/bin/$t" ]; then
+        ! [ -x "$OUT_SYS/bin/$t" ] && \
+        ! [ -x "$OUT_TOOLS/bin/$t" ]; then
       echo "[build-installer-ci] WARN: $t not found in any profile"
     fi
   done
@@ -281,7 +257,7 @@ OSRELEASE_EOF
   mount "$ROOT_PART" "$CHROOT" 2>/dev/null || true
 
   # mkiso.sh runs mksquashfs and xorriso in here, both of which need the
-  # kernel filesystems just as nix-env did above.
+  # kernel filesystems.
   mount --bind /dev     "$CHROOT/dev"     2>/dev/null || true
   mount --bind /dev/pts "$CHROOT/dev/pts" 2>/dev/null || true
   mount -t proc  proc   "$CHROOT/proc"    2>/dev/null || true
@@ -292,10 +268,13 @@ OSRELEASE_EOF
   # "ARCH: unbound variable". Pass them through env(1) instead.
   chroot "$CHROOT" /usr/bin/env ARCH="$ARCH" VER="$VER" /bin/bash <<'ISO_EOF'
 set -euo pipefail
-# mkiso.sh calls build-initramfs.sh, which realises a static busybox out
-# of nixpkgs -- so this chroot needs the same Nix environment as the two
-# provisioning blocks above. Without "sandbox = false" the profile build
-# dies the same way theirs did:
+# The exception to ADR-025: the two profiles above are built on the runner,
+# but this one nix run stays inside the chroot. build-initramfs.sh realises
+# a static busybox out of nixpkgs and is invoked by mkiso.sh from within the
+# live rootfs, so there is no runner-side entry point to hoist it to yet.
+# Converting it is separate work; until then this chroot needs a full Nix
+# environment. Without "sandbox = false" the build dies on pivot_root(2),
+# which returns EINVAL inside a chroot:
 #   error: cannot pivot old root directory onto
 #          '/nix/store/...-user-environment.drv.chroot/root/real-root'
 export NIX_STORE_DIR=/nix/store
