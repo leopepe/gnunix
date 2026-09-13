@@ -15,69 +15,103 @@ VM_OR_IMG="${1:-}"
 
 # Detect mode: if the argument is a path to a .img file, use CI mode.
 # Otherwise, treat it as a Tart VM name.
+# Shared post-boot assertions. Phase 2 minimum: sshd + a default route.
+# dbus and elogind are deferred (they need the Python/meson bootstrap), so
+# they warn rather than fail.
+SMOKE_CHECKS='
+  set -e
+  echo "uname: $(uname -a)"
+  echo "uptime: $(uptime)"
+  pidof sshd          >/dev/null || { echo "FAIL: sshd not running"; exit 4; }
+  ip route get 1.1.1.1 >/dev/null 2>&1 || { echo "FAIL: no default route"; exit 5; }
+  pidof dbus-daemon   >/dev/null || echo "WARN: dbus not running (deferred)"
+  pidof elogind       >/dev/null || echo "WARN: elogind not running (deferred)"
+  echo "[validate] PASS"
+'
+
 if [ -f "$VM_OR_IMG" ]; then
-       # CI mode: disk image path.
+    # CI mode: the argument is a disk image, booted under qemu.
+    #
+    # Per ADR-021 this runs on a GitHub-hosted arm64 runner, which has no
+    # /dev/kvm, so the guest runs under TCG emulation. Measured on probe
+    # run 34723139540: gnunix-base reaches sshd 15s after qemu starts, so
+    # TCG costs far less than assumed. VM_SSH_TIMEOUT stays generous as
+    # headroom for the larger desktop image, not because base needs it.
     . "$REPO_ROOT/scripts/vm-helpers.sh"
     VM_DRIVER=qemu
     export VM_DRIVER
 
+    command -v qemu-system-aarch64 >/dev/null || {
+        echo "FAIL: qemu-system-aarch64 not installed" >&2
+        exit 1
+    }
+
     echo "[validate] CI mode — testing disk image: $VM_OR_IMG"
 
     WORK=$(mktemp -d)
-    trap 'rm -rf "$WORK"' EXIT
+    VM="gnunix-boot-test-$$"
+    # Stop the guest and reclaim the multi-GB disk copy, but KEEP
+    # console.log and qemu.log: CI uploads them as the failure artifact,
+    # and vm_delete used to remove the whole directory first, so every
+    # failed run reported "no files were found" and shipped no evidence.
+    cleanup() {
+        vm_stop "$VM" >/dev/null 2>&1 || true
+        rm -f "$(vm_dir_path "$VM")/disk.img" \
+              "$(vm_dir_path "$VM")/efi-vars.fd" 2>/dev/null || true
+        rm -rf "$WORK"
+    }
+    trap cleanup EXIT
 
-    # Decompress if zstd.
     IMG="$VM_OR_IMG"
     case "$IMG" in
-        *.img.zst)
-      OUT="$WORK/test.img"
-      echo "[validate] decompressing $IMG → $OUT"
-      zstd -d -c "$IMG" > "$OUT"
-      IMG="$OUT"
-          ;;
+        *.zst)
+            OUT="$WORK/test.img"
+            echo "[validate] decompressing $IMG -> $OUT"
+            zstd -d -c "$IMG" > "$OUT"
+            IMG="$OUT"
+            ;;
     esac
 
-    # Boot the disk image in QEMU.
-    echo "[validate] booting disk image in QEMU"
-    # Use the Tart import path for now: import into Tart and test.
-    # TODO: full QEMU path when vm-helpers supports it.
-    # For now, fall back to Tart import.
-    if command -v tart >/dev/null 2>&1; then
-      TART_VM="gnunix-base-test-$$"
-      tart delete "$TART_VM" 2>/dev/null || true
-      tart create --linux --disk-size 20 "$TART_VM" 2>/dev/null || true
-      TART_DIR="$HOME/.tart/vms/$TART_VM"
-      cp "$IMG" "$TART_DIR/disk.img" 2>/dev/null || true
-      tart run --no-graphics "$TART_VM" >/dev/null 2>&1 &
-      TART_PID=$!
-      trap 'tart stop "$TART_VM" >/dev/null 2>&1 || true; kill $TART_PID 2>/dev/null || true; tart delete "$TART_VM" 2>/dev/null || true' EXIT
+    # Private copy, so the artifact under test is never mutated by a boot.
+    vm_import_raw "$IMG" "$VM"
 
-      echo "[validate] waiting for ssh"
-      if tart_wait_ssh "$TART_VM" root 2>/dev/null; then
-        echo "[validate] running smoke checks"
-        tart_ssh "$TART_VM" root sh -c '
-          set -e
-          echo "uname: $(uname -a)"
-          echo "uptime: $(uptime)"
-          pidof sshd          >/dev/null || { echo "FAIL: sshd not running"; exit 4; }
-          ip route get 1.1.1.1 >/dev/null 2>&1 || { echo "FAIL: no default route"; exit 5; }
-          pidof dbus-daemon   >/dev/null || echo "WARN: dbus not running (deferred)"
-          pidof elogind       >/dev/null || echo "WARN: elogind not running (deferred)"
-          echo "[validate] PASS"
-        '
-        tart stop "$TART_VM" >/dev/null 2>&1 || true
-        tart delete "$TART_VM" >/dev/null 2>&1 || true
-        exit 0
-      else
-        echo "FAIL: ssh did not become available"
-        tart stop "$TART_VM" >/dev/null 2>&1 || true
-        tart delete "$TART_VM" >/dev/null 2>&1 || true
+    # The image ships with root locked and no authorized_keys, which is
+    # correct for a published artifact. Give the COPY an ephemeral key so
+    # the test can log in; see scripts/inject-test-key.sh.
+    ssh-keygen -t ed25519 -N '' -q -f "$WORK/id" -C "gnunix-boot-test"
+    sudo "$REPO_ROOT/scripts/inject-test-key.sh" \
+        "$(vm_disk_path "$VM")" "$WORK/id.pub"
+    VM_SSH_KEY="$WORK/id"
+    export VM_SSH_KEY
+
+    dump_console() {
+        con=$(vm_console_path "$VM")
+        echo "--- guest console (last 60 lines of $con) ---" >&2
+        tail -60 "$con" 2>/dev/null || echo "(no console output captured)" >&2
+        echo "--- qemu stderr ---" >&2
+        tail -20 "$(vm_dir_path "$VM")/qemu.log" 2>/dev/null || true
+        echo "---------------------------------------------" >&2
+    }
+
+    echo "[validate] booting disk image under qemu"
+    vm_run "$VM" --detach
+
+    echo "[validate] waiting for ssh"
+    if ! vm_wait_ssh "$VM" root; then
+        echo "FAIL: ssh did not become available within ${VM_SSH_TIMEOUT}s"
+        dump_console
         exit 1
-      fi
-    else
-      echo "[validate] WARN: no Tart or QEMU available; skipping test"
-      exit 0
     fi
+
+    echo "[validate] running smoke checks"
+    if ! vm_ssh "$VM" root sh -c "$SMOKE_CHECKS"; then
+        echo "FAIL: smoke checks failed"
+        dump_console
+        exit 1
+    fi
+
+    vm_stop "$VM" >/dev/null 2>&1 || true
+    exit 0
 fi
 
 # Tart path (local Mac).
@@ -91,21 +125,9 @@ trap 'vm_stop "$VM" >/dev/null 2>&1 || true; kill $TART_PID 2>/dev/null || true'
 
 echo "[validate] waiting for ssh"
 if ! vm_wait_ssh "$VM" root; then
-  echo "FAIL: ssh did not become available within 120s"
+  echo "FAIL: ssh did not become available"
   exit 1
 fi
 
 echo "[validate] running smoke checks"
-vm_ssh "$VM" root sh -c '
-  set -e
-  echo "uname: $(uname -a)"
-  echo "uptime: $(uptime)"
-   # Phase 2 minimum criteria: sshd + default route. dbus + elogind are
-   # deferred to a later phase (need Python/meson bootstrap); they get
-   # a warning if absent but do not fail the smoke test.
-  pidof sshd          >/dev/null || { echo "FAIL: sshd not running"; exit 4; }
-  ip route get 1.1.1.1 >/dev/null 2>&1 || { echo "FAIL: no default route"; exit 5; }
-  pidof dbus-daemon   >/dev/null || echo "WARN: dbus not running (deferred)"
-  pidof elogind       >/dev/null || echo "WARN: elogind not running (deferred)"
-  echo "[validate] PASS"
-'
+vm_ssh "$VM" root sh -c "$SMOKE_CHECKS"

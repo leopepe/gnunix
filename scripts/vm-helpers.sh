@@ -48,103 +48,103 @@ case "$VM_DRIVER" in
     vm_dir_path() { printf '%s\n' "$HOME/.tart/vms/$1"; }
      ;;
   qemu)
-    # Linux/CI path. qemu-system-aarch64 + KVM. Per-VM state lives
-    # under $REPO_ROOT/cache/vms/<name>/ (disk.qcow2 + config + pid).
+    # Linux/CI path: qemu-system-aarch64 under TCG.
     #
-    # The QEMU path works with raw disk images (the portable artifact
-    # format). Each VM gets its own qcow2 overlay backed by a shared
-    # base image — clones are O(1) copy-on-write, not byte-copy.
+    # NOT KVM. ADR-016 and ADR-021 both say "qemu+KVM", but GitHub's
+    # ubuntu-22.04-arm runners expose no /dev/kvm (probed 2026-09-12),
+    # so the only available accelerator is TCG. Emulation is roughly an
+    # order of magnitude slower than native, which is why the SSH wait
+    # below is minutes rather than seconds.
     #
-    # Networking: qemu user-mode with virtio-net. Port 22 on the guest
-    # is forwarded to port 2222 on the host (-redir tcp:2222::22).
-    # The vm_* functions use 127.0.0.1:2222 for all SSH.
+    # Boot method: the gnunix-base artifact is a GPT disk with an EFI
+    # system partition and GRUB in it (ADR-006), so it boots the way real
+    # hardware would — through UEFI firmware (AAVMF/edk2) on pflash.
+    # An earlier version tried to locate a kernel inside the image and
+    # pass -kernel; that could not work (it ran `find` against unmounted
+    # block devices, and `losetup --parted` is not a flag), and it also
+    # bypassed the bootloader the image exists to exercise.
     #
-    # Disk images: qcow2 with backing-file support. The base image
-    # (decompressed .img) is the read-only backing; each VM gets a
-    # thin-provisioned qcow2 overlay.
+    # Networking: qemu user-mode, guest :22 forwarded to $VM_SSH_PORT.
+    # Console: captured to <vmdir>/console.log — the only diagnostic
+    # available when a guest fails to come up.
 
     _VM_BASE_DIR="${REPO_ROOT:-.}/cache/vms"
+    : "${VM_SSH_PORT:=2222}"
+    : "${VM_SSH_KEY:=}"
+    : "${VM_SSH_TIMEOUT:=600}"
+    : "${VM_EFI_CODE:=/usr/share/AAVMF/AAVMF_CODE.fd}"
+    : "${VM_EFI_VARS:=/usr/share/AAVMF/AAVMF_VARS.fd}"
+    : "${VM_MEM_MB:=2048}"
+    # Referenced unquoted in the qemu argv below for deliberate word
+    # splitting. Without a default, `set -u` kills the launch subshell
+    # before qemu ever execs — which is exactly what run 34719707628 hit.
+    : "${QEMU_EXTRA_ARGS:=}"
 
-    _qemu_img() {
-      qemu-img "$@" || { echo "[vm-helpers] qemu-img failed" >&2; return 1; }
+    _vm_ssh_opts() {
+      printf '%s' "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
+      [ -n "$VM_SSH_KEY" ] && printf ' %s' "-i $VM_SSH_KEY -o IdentitiesOnly=yes"
     }
 
-    _qemu_cmd() {
-      local vm=$1; shift
-      printf '%s\n' "QEMU_CMD VM=$vm $*"
+    # vm_import_raw <raw-image> <vm-name>
+    # Take a raw disk image and set up a VM directory around a private
+    # copy of it, so the caller's artifact is never mutated by a boot.
+    vm_import_raw() {
+      local img=$1 vm=$2
+      local vmdir="$_VM_BASE_DIR/$vm"
+      [ -f "$img" ] || { echo "[vm-qemu] no such image: $img" >&2; return 1; }
+      mkdir -p "$vmdir"
+      echo "[vm-qemu] importing $(basename "$img") -> $vmdir/disk.img"
+      cp "$img" "$vmdir/disk.img"
+      # Each VM needs its own writable copy of the EFI variable store.
+      [ -f "$VM_EFI_VARS" ] || {
+        echo "[vm-qemu] EFI vars template not found: $VM_EFI_VARS" >&2
+        echo "          install qemu-efi-aarch64 (provides /usr/share/AAVMF)" >&2
+        return 1
+      }
+      cp "$VM_EFI_VARS" "$vmdir/efi-vars.fd"
     }
+
+    vm_console_path() { printf '%s\n' "$_VM_BASE_DIR/$1/console.log"; }
 
     _qemu_start() {
       local vm=$1 detach=${2:-0}
+      # Drop the two arguments we consumed. Whatever is left is passed
+      # through to qemu verbatim -- without this shift, the VM name and
+      # the detach flag land on qemu's argv as bare disk images:
+      #   qemu-system-aarch64: <vm>: drive with bus=0, unit=0 exists
+      if [ $# -ge 2 ]; then shift 2; else shift $#; fi
       local vmdir="$_VM_BASE_DIR/$vm"
-      local disk="$vmdir/disk.qcow2"
+      local disk="$vmdir/disk.img"
       local pidf="$vmdir/qemu.pid"
-      local mac=""
 
-      [ -f "$disk" ] || { echo "[vm-kernel] $disk not found" >&2; return 1; }
+      [ -f "$disk" ] || { echo "[vm-qemu] $disk not found (run vm_import_raw first)" >&2; return 1; }
+      [ -f "$VM_EFI_CODE" ] || { echo "[vm-qemu] EFI firmware not found: $VM_EFI_CODE" >&2; return 1; }
 
-       # Read MAC from tart config if available; otherwise generate one.
-      if [ -f "$vmdir/config.json" ]; then
-        mac=$(jq -r .macAddress "$vmdir/config.json" 2>/dev/null || true)
-      fi
-      [ -z "$mac" ] && mac="52:54:00$(printf ':%02x:%02x:%02x' $((RANDOM%256)) $((RANDOM%256)) $((RANDOM%256)))"
+      echo "[vm-qemu] starting $vm (disk=$disk, tcg, ssh on :$VM_SSH_PORT)"
+      echo "[vm-qemu] console -> $vmdir/console.log"
 
-      # Find kernel/initrd from the disk's boot partition.
-      local kern="" initrd=""
-      # Try loop device for the boot partition.
-      local loop=""
-      loop=$(losetup -f 2>/dev/null || true)
-      if [ -n "$loop" ]; then
-        losetup "$loop" "$disk" --parted 2>/dev/null || { echo "[vm-kernel] losetup --parted failed" >&2; return 1; }
-        local boot_dev="${loop}p1"
-        local root_dev="${loop}p2"
-        # Check if partitions exist.
-        if [ -b "$boot_dev" ]; then
-          kern=$(find "$boot_dev" -maxdepth 1 -name "vmlinux-*" -o -name "Image" -o -name "bzImage" 2>/dev/null | head -1)
-          initrd=$(find "$boot_dev" -maxdepth 1 -name "initrd.img-*" 2>/dev/null | head -1)
-          [ -z "$kern" ] && kern=$(find "$root_dev" -maxdepth 3 -path "*/boot/vmlinux-*" -o -path "*/boot/Image" -o -path "*/boot/bzImage" 2>/dev/null | head -1)
-          [ -z "$initrd" ] && initrd=$(find "$root_dev" -maxdepth 3 -path "*/boot/initrd.img-*" 2>/dev/null | head -1)
-        fi
-        losetup -d "$loop" 2>/dev/null || true
-      fi
-
-      # Fallback: look for kernel in the root partition.
-      if [ -z "$kern" ]; then
-        local loop2=""
-        loop2=$(losetup -f 2>/dev/null || true)
-        if [ -n "$loop2" ]; then
-          losetup "$loop2" "$disk" --parted 2>/dev/null || { echo "[vm-kernel] losetup --parted failed" >&2; return 1; }
-          local root_dev2="${loop2}p2"
-          kern=$(find "$root_dev2" -maxdepth 3 \( -name "vmlinux-*" -o -name "Image" -o -name "bzImage" \) 2>/dev/null | head -1)
-          initrd=$(find "$root_dev2" -maxdepth 3 -name "initrd.img-*" 2>/dev/null | head -1)
-          losetup -d "$loop2" 2>/dev/null || true
-        fi
-      fi
-
-      # Ultimate fallback: use the root partition directly as the kernel disk.
-      if [ -z "$kern" ]; then
-        # Use the disk itself as the kernel disk (some images embed the kernel).
-        kern="$disk"
-      fi
-
-      echo "[vm-qemu] starting $vm (disk=$disk mac=$mac)"
-      [ -n "$kern" ] && echo "[vm-qemu] kernel=$kern"
-      [ -n "$initrd" ] && echo "[vm-qemu] initrd=$initrd"
+      # Create both logs up front. If qemu dies before it execs, these stay
+      # empty rather than absent, and CI's artifact upload still has files
+      # to collect -- "no files found" is a worse diagnostic than "empty".
+      : > "$vmdir/console.log"
+      : > "$vmdir/qemu.log"
 
       (
         cd "$vmdir" || exit
         qemu-system-aarch64 \
           -M virt \
+          -accel tcg \
           -cpu cortex-a72 \
-          -m 2048 \
-          -kernel "$kern" \
-          -initrd "$initrd" \
-          -drive "file=$disk,if=virtio,format=qcow2" \
-          -nic "user,model=virtio-net,mac=$mac,hostfwd=tcp::2222-:22" \
-          -nographic \
+          -smp 2 \
+          -m "$VM_MEM_MB" \
+          -drive "if=pflash,format=raw,unit=0,readonly=on,file=$VM_EFI_CODE" \
+          -drive "if=pflash,format=raw,unit=1,file=$vmdir/efi-vars.fd" \
+          -drive "file=$disk,if=virtio,format=raw" \
+          -nic "user,model=virtio-net-pci,hostfwd=tcp::$VM_SSH_PORT-:22" \
+          -display none \
+          -serial "file:$vmdir/console.log" \
           -monitor none \
           -no-reboot \
-          -append "console=ttyAMA0 root=/dev/vda2 rw loglevel=8" \
           $QEMU_EXTRA_ARGS \
           "$@" 2>"$vmdir/qemu.log" &
         echo $! > "$pidf"
@@ -158,48 +158,42 @@ case "$VM_DRIVER" in
       fi
     }
 
-    vm_exists() {
-      [ -f "$_VM_BASE_DIR/$1/disk.qcow2" ]
-    }
+    vm_exists()  { [ -f "$_VM_BASE_DIR/$1/disk.img" ]; }
 
     vm_running() {
       local pidf="$_VM_BASE_DIR/$1/qemu.pid"
       [ -f "$pidf" ] && kill -0 "$(cat "$pidf")" 2>/dev/null
     }
 
-    vm_ip() {
-       # For qemu user-mode, the VM is reachable at 127.0.0.1:2222.
-       # Return a placeholder; the real "IP" is always 127.0.0.1.
-       # But we need to wait for the VM to be ready.
-      local vm=$1 i=0
-      while [ $i -lt 30 ]; do
-        if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-               -o ConnectTimeout=5 -o LogLevel=ERROR \
-               root@127.0.0.1 -p 2222 true 2>/dev/null; then
-          echo "127.0.0.1"
-          return 0
-        fi
-        sleep 2; i=$((i + 1))
-      done
-      return 1
-    }
+    # qemu user-mode networking: the guest is always reachable on the
+    # forwarded localhost port, so there is no per-VM IP to discover.
+    vm_ip() { printf '127.0.0.1\n'; }
 
     vm_ssh() {
       local vm=$1 user=$2; shift 2
-      local ip="127.0.0.1"
-      ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-           -o LogLevel=ERROR -p 2222 "$user@$ip" "$@"
+      # shellcheck disable=SC2046  # word splitting of the opt list is intended
+      ssh $(_vm_ssh_opts) -p "$VM_SSH_PORT" "$user@127.0.0.1" "$@"
     }
 
     vm_wait_ssh() {
-      local vm=$1 user=$2 i=0
-      while [ $i -lt 60 ]; do
-        if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-               -o ConnectTimeout=2 -o LogLevel=ERROR \
-               "$user"@127.0.0.1 -p 2222 true 2>/dev/null; then
+      local vm=$1 user=$2
+      local vmdir="$_VM_BASE_DIR/$vm"
+      local waited=0 step=5
+      while [ "$waited" -lt "$VM_SSH_TIMEOUT" ]; do
+        # A dead qemu will never answer; fail immediately rather than
+        # burning the whole timeout on a guest that is not running.
+        if [ -f "$vmdir/qemu.pid" ] && ! kill -0 "$(cat "$vmdir/qemu.pid")" 2>/dev/null; then
+          echo "[vm-qemu] qemu exited while waiting for ssh" >&2
+          return 1
+        fi
+        # shellcheck disable=SC2046
+        if ssh $(_vm_ssh_opts) -o ConnectTimeout=5 \
+               -p "$VM_SSH_PORT" "$user@127.0.0.1" true 2>/dev/null; then
+          echo "[vm-qemu] ssh up after ${waited}s"
           return 0
         fi
-        sleep 2; i=$((i + 1))
+        sleep "$step"; waited=$((waited + step))
+        [ $((waited % 60)) -eq 0 ] && echo "[vm-qemu] still waiting for ssh (${waited}s/${VM_SSH_TIMEOUT}s)"
       done
       return 1
     }
@@ -209,19 +203,9 @@ case "$VM_DRIVER" in
       local src_dir="$_VM_BASE_DIR/$src"
       local dst_dir="$_VM_BASE_DIR/$dst"
       mkdir -p "$dst_dir"
-      if [ -f "$src_dir/disk.qcow2" ]; then
-         # qcow2 copy-on-write clone. O(1), no data copied.
-        _qemu_img create -f qcow2 -b "$src_dir/disk.qcow2" -F qcow2 "$dst_dir/disk.qcow2"
-      elif [ -f "$src_dir/disk.img" ]; then
-        cp "$src_dir/disk.img" "$dst_dir/disk.qcow2"
-      else
-        echo "[vm-helpers] no disk image found in $src_dir" >&2
-        return 1
-      fi
-       # Copy config files (tart config, etc.).
-      if [ -f "$src_dir/config.json" ]; then
-        cp "$src_dir/config.json" "$dst_dir/"
-      fi
+      [ -f "$src_dir/disk.img" ] || { echo "[vm-helpers] no disk image in $src_dir" >&2; return 1; }
+      cp "$src_dir/disk.img" "$dst_dir/disk.img"
+      [ -f "$src_dir/efi-vars.fd" ] && cp "$src_dir/efi-vars.fd" "$dst_dir/efi-vars.fd"
     }
 
     vm_run() {
@@ -232,39 +216,30 @@ case "$VM_DRIVER" in
 
     vm_stop() {
       local vm=$1
-      local pidf="$_VM_BASE_DIR/$1/qemu.pid"
+      local pidf="$_VM_BASE_DIR/$vm/qemu.pid"
       if [ -f "$pidf" ]; then
         local pid
         pid=$(cat "$pidf")
         if kill -0 "$pid" 2>/dev/null; then
-           # Try graceful shutdown via SSH first.
-          ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-               -o ConnectTimeout=5 -o LogLevel=ERROR \
-               root@127.0.0.1 -p 2222 "sync; sync; poweroff" 2>/dev/null || true
+          # shellcheck disable=SC2046
+          ssh $(_vm_ssh_opts) -o ConnectTimeout=5 -p "$VM_SSH_PORT" \
+              root@127.0.0.1 "sync; sync; poweroff" 2>/dev/null || true
           sleep 3
         fi
-        # Force kill if still running.
-        if kill -0 "$pid" 2>/dev/null; then
-          kill -9 "$pid" 2>/dev/null || true
-        fi
+        kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null
         rm -f "$pidf"
       fi
+      return 0
     }
 
     vm_delete() {
       local vm=$1
       vm_stop "$vm" 2>/dev/null || true
-      local dir="$_VM_BASE_DIR/$vm"
-      rm -rf "$dir"
+      rm -rf "${_VM_BASE_DIR:?}/$vm"
     }
 
-    vm_disk_path() {
-      printf '%s\n' "$_VM_BASE_DIR/$1/disk.qcow2"
-    }
-
-    vm_dir_path() {
-      printf '%s\n' "$_VM_BASE_DIR/$1"
-    }
+    vm_disk_path() { printf '%s\n' "$_VM_BASE_DIR/$1/disk.img"; }
+    vm_dir_path()  { printf '%s\n' "$_VM_BASE_DIR/$1"; }
      ;;
    *)
     echo "[vm-helpers] unknown VM_DRIVER='$VM_DRIVER' (expected: tart, qemu)" >&2
