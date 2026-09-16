@@ -34,23 +34,31 @@ install -d -m 0755 "$LFS/etc/modules-load.d"
 
 echo "[finalize] build kernel"
 KV=$(jq -r .kernel.version "$MANIFEST")
-KSRC=$(mktemp -d)
-tar -xf "$SOURCES/linux-$KV.tar.xz" -C "$KSRC"
-cd "$KSRC/linux-$KV"
-make ARCH=arm64 defconfig
-# Apply our config fragments on top of defconfig (ADR-012 module-first).
-#   kernel.config         — boot-critical =y overrides
-#   kernel.modules.config — non-essential drivers flipped to =m
-# Later wins for any duplicate keys; olddefconfig reconciles.
-cat "$REPO_ROOT/images/gnunix-base/kernel.config" \
-    "$REPO_ROOT/images/gnunix-base/kernel.modules.config" >> .config
-make ARCH=arm64 olddefconfig
-make -j$JOBS ARCH=arm64 Image modules
-make ARCH=arm64 INSTALL_MOD_PATH="$LFS" modules_install
-install -Dm 0644 arch/arm64/boot/Image "$LFS/boot/vmlinuz-$KV"
-cp .config "$LFS/boot/config-$KV"
-cp System.map "$LFS/boot/System.map-$KV"
-cd / && rm -rf "$KSRC"
+# Cache key = pinned KV + kernel.config + kernel.modules.config.
+CACHE_KEY_FILE="$LFS/boot/.kernel-cache-key"
+KERNEL_KEY=$(cat "$MANIFEST" "$REPO_ROOT/images/gnunix-base/kernel.config" "$REPO_ROOT/images/gnunix-base/kernel.modules.config" 2>/dev/null | sha256sum | awk '{print $1}')
+if [ -f "$LFS/boot/vmlinuz-$KV" ] && [ -f "$LFS/boot/config-$KV" ] && [ -f "$LFS/boot/System.map-$KV" ] && [ -d "$LFS/lib/modules/$KV" ] && [ -f "$CACHE_KEY_FILE" ] && [ "$(cat "$CACHE_KEY_FILE")" = "$KERNEL_KEY" ]; then
+  echo "[finalize] kernel artifacts present for $KV — skipping build"
+else
+  KSRC=$(mktemp -d)
+  tar -xf "$SOURCES/linux-$KV.tar.xz" -C "$KSRC"
+  cd "$KSRC/linux-$KV"
+  make ARCH=arm64 defconfig
+  # Apply our config fragments on top of defconfig (ADR-012 module-first).
+  #   kernel.config         — boot-critical =y overrides
+  #   kernel.modules.config — non-essential drivers flipped to =m
+  # Later wins for any duplicate keys; olddefconfig reconciles.
+  cat "$REPO_ROOT/images/gnunix-base/kernel.config" \
+      "$REPO_ROOT/images/gnunix-base/kernel.modules.config" >> .config
+  make ARCH=arm64 olddefconfig
+  make -j$JOBS ARCH=arm64 Image modules
+  make ARCH=arm64 INSTALL_MOD_PATH="$LFS" modules_install
+  install -Dm 0644 arch/arm64/boot/Image "$LFS/boot/vmlinuz-$KV"
+  cp .config "$LFS/boot/config-$KV"
+  cp System.map "$LFS/boot/System.map-$KV"
+  echo "$KERNEL_KEY" > "$CACHE_KEY_FILE"
+  cd / && rm -rf "$KSRC"
+fi
 
 echo "[finalize] install GRUB EFI"
 install -Dm 0644 "$REPO_ROOT/images/gnunix-base/grub.cfg" "$LFS/boot/grub/grub.cfg"
