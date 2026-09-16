@@ -6,3 +6,8 @@ logs/
 .conductor/
 .pi/
 .plan/
+
+# Handovers are session working state, never history. The handover skill
+# writes .plan/handover-<feature>-<step>-<timestamp>.md (ignored above); a
+# monolithic root HANDOVER.md is not ignored and gets swept into commits.
+/HANDOVER.md
