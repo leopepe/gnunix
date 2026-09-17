@@ -272,7 +272,7 @@ main() {
         # Each entry: a store path whose basename carries name-version.
         # We take only direct profile paths (not recursive build-time
         # inputs) to keep the map bounded, matching the design choice.
-        nix path-info --recursive --json ".#${profile_name}Profile" 2>/dev/null \
+        nix path-info --recursive --json ".#${profile_name}" 2>/dev/null \
           | jq -r '.[].path' 2>/dev/null \
           | while IFS= read -r p; do
               basename "${p}" | awk '{
@@ -308,8 +308,14 @@ main() {
       fi
     done
     if [[ -s "${flake_pkgs}" ]]; then
-      sort -u "${flake_pkgs}" >> "${packages}"
-      log "added flake-derived packages to scan set (${profile_name})"
+      local flake_count
+      flake_count=$(sort -u "${flake_pkgs}" | tee -a "${packages}" | wc -l \
+        | tr -d ' ')
+      log "added ${flake_count} flake-derived package(s) to scan set"
+    else
+      # Not fatal - the manifest scan still runs - but silence here once meant
+      # the whole flake surface was skipped while the run reported success.
+      warn "no flake-derived packages resolved; scanning manifest only"
     fi
   fi
   local pkg_count
