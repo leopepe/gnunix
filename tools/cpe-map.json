@@ -193,5 +193,97 @@
   "kernel": {
     "skip": true,
     "reason": "NVD kernel CVE ingestion is incomplete; kernel CVEs flow via Renovate + kernel.org releases (documented limitation)"
+  },
+  "sysklogd": {
+    "vendor": "sysklogd_project",
+    "product": "sysklogd"
+  },
+  "cronie": {
+    "vendor": "fedorahosted_project",
+    "product": "cronie"
+  },
+  "logrotate": {
+    "vendor": "logrotate_project",
+    "product": "logrotate"
+  },
+  "procps": {
+    "vendor": "procps_project",
+    "product": "procps"
+  },
+  "psmisc": {
+    "vendor": "psmisc_project",
+    "product": "psmisc"
+  },
+  "pciutils": {
+    "vendor": "kernel",
+    "product": "pciutils"
+  },
+  "usbutils": {
+    "vendor": "gregkh",
+    "product": "usbutils"
+  },
+  "dmidecode": {
+    "vendor": "dmidecode_project",
+    "product": "dmidecode"
+  },
+  "dbus": {
+    "vendor": "freedesktop",
+    "product": "dbus"
+  },
+  "elogind": {
+    "vendor": "elogind_project",
+    "product": "elogind"
+  },
+  "greetd": {
+    "skip": true,
+    "reason": "new package from #161; CPE mapping needed (see #151)"
+  },
+  "tuigreet": {
+    "skip": true,
+    "reason": "new package from #161; CPE mapping needed (see #151)"
+  },
+  "hyprland": {
+    "vendor": "hyprwm",
+    "product": "hyprland"
+  },
+  "wayland-utils": {
+    "skip": true,
+    "reason": "new package from #161; CPE mapping needed (see #151)"
+  },
+  "foot": {
+    "skip": true,
+    "reason": "new package from #161; CPE mapping needed (see #151)"
+  },
+  "xkeyboard_config": {
+    "vendor": "xorg",
+    "product": "xkeyboard_config"
+  },
+  "mesa": {
+    "vendor": "mesa_project",
+    "product": "mesa"
+  },
+  "waybar": {
+    "skip": true,
+    "reason": "new package from #161; CPE mapping needed (see #151)"
+  },
+  "newt": {
+    "vendor": "newt_project",
+    "product": "newt"
+  },
+  "gptfdisk": {
+    "vendor": "gptfdisk_project",
+    "product": "gptfdisk"
+  },
+  "parted": {
+    "vendor": "gnu",
+    "product": "parted"
+  },
+  "rsync": {
+    "vendor": "samba_project",
+    "product": "rsync"
+  },
+  "dosfstools": {
+    "vendor": "dosfstools_project",
+    "product": "dosfstools"
   }
 }

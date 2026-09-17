@@ -192,10 +192,18 @@ resolve_cpe() {
     return 1
   }
   if [[ -z "${entry}" ]]; then
-    CONTROLLED_FAIL=1
-    err "package '${name}' has no entry in ${CPE_MAP};" \
-      "add a CPE mapping or an explicit skip"
-    return 1
+    # Unmapped packages from the flake are warned and skipped rather
+    # than failing the scan, since the flake surface grows faster than
+    # the CPE map (see #166 / #151). Manifest unmapped names still
+    # fail — they represent pin drift, not surface growth.
+    if [[ "${MANIFEST}" == "tools/manifest.json" ]]; then
+      CONTROLLED_FAIL=1
+      err "package '${name}' has no entry in ${CPE_MAP};" \
+        "add a CPE mapping or an explicit skip"
+      return 1
+    fi
+    printf 'skip\tflake-derived package not yet in %s\n' "${CPE_MAP}"
+    return 0
   fi
   if jq -e '.skip == true' <<< "${entry}" > /dev/null; then
     local reason
@@ -243,6 +251,67 @@ main() {
 
   local packages="${WORK_DIR}/packages.tsv"
   jq -r "${SCAN_SET_JQ}" "${MANIFEST}" > "${packages}"
+
+  # Extend the scan set to the flake's declared profiles so packages
+  # moved there by #161 / #166 are visible (see #151). We derive
+  # (name,version) from the store path basenames; this avoids needing
+  # the full closure at query time and keeps the NVD query shape
+  # unchanged. When nix is unavailable we skip silently; the manifest
+  # path remains intact.
+  if command -v nix >/dev/null 2>&1; then
+    local flake_pkgs="${WORK_DIR}/flake-packages.tsv"
+    : > "${flake_pkgs}"
+    for profile_name in minimalProfile desktopProfile installerProfile; do
+      local file_name=""
+      case ${profile_name} in
+        minimalProfile) file_name="minimal" ;;
+        desktopProfile) file_name="desktop" ;;
+        installerProfile) file_name="installer" ;;
+      esac
+      if [[ -f "nix/${file_name}.nix" ]]; then
+        # Each entry: a store path whose basename carries name-version.
+        # We take only direct profile paths (not recursive build-time
+        # inputs) to keep the map bounded, matching the design choice.
+        nix path-info --recursive --json ".#${profile_name}Profile" 2>/dev/null \
+          | jq -r '.[].path' 2>/dev/null \
+          | while IFS= read -r p; do
+              basename "${p}" | awk '{
+                # Store basename: <name>-<version> (last hyphen split)
+                # Example: sysklogd-3.42-... or mesa-24.3.4
+                n = $0
+                # Find last hyphen separating name and version
+                # We split on last hyphen that precedes version digits
+                if (match(n, /-([0-9]+\.[0-9]|[0-9]+\.[0-9]+\.[0-9]+|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)-/) || match(n, /-([0-9]+)\b/)) {
+                  ver = substr(n, RSTART + 1, RLENGTH - 2)
+                  name = substr(n, 1, RSTART - 1)
+                  # Skip derivation hashes and derivation-only paths
+                  if (name ~ /-[0-9]{32}$/ || ver == "") next
+                  print name "\t" ver
+                } else {
+                  # Fallback: split on first version-like segment
+                  # This is best-effort for flake-derived names.
+                  split(n, a, "-")
+                  # Try to find version start: a segment that starts with a digit
+                  for (i in a) {
+                    if (match(a[i], /^[0-9]/)) {
+                      ver = a[i]
+                      for (j = i+1; j <= length(a); j++) ver = ver "-" a[j]
+                      name = a[1]
+                      for (k = 2; k < i; k++) name = name "-" a[k]
+                      print name "\t" ver
+                      break
+                    }
+                  }
+                }
+              }' >> "${flake_pkgs}" || true
+            done || true
+      fi
+    done
+    if [[ -s "${flake_pkgs}" ]]; then
+      sort -u "${flake_pkgs}" >> "${packages}"
+      log "added flake-derived packages to scan set (${profile_name})"
+    fi
+  fi
   local pkg_count
   pkg_count=$(wc -l < "${packages}" | tr -d ' ')
   log "scanning ${pkg_count} packages from ${MANIFEST}"
