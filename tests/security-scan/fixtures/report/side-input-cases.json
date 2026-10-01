@@ -1,0 +1,5 @@
+[
+  {"id":"effective-before-conversion","package":"openssh","effectiveVersion":"9.10p1","queriedVersion":"9.10:p1","mutation":"use pinned version before conversion instead of independent effective version"},
+  {"id":"reasoned-manifest-skip","package":"less","reason":"consumer fixture: intentional manifest exclusion of less","mutation":"query explicit skip or omit its exact limitation"},
+  {"id":"escaped-json-pointer","package":"fixture~/pkg","pinnedVersion":"1.0","vendor":"fixture","product":"pkg","pointer":"/base_packages/fixture~0~1pkg","mutation":"leave slash or tilde unescaped in independently expected pointer"}
+]
