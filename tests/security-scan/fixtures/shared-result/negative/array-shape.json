@@ -1,0 +1,374 @@
+{
+  "schemaVersion": 1,
+  "outcome": "complete",
+  "scope": "locked-aarch64-output-references",
+  "roots": [
+    {
+      "id": "desktopProfile",
+      "surface": "system-runtime",
+      "outputPath": "/nix/store/00000000000000000000000000000001-synthetic-desktop-wrapper",
+      "enumeration": "complete",
+      "paths": [
+        "/nix/store/00000000000000000000000000000001-synthetic-desktop-wrapper",
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "initramfsBusybox",
+      "surface": "initramfs",
+      "outputPath": "/nix/store/00000000000000000000000000000006-synthetic-openssl-static",
+      "enumeration": "complete",
+      "paths": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000006-synthetic-openssl-static"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "installerBuildTools",
+      "surface": "installer-image-build-payload",
+      "outputPath": "/nix/store/00000000000000000000000000000002-synthetic-build-wrapper",
+      "enumeration": "complete",
+      "paths": [
+        "/nix/store/00000000000000000000000000000002-synthetic-build-wrapper",
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "installerProfile",
+      "surface": "system-runtime",
+      "outputPath": "/nix/store/00000000000000000000000000000003-synthetic-installer-wrapper",
+      "enumeration": "complete",
+      "paths": [
+        "/nix/store/00000000000000000000000000000003-synthetic-installer-wrapper",
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "minimalProfile",
+      "surface": "system-runtime",
+      "outputPath": "/nix/store/00000000000000000000000000000004-synthetic-minimal-wrapper",
+      "enumeration": "complete",
+      "paths": [
+        "/nix/store/00000000000000000000000000000004-synthetic-minimal-wrapper",
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "gaps": []
+    }
+  ],
+  "inventory": [
+    {
+      "path": "/nix/store/00000000000000000000000000000001-synthetic-desktop-wrapper",
+      "roots": [
+        "desktopProfile"
+      ],
+      "references": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "deriver": null,
+      "kind": "profile-wrapper",
+      "identity": null,
+      "disposition": "profile-wrapper",
+      "cpe": null,
+      "queriedVersion": null,
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000002-synthetic-build-wrapper",
+      "roots": [
+        "installerBuildTools"
+      ],
+      "references": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "deriver": null,
+      "kind": "profile-wrapper",
+      "identity": null,
+      "disposition": "profile-wrapper",
+      "cpe": null,
+      "queriedVersion": null,
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000003-synthetic-installer-wrapper",
+      "roots": [
+        "installerProfile"
+      ],
+      "references": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "deriver": null,
+      "kind": "profile-wrapper",
+      "identity": null,
+      "disposition": "profile-wrapper",
+      "cpe": null,
+      "queriedVersion": null,
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000004-synthetic-minimal-wrapper",
+      "roots": [
+        "minimalProfile"
+      ],
+      "references": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "deriver": null,
+      "kind": "profile-wrapper",
+      "identity": null,
+      "disposition": "profile-wrapper",
+      "cpe": null,
+      "queriedVersion": null,
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+      "roots": [
+        "desktopProfile",
+        "initramfsBusybox",
+        "installerBuildTools",
+        "installerProfile",
+        "minimalProfile"
+      ],
+      "references": [],
+      "deriver": "/nix/store/00000000000000000000000000000009-synthetic-metadata.drv",
+      "kind": "package",
+      "identity": {
+        "pname": "openssh",
+        "version": "9.9p1",
+        "output": "out",
+        "metadataSource": "evaluated"
+      },
+      "disposition": "queried",
+      "cpe": "cpe:2.3:a:openbsd:openssh:9.9:p1",
+      "queriedVersion": "9.9:p1",
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000006-synthetic-openssl-static",
+      "roots": [
+        "initramfsBusybox"
+      ],
+      "references": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1"
+      ],
+      "deriver": "/nix/store/00000000000000000000000000000009-synthetic-metadata.drv",
+      "kind": "package",
+      "identity": {
+        "pname": "openssl",
+        "version": "3.3.2",
+        "output": "static",
+        "metadataSource": "structured-deriver"
+      },
+      "disposition": "queried",
+      "cpe": "cpe:2.3:a:openssl:openssl:3.3.2",
+      "queriedVersion": "3.3.2",
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+      "roots": [
+        "desktopProfile",
+        "installerBuildTools",
+        "installerProfile",
+        "minimalProfile"
+      ],
+      "references": [],
+      "deriver": "/nix/store/00000000000000000000000000000009-synthetic-metadata.drv",
+      "kind": "package",
+      "identity": {
+        "pname": "bash",
+        "version": "5.2.32",
+        "output": "out",
+        "metadataSource": "deriver"
+      },
+      "disposition": "queried",
+      "cpe": "cpe:2.3:a:gnu:bash:5.2.32",
+      "queriedVersion": "5.2.32",
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3",
+      "roots": [
+        "desktopProfile",
+        "installerBuildTools",
+        "installerProfile",
+        "minimalProfile"
+      ],
+      "references": [],
+      "deriver": "/nix/store/00000000000000000000000000000009-synthetic-metadata.drv",
+      "kind": "package",
+      "identity": {
+        "pname": "bash",
+        "version": "5.3",
+        "output": "out",
+        "metadataSource": "evaluated"
+      },
+      "disposition": "queried",
+      "cpe": "cpe:2.3:a:gnu:bash:5.3",
+      "queriedVersion": "5.3",
+      "reason": null
+    }
+  ],
+  "manifest": {},
+  "findings": [
+    {
+      "cveId": "CVE-2026-10001",
+      "package": "openssh",
+      "version": "9.9:p1",
+      "score": 7,
+      "severity": "HIGH",
+      "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-10001",
+      "sources": [
+        {
+          "type": "manifest",
+          "manifestId": "/base_packages/openssh",
+          "path": null
+        },
+        {
+          "type": "nix",
+          "manifestId": null,
+          "path": "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1"
+        }
+      ],
+      "roots": [
+        "desktopProfile",
+        "initramfsBusybox",
+        "installerBuildTools",
+        "installerProfile",
+        "minimalProfile"
+      ],
+      "paths": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1"
+      ]
+    }
+  ],
+  "coverage": {
+    "complete": true,
+    "perRoot": [
+      {
+        "id": "desktopProfile",
+        "counts": {
+          "inventory": 4,
+          "identified": 3,
+          "queried": 3,
+          "wrappers": 1,
+          "unknown": 0,
+          "unmapped": 0,
+          "skipped": 0,
+          "unqueried": 0
+        }
+      },
+      {
+        "id": "initramfsBusybox",
+        "counts": {
+          "inventory": 2,
+          "identified": 2,
+          "queried": 2,
+          "wrappers": 0,
+          "unknown": 0,
+          "unmapped": 0,
+          "skipped": 0,
+          "unqueried": 0
+        }
+      },
+      {
+        "id": "installerBuildTools",
+        "counts": {
+          "inventory": 4,
+          "identified": 3,
+          "queried": 3,
+          "wrappers": 1,
+          "unknown": 0,
+          "unmapped": 0,
+          "skipped": 0,
+          "unqueried": 0
+        }
+      },
+      {
+        "id": "installerProfile",
+        "counts": {
+          "inventory": 4,
+          "identified": 3,
+          "queried": 3,
+          "wrappers": 1,
+          "unknown": 0,
+          "unmapped": 0,
+          "skipped": 0,
+          "unqueried": 0
+        }
+      },
+      {
+        "id": "minimalProfile",
+        "counts": {
+          "inventory": 4,
+          "identified": 3,
+          "queried": 3,
+          "wrappers": 1,
+          "unknown": 0,
+          "unmapped": 0,
+          "skipped": 0,
+          "unqueried": 0
+        }
+      }
+    ],
+    "global": {
+      "inventory": 8,
+      "identified": 4,
+      "queried": 4,
+      "wrappers": 4,
+      "unknown": 0,
+      "unmapped": 0,
+      "skipped": 0,
+      "unqueried": 0
+    },
+    "manifest": {
+      "expected": 48,
+      "queried": 46,
+      "skipped": 0,
+      "excluded": 2
+    },
+    "limitations": [
+      {
+        "code": "manifest-exclusion",
+        "root": null,
+        "path": null,
+        "manifestId": "/kernel",
+        "detail": "NVD kernel CVE ingestion is incomplete; kernel CVEs flow via Renovate + kernel.org releases (documented limitation)"
+      },
+      {
+        "code": "manifest-exclusion",
+        "root": null,
+        "path": null,
+        "manifestId": "/toolchain/linux_headers",
+        "detail": "headers-only package with no runtime exposure"
+      }
+    ],
+    "unscored": [
+      {
+        "cpe": "cpe:2.3:a:gnu:bash:5.2.32",
+        "cveId": "CVE-2026-10002"
+      }
+    ],
+    "unscoredCveCount": 1
+  }
+}
