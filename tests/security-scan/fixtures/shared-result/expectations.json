@@ -1,0 +1,1070 @@
+{
+  "indexVersion": 1,
+  "contract": "openspec/changes/scan-nix-profile-closures/design.md §3",
+  "sourceCommit": "7aa0dc370cb7199c6dd4098c9035a2212dca7b71",
+  "pathBase": "this directory",
+  "consumerPolicy": "Read identical result bytes and independently load named manifest/cpeMap bytes; reject invalid bytes before output or API writes; never rewrite corpus.",
+  "inputs": [
+    {
+      "file": "inputs/manifest.json",
+      "source": "tools/manifest.json",
+      "sha256": "fc56bd143435b4a45bae0056928674b71c0db57f5c614675d134949ebdeb7550"
+    },
+    {
+      "file": "inputs/cpe-map.json",
+      "source": "tools/cpe-map.json",
+      "sha256": "0bdd40c23bef601dd834a2a6e5d6f1948942add6ed599f15814ed38476860080"
+    }
+  ],
+  "cases": [
+    {
+      "id": "complete-findings",
+      "result": "positive/complete-findings.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "complete",
+      "expectedScannerExit": 0,
+      "legacy": {
+        "file": "legacy/openssh.tsv",
+        "mode": "source-display-compatibility",
+        "cveId": "CVE-2026-10001",
+        "package": "openssh",
+        "declaredVersion": "9.9p1",
+        "jsonFindingVersion": "9.9:p1",
+        "tsvDisplayVersion": "9.9p1",
+        "columns": 6
+      }
+    },
+    {
+      "id": "complete-zero",
+      "result": "positive/complete-zero.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "complete",
+      "expectedScannerExit": 0
+    },
+    {
+      "id": "complete-finding-associations",
+      "result": "positive/complete-finding-associations.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "complete",
+      "expectedScannerExit": 0
+    },
+    {
+      "id": "incomplete-setup-unavailable",
+      "result": "positive/incomplete-setup-unavailable.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-evaluation-failed",
+      "result": "positive/incomplete-evaluation-failed.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-acquisition-unavailable",
+      "result": "positive/incomplete-acquisition-unavailable.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-acquisition-budget",
+      "result": "positive/incomplete-acquisition-budget.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-path-info-invalid",
+      "result": "positive/incomplete-path-info-invalid.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-root-missing",
+      "result": "positive/incomplete-root-missing.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-path-info-null",
+      "result": "positive/incomplete-path-info-null.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-reference-missing",
+      "result": "positive/incomplete-reference-missing.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-deriver-unavailable",
+      "result": "positive/incomplete-deriver-unavailable.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-metadata-missing",
+      "result": "positive/incomplete-metadata-missing.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-metadata-conflict",
+      "result": "positive/incomplete-metadata-conflict.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-unmapped-cpe",
+      "result": "positive/incomplete-unmapped-cpe.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-explicit-skip",
+      "result": "positive/incomplete-explicit-skip.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-not-queried-budget",
+      "result": "positive/incomplete-not-queried-budget.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-zero",
+      "result": "positive/incomplete-zero.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "incomplete-all-roots-unavailable",
+      "result": "positive/incomplete-all-roots-unavailable.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "incomplete",
+      "expectedScannerExit": 2
+    },
+    {
+      "id": "complete-permuted",
+      "result": "positive/complete-permuted.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "complete",
+      "expectedScannerExit": 0
+    },
+    {
+      "id": "omitted-manifest-self-consistent",
+      "result": "negative/omitted-manifest-self-consistent.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Remove /base_packages/kmod and recompute surviving manifest expected/queried counts; outcome remains complete. One logical row-omission mutation with dependent recount.",
+      "invalidInvariant": "Independent trusted expected-set equality (not supplied counts)"
+    },
+    {
+      "id": "duplicate-root",
+      "result": "negative/duplicate-root.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Append identical first root",
+      "invalidInvariant": "roots unique by id and exactly five"
+    },
+    {
+      "id": "duplicate-inventory-path",
+      "result": "negative/duplicate-inventory-path.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Append identical inventory record",
+      "invalidInvariant": "inventory unique by full path"
+    },
+    {
+      "id": "duplicate-membership",
+      "result": "negative/duplicate-membership.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Repeat inventory roots member",
+      "invalidInvariant": "inventory.roots is a set"
+    },
+    {
+      "id": "wrong-global-count",
+      "result": "negative/wrong-global-count.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Increment coverage.global.inventory",
+      "invalidInvariant": "recomputed global counts"
+    },
+    {
+      "id": "wrong-root-count",
+      "result": "negative/wrong-root-count.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Increment first perRoot queried",
+      "invalidInvariant": "recomputed membership counts"
+    },
+    {
+      "id": "wrong-manifest-count",
+      "result": "negative/wrong-manifest-count.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Increment coverage.manifest.expected",
+      "invalidInvariant": "independent |E| and disposition counts"
+    },
+    {
+      "id": "wrong-outcome",
+      "result": "negative/wrong-outcome.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set outcome incomplete",
+      "invalidInvariant": "outcome iff complete predicate"
+    },
+    {
+      "id": "wrong-coverage-complete",
+      "result": "negative/wrong-coverage-complete.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set coverage.complete false",
+      "invalidInvariant": "coverage.complete iff complete predicate"
+    },
+    {
+      "id": "missing-nested-field",
+      "result": "negative/missing-nested-field.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Delete inventory identity.output",
+      "invalidInvariant": "Identity exact required keys"
+    },
+    {
+      "id": "orphan-finding",
+      "result": "negative/orphan-finding.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Replace manifest source id with absent pointer",
+      "invalidInvariant": "each source links known queried row"
+    },
+    {
+      "id": "openssh-finding-declared-version",
+      "result": "negative/openssh-finding-declared-version.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Replace finding.version with 9.9p1",
+      "invalidInvariant": "finding.version equals converted actual query 9.9:p1"
+    },
+    {
+      "id": "openssh-manifest-declared-query",
+      "result": "negative/openssh-manifest-declared-query.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Replace manifest queriedVersion with 9.9p1",
+      "invalidInvariant": "trusted exact version conversion"
+    },
+    {
+      "id": "openssh-inventory-declared-query",
+      "result": "negative/openssh-inventory-declared-query.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Replace inventory queriedVersion with 9.9p1",
+      "invalidInvariant": "Nix map converts identity.version"
+    },
+    {
+      "id": "wrong-cpe",
+      "result": "negative/wrong-cpe.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Replace OpenSSH CPE with unconverted CPE",
+      "invalidInvariant": "exact virtualMatchString"
+    },
+    {
+      "id": "extra-manifest",
+      "result": "negative/extra-manifest.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Append extra independently unexpected manifest id",
+      "invalidInvariant": "exact E equality"
+    },
+    {
+      "id": "duplicate-manifest",
+      "result": "negative/duplicate-manifest.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Append identical manifest row",
+      "invalidInvariant": "manifest unique by id"
+    },
+    {
+      "id": "wrong-pinned-version",
+      "result": "negative/wrong-pinned-version.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Replace trusted OpenSSH pinned version",
+      "invalidInvariant": "independent pinned version equality"
+    },
+    {
+      "id": "wrong-effective-version",
+      "result": "negative/wrong-effective-version.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Inject manifest effectiveVersion",
+      "invalidInvariant": "independent effective version equality"
+    },
+    {
+      "id": "wrong-manifest-package",
+      "result": "negative/wrong-manifest-package.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Rename manifest package",
+      "invalidInvariant": "independently derived package"
+    },
+    {
+      "id": "missing-root",
+      "result": "negative/missing-root.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Remove root",
+      "invalidInvariant": "exact five RootIds"
+    },
+    {
+      "id": "duplicate-per-root",
+      "result": "negative/duplicate-per-root.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Append identical perRoot record",
+      "invalidInvariant": "perRoot unique by id and exact five"
+    },
+    {
+      "id": "missing-per-root",
+      "result": "negative/missing-per-root.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Remove perRoot record",
+      "invalidInvariant": "exact five coverage RootIds"
+    },
+    {
+      "id": "wrong-surface",
+      "result": "negative/wrong-surface.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set desktop surface initramfs",
+      "invalidInvariant": "fixed surface for each RootId"
+    },
+    {
+      "id": "empty-memberships",
+      "result": "negative/empty-memberships.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Clear inventory.roots",
+      "invalidInvariant": "nonempty memberships"
+    },
+    {
+      "id": "root-membership-mismatch",
+      "result": "negative/root-membership-mismatch.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Remove root.paths member only",
+      "invalidInvariant": "bidirectional membership equivalence"
+    },
+    {
+      "id": "orphan-reference",
+      "result": "negative/orphan-reference.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Add reference with no inventory record",
+      "invalidInvariant": "every reference retains record"
+    },
+    {
+      "id": "reference-membership-loss",
+      "result": "negative/reference-membership-loss.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Add desktop-only wrapper reference to installer wrapper",
+      "invalidInvariant": "references inherit memberships"
+    },
+    {
+      "id": "unreachable-path",
+      "result": "negative/unreachable-path.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Remove sole edge to bash2 from desktop wrapper",
+      "invalidInvariant": "root.paths equals graph reachability"
+    },
+    {
+      "id": "null-complete-output",
+      "result": "negative/null-complete-output.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set complete root outputPath null",
+      "invalidInvariant": "null output requires empty paths/incomplete"
+    },
+    {
+      "id": "gap-in-complete-root",
+      "result": "negative/gap-in-complete-root.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Add enumeration gap to complete root",
+      "invalidInvariant": "complete enumeration has no gaps"
+    },
+    {
+      "id": "incomplete-root-no-gap",
+      "result": "negative/incomplete-root-no-gap.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set root enumeration incomplete",
+      "invalidInvariant": "incomplete enumeration requires gap"
+    },
+    {
+      "id": "invalid-gap-code",
+      "result": "negative/invalid-gap-code.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Add metadata code as enumeration gap",
+      "invalidInvariant": "Gap code restricted to enumeration codes"
+    },
+    {
+      "id": "gap-path-outside-root",
+      "result": "negative/gap-path-outside-root.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Add gap path not in root.paths",
+      "invalidInvariant": "nonnull Gap path is affected membership"
+    },
+    {
+      "id": "package-without-identity",
+      "result": "negative/package-without-identity.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set package identity null",
+      "invalidInvariant": "package requires Identity"
+    },
+    {
+      "id": "wrapper-with-identity",
+      "result": "negative/wrapper-with-identity.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Give wrapper package Identity",
+      "invalidInvariant": "wrapper fields nullable exact classification"
+    },
+    {
+      "id": "wrapper-not-selected",
+      "result": "negative/wrapper-not-selected.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Change selected wrapper root.outputPath to ssh",
+      "invalidInvariant": "wrapper exact selected buildEnv association"
+    },
+    {
+      "id": "initramfs-wrapper",
+      "result": "negative/initramfs-wrapper.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Classify initramfs package as wrapper",
+      "invalidInvariant": "initramfs is never supported generated wrapper"
+    },
+    {
+      "id": "query-with-reason",
+      "result": "negative/query-with-reason.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Add reason to queried package",
+      "invalidInvariant": "queried reason null"
+    },
+    {
+      "id": "unknown-with-identity",
+      "result": "negative/unknown-with-identity.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/incomplete-metadata-missing.json",
+      "mutation": "Give unknown Identity",
+      "invalidInvariant": "unknown identity null"
+    },
+    {
+      "id": "unmapped-but-map-exists",
+      "result": "negative/unmapped-but-map-exists.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/incomplete-unmapped-cpe.json",
+      "mutation": "Rename unmapped busybox to bash",
+      "invalidInvariant": "unmapped requires absent map"
+    },
+    {
+      "id": "skip-wrong-detail",
+      "result": "negative/skip-wrong-detail.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/incomplete-explicit-skip.json",
+      "mutation": "Change skip detail",
+      "invalidInvariant": "exact unchanged curated skip reason"
+    },
+    {
+      "id": "budget-with-null-cpe",
+      "result": "negative/budget-with-null-cpe.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/incomplete-not-queried-budget.json",
+      "mutation": "Set pending query cpe null",
+      "invalidInvariant": "budget retains mapped query/cpe"
+    },
+    {
+      "id": "missing-limitation",
+      "result": "negative/missing-limitation.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Remove manifest exclusion limitation",
+      "invalidInvariant": "exact deduplicated limitation union"
+    },
+    {
+      "id": "extra-limitation",
+      "result": "negative/extra-limitation.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Append unrelated limitation",
+      "invalidInvariant": "exact limitation union no extras"
+    },
+    {
+      "id": "duplicate-limitation",
+      "result": "negative/duplicate-limitation.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Repeat limitation",
+      "invalidInvariant": "limitations is keyed set"
+    },
+    {
+      "id": "wrong-unscored-count",
+      "result": "negative/wrong-unscored-count.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Increment unscoredCveCount",
+      "invalidInvariant": "unscored count length"
+    },
+    {
+      "id": "unscored-unqueried-cpe",
+      "result": "negative/unscored-unqueried-cpe.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Replace unscored CPE with absent query",
+      "invalidInvariant": "unscored only actually queried cpes"
+    },
+    {
+      "id": "unscored-finding-overlap",
+      "result": "negative/unscored-finding-overlap.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Append finding cpe/CVE as unscored",
+      "invalidInvariant": "no finding/unscored pair overlap"
+    },
+    {
+      "id": "duplicate-unscored",
+      "result": "negative/duplicate-unscored.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Repeat unscored pair",
+      "invalidInvariant": "unscored keyed set"
+    },
+    {
+      "id": "finding-no-source",
+      "result": "negative/finding-no-source.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Clear sources",
+      "invalidInvariant": "finding at least one source"
+    },
+    {
+      "id": "finding-unqueried-source",
+      "result": "negative/finding-unqueried-source.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Point nix source at wrapper",
+      "invalidInvariant": "source must link queried inventory"
+    },
+    {
+      "id": "finding-wrong-package",
+      "result": "negative/finding-wrong-package.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Rename finding package bash",
+      "invalidInvariant": "all source package/cpe agreement"
+    },
+    {
+      "id": "finding-wrong-paths",
+      "result": "negative/finding-wrong-paths.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Clear finding paths",
+      "invalidInvariant": "exact nix-source paths"
+    },
+    {
+      "id": "finding-wrong-roots",
+      "result": "negative/finding-wrong-roots.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Clear finding roots",
+      "invalidInvariant": "exact source membership union"
+    },
+    {
+      "id": "duplicate-finding",
+      "result": "negative/duplicate-finding.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Repeat finding record",
+      "invalidInvariant": "finding composite-key uniqueness"
+    },
+    {
+      "id": "duplicate-source",
+      "result": "negative/duplicate-source.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Repeat source",
+      "invalidInvariant": "sources keyed set"
+    },
+    {
+      "id": "manifest-source-has-path",
+      "result": "negative/manifest-source-has-path.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set manifest source path",
+      "invalidInvariant": "manifest Source.path null"
+    },
+    {
+      "id": "nix-source-has-manifest-id",
+      "result": "negative/nix-source-has-manifest-id.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set nix source manifestId",
+      "invalidInvariant": "nix Source.manifestId null"
+    },
+    {
+      "id": "wrong-finding-url",
+      "result": "negative/wrong-finding-url.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Change URL host",
+      "invalidInvariant": "exact NVD detail URL"
+    },
+    {
+      "id": "bad-cve-id",
+      "result": "negative/bad-cve-id.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Use invalid CVE ID",
+      "invalidInvariant": "V syntax"
+    },
+    {
+      "id": "score-below-threshold",
+      "result": "negative/score-below-threshold.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set score6.9",
+      "invalidInvariant": "number score[7,10]"
+    },
+    {
+      "id": "score-above-ten",
+      "result": "negative/score-above-ten.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set score10.1",
+      "invalidInvariant": "number score[7,10]"
+    },
+    {
+      "id": "score-coerced-string",
+      "result": "negative/score-coerced-string.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set score string7",
+      "invalidInvariant": "no coerced types"
+    },
+    {
+      "id": "severity-score-mismatch",
+      "result": "negative/severity-score-mismatch.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set HIGH score9",
+      "invalidInvariant": "HIGH [7,9)"
+    },
+    {
+      "id": "critical-score-mismatch",
+      "result": "negative/critical-score-mismatch.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set CRITICAL for score7",
+      "invalidInvariant": "CRITICAL [9,10]"
+    },
+    {
+      "id": "unknown-schema",
+      "result": "negative/unknown-schema.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set schemaVersion2",
+      "invalidInvariant": "schemaVersion exactly numeric1"
+    },
+    {
+      "id": "schema-string",
+      "result": "negative/schema-string.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set schemaVersion string1",
+      "invalidInvariant": "no coerced types"
+    },
+    {
+      "id": "wrong-scope",
+      "result": "negative/wrong-scope.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Change scope",
+      "invalidInvariant": "exact locked scope"
+    },
+    {
+      "id": "extra-field",
+      "result": "negative/extra-field.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Add top-level timestamp",
+      "invalidInvariant": "no extra keys"
+    },
+    {
+      "id": "missing-coverage",
+      "result": "negative/missing-coverage.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Delete coverage",
+      "invalidInvariant": "all Result keys required"
+    },
+    {
+      "id": "missing-nullable-key",
+      "result": "negative/missing-nullable-key.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Delete inventory.deriver",
+      "invalidInvariant": "nullable never omitted"
+    },
+    {
+      "id": "invalid-store-path",
+      "result": "negative/invalid-store-path.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Replace inventory.path with invalid hash",
+      "invalidInvariant": "P exact store-path syntax"
+    },
+    {
+      "id": "invalid-deriver",
+      "result": "negative/invalid-deriver.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Use non-drv store path for deriver",
+      "invalidInvariant": "derivers end .drv"
+    },
+    {
+      "id": "control-string",
+      "result": "negative/control-string.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Inject control into Identity.pname",
+      "invalidInvariant": "S excludes controls"
+    },
+    {
+      "id": "empty-string",
+      "result": "negative/empty-string.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set Identity.output empty",
+      "invalidInvariant": "S nonempty"
+    },
+    {
+      "id": "noninteger-count",
+      "result": "negative/noninteger-count.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set global.inventory8.5",
+      "invalidInvariant": "N integer"
+    },
+    {
+      "id": "negative-count",
+      "result": "negative/negative-count.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set global.unknown -1",
+      "invalidInvariant": "N nonnegative"
+    },
+    {
+      "id": "unsafe-count",
+      "result": "negative/unsafe-count.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set inventory count9007199254740992",
+      "invalidInvariant": "N <=9007199254740991"
+    },
+    {
+      "id": "invalid-enum",
+      "result": "negative/invalid-enum.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set metadataSource basename",
+      "invalidInvariant": "enum no unrecognized values"
+    },
+    {
+      "id": "array-shape",
+      "result": "negative/array-shape.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Set manifest object instead of array",
+      "invalidInvariant": "arrays must be arrays"
+    },
+    {
+      "id": "duplicate-reference",
+      "result": "negative/duplicate-reference.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Repeat reference",
+      "invalidInvariant": "references set"
+    },
+    {
+      "id": "duplicate-root-path",
+      "result": "negative/duplicate-root-path.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Repeat root.paths member",
+      "invalidInvariant": "root.paths set"
+    },
+    {
+      "id": "duplicate-json-key",
+      "result": "negative/duplicate-json-key.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Repeat schemaVersion object key",
+      "invalidInvariant": "duplicate JSON keys forbidden"
+    },
+    {
+      "id": "nonfinite-number",
+      "result": "negative/nonfinite-number.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": false,
+      "base": "positive/complete-findings.json",
+      "mutation": "Replace score token with1e999",
+      "invalidInvariant": "non-finite numbers forbidden"
+    },
+    {
+      "id": "complete-version-map-miss",
+      "result": "positive/complete-version-map-miss.json",
+      "manifest": "inputs/manifest.json",
+      "cpeMap": "inputs/cpe-map.json",
+      "accept": true,
+      "outcome": "complete",
+      "expectedScannerExit": 0
+    }
+  ]
+}

@@ -1,0 +1,868 @@
+{
+  "schemaVersion": 1,
+  "outcome": "complete",
+  "scope": "locked-aarch64-output-references",
+  "roots": [
+    {
+      "id": "desktopProfile",
+      "surface": "system-runtime",
+      "outputPath": "/nix/store/00000000000000000000000000000001-synthetic-desktop-wrapper",
+      "enumeration": "complete",
+      "paths": [
+        "/nix/store/00000000000000000000000000000001-synthetic-desktop-wrapper",
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "initramfsBusybox",
+      "surface": "initramfs",
+      "outputPath": "/nix/store/00000000000000000000000000000006-synthetic-openssl-static",
+      "enumeration": "complete",
+      "paths": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000006-synthetic-openssl-static"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "installerBuildTools",
+      "surface": "installer-image-build-payload",
+      "outputPath": "/nix/store/00000000000000000000000000000002-synthetic-build-wrapper",
+      "enumeration": "complete",
+      "paths": [
+        "/nix/store/00000000000000000000000000000002-synthetic-build-wrapper",
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "installerProfile",
+      "surface": "system-runtime",
+      "outputPath": "/nix/store/00000000000000000000000000000003-synthetic-installer-wrapper",
+      "enumeration": "complete",
+      "paths": [
+        "/nix/store/00000000000000000000000000000003-synthetic-installer-wrapper",
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "minimalProfile",
+      "surface": "system-runtime",
+      "outputPath": "/nix/store/00000000000000000000000000000004-synthetic-minimal-wrapper",
+      "enumeration": "complete",
+      "paths": [
+        "/nix/store/00000000000000000000000000000004-synthetic-minimal-wrapper",
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "gaps": []
+    }
+  ],
+  "inventory": [
+    {
+      "path": "/nix/store/00000000000000000000000000000001-synthetic-desktop-wrapper",
+      "roots": [
+        "desktopProfile"
+      ],
+      "references": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "deriver": null,
+      "kind": "profile-wrapper",
+      "identity": null,
+      "disposition": "profile-wrapper",
+      "cpe": null,
+      "queriedVersion": null,
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000002-synthetic-build-wrapper",
+      "roots": [
+        "installerBuildTools"
+      ],
+      "references": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "deriver": null,
+      "kind": "profile-wrapper",
+      "identity": null,
+      "disposition": "profile-wrapper",
+      "cpe": null,
+      "queriedVersion": null,
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000003-synthetic-installer-wrapper",
+      "roots": [
+        "installerProfile"
+      ],
+      "references": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "deriver": null,
+      "kind": "profile-wrapper",
+      "identity": null,
+      "disposition": "profile-wrapper",
+      "cpe": null,
+      "queriedVersion": null,
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000004-synthetic-minimal-wrapper",
+      "roots": [
+        "minimalProfile"
+      ],
+      "references": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+        "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+        "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3"
+      ],
+      "deriver": null,
+      "kind": "profile-wrapper",
+      "identity": null,
+      "disposition": "profile-wrapper",
+      "cpe": null,
+      "queriedVersion": null,
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1",
+      "roots": [
+        "desktopProfile",
+        "initramfsBusybox",
+        "installerBuildTools",
+        "installerProfile",
+        "minimalProfile"
+      ],
+      "references": [],
+      "deriver": "/nix/store/00000000000000000000000000000009-synthetic-metadata.drv",
+      "kind": "package",
+      "identity": {
+        "pname": "openssh",
+        "version": "9.9p1",
+        "output": "out",
+        "metadataSource": "evaluated"
+      },
+      "disposition": "queried",
+      "cpe": "cpe:2.3:a:openbsd:openssh:9.9:p1",
+      "queriedVersion": "9.9:p1",
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000006-synthetic-openssl-static",
+      "roots": [
+        "initramfsBusybox"
+      ],
+      "references": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1"
+      ],
+      "deriver": "/nix/store/00000000000000000000000000000009-synthetic-metadata.drv",
+      "kind": "package",
+      "identity": {
+        "pname": "openssl",
+        "version": "3.3.2",
+        "output": "static",
+        "metadataSource": "structured-deriver"
+      },
+      "disposition": "queried",
+      "cpe": "cpe:2.3:a:openssl:openssl:3.3.2",
+      "queriedVersion": "3.3.2",
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000007-synthetic-bash-5.2.32",
+      "roots": [
+        "desktopProfile",
+        "installerBuildTools",
+        "installerProfile",
+        "minimalProfile"
+      ],
+      "references": [],
+      "deriver": "/nix/store/00000000000000000000000000000009-synthetic-metadata.drv",
+      "kind": "package",
+      "identity": {
+        "pname": "bash",
+        "version": "5.2.32",
+        "output": "out",
+        "metadataSource": "deriver"
+      },
+      "disposition": "queried",
+      "cpe": "cpe:2.3:a:gnu:bash:5.2.32",
+      "queriedVersion": "5.2.32",
+      "reason": null
+    },
+    {
+      "path": "/nix/store/00000000000000000000000000000008-synthetic-bash-5.3",
+      "roots": [
+        "desktopProfile",
+        "installerBuildTools",
+        "installerProfile",
+        "minimalProfile"
+      ],
+      "references": [],
+      "deriver": "/nix/store/00000000000000000000000000000009-synthetic-metadata.drv",
+      "kind": "package",
+      "identity": {
+        "pname": "bash",
+        "version": "5.3",
+        "output": "out",
+        "metadataSource": "evaluated"
+      },
+      "disposition": "queried",
+      "cpe": "cpe:2.3:a:gnu:bash:5.3",
+      "queriedVersion": "5.3",
+      "reason": null
+    }
+  ],
+  "manifest": [
+    {
+      "id": "/base_packages/bash",
+      "package": "bash",
+      "pinnedVersion": "5.2.32",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:bash:5.2.32",
+      "queriedVersion": "5.2.32",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/bison",
+      "package": "bison",
+      "pinnedVersion": "3.8.2",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:bison:3.8.2",
+      "queriedVersion": "3.8.2",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/coreutils",
+      "package": "coreutils",
+      "pinnedVersion": "9.5",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:coreutils:9.5",
+      "queriedVersion": "9.5",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/dhcpcd",
+      "package": "dhcpcd",
+      "pinnedVersion": "10.1.0",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:dhcpcd_project:dhcpcd:10.1.0",
+      "queriedVersion": "10.1.0",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/diffutils",
+      "package": "diffutils",
+      "pinnedVersion": "3.10",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:diffutils:3.10",
+      "queriedVersion": "3.10",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/e2fsprogs",
+      "package": "e2fsprogs",
+      "pinnedVersion": "1.47.1",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:e2fsprogs_project:e2fsprogs:1.47.1",
+      "queriedVersion": "1.47.1",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/expat",
+      "package": "expat",
+      "pinnedVersion": "2.6.4",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:libexpat_project:libexpat:2.6.4",
+      "queriedVersion": "2.6.4",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/file",
+      "package": "file",
+      "pinnedVersion": "5.45",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:file_project:file:5.45",
+      "queriedVersion": "5.45",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/findutils",
+      "package": "findutils",
+      "pinnedVersion": "4.10.0",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:findutils:4.10.0",
+      "queriedVersion": "4.10.0",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/flex",
+      "package": "flex",
+      "pinnedVersion": "2.6.4",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:flex_project:flex:2.6.4",
+      "queriedVersion": "2.6.4",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/gawk",
+      "package": "gawk",
+      "pinnedVersion": "5.3.1",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:gawk:5.3.1",
+      "queriedVersion": "5.3.1",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/gperf",
+      "package": "gperf",
+      "pinnedVersion": "3.1",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:gperf:3.1",
+      "queriedVersion": "3.1",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/grep",
+      "package": "grep",
+      "pinnedVersion": "3.11",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:grep:3.11",
+      "queriedVersion": "3.11",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/gzip",
+      "package": "gzip",
+      "pinnedVersion": "1.13",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:gzip:1.13",
+      "queriedVersion": "1.13",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/iproute2",
+      "package": "iproute2",
+      "pinnedVersion": "6.10.0",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:kernel:iproute2:6.10.0",
+      "queriedVersion": "6.10.0",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/kmod",
+      "package": "kmod",
+      "pinnedVersion": "31",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:kernel:kmod:31",
+      "queriedVersion": "31",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/less",
+      "package": "less",
+      "pinnedVersion": "661",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:less:661",
+      "queriedVersion": "661",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/libxcrypt",
+      "package": "libxcrypt",
+      "pinnedVersion": "4.4.36",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:libxcrypt_project:libxcrypt:4.4.36",
+      "queriedVersion": "4.4.36",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/m4",
+      "package": "m4",
+      "pinnedVersion": "1.4.20",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:m4:1.4.20",
+      "queriedVersion": "1.4.20",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/make",
+      "package": "make",
+      "pinnedVersion": "4.4.1",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:make:4.4.1",
+      "queriedVersion": "4.4.1",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/ncurses",
+      "package": "ncurses",
+      "pinnedVersion": "6.5",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:ncurses:6.5",
+      "queriedVersion": "6.5",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/openssh",
+      "package": "openssh",
+      "pinnedVersion": "9.9p1",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:openbsd:openssh:9.9:p1",
+      "queriedVersion": "9.9:p1",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/openssl",
+      "package": "openssl",
+      "pinnedVersion": "3.3.2",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:openssl:openssl:3.3.2",
+      "queriedVersion": "3.3.2",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/patch",
+      "package": "patch",
+      "pinnedVersion": "2.7.6",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:patch:2.7.6",
+      "queriedVersion": "2.7.6",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/perl",
+      "package": "perl",
+      "pinnedVersion": "5.38.2",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:perl:perl:5.38.2",
+      "queriedVersion": "5.38.2",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/pkgconf",
+      "package": "pkgconf",
+      "pinnedVersion": "2.3.0",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:pkgconf:pkgconf:2.3.0",
+      "queriedVersion": "2.3.0",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/python",
+      "package": "python",
+      "pinnedVersion": "3.12.5",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:python:python:3.12.5",
+      "queriedVersion": "3.12.5",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/readline",
+      "package": "readline",
+      "pinnedVersion": "8.2",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:readline:8.2",
+      "queriedVersion": "8.2",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/sed",
+      "package": "sed",
+      "pinnedVersion": "4.9",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:sed:4.9",
+      "queriedVersion": "4.9",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/shadow",
+      "package": "shadow",
+      "pinnedVersion": "4.16.0",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:shadow_project:shadow:4.16.0",
+      "queriedVersion": "4.16.0",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/tar",
+      "package": "tar",
+      "pinnedVersion": "1.35",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:tar:1.35",
+      "queriedVersion": "1.35",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/util-linux",
+      "package": "util-linux",
+      "pinnedVersion": "2.40.2",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:kernel:util-linux:2.40.2",
+      "queriedVersion": "2.40.2",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/vim",
+      "package": "vim",
+      "pinnedVersion": "9.1.0707",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:vim:vim:9.1.0707",
+      "queriedVersion": "9.1.0707",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/xz",
+      "package": "xz",
+      "pinnedVersion": "5.6.3",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:tukaani:xz:5.6.3",
+      "queriedVersion": "5.6.3",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/base_packages/zlib",
+      "package": "zlib",
+      "pinnedVersion": "1.3.1",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:zlib:zlib:1.3.1",
+      "queriedVersion": "1.3.1",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/bootloader/grub",
+      "package": "grub",
+      "pinnedVersion": "2.12",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:grub:2.12",
+      "queriedVersion": "2.12",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/init_and_session/eudev",
+      "package": "eudev",
+      "pinnedVersion": "3.2.14",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:eudev_project:eudev:3.2.14",
+      "queriedVersion": "3.2.14",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/init_and_session/sysvinit",
+      "package": "sysvinit",
+      "pinnedVersion": "3.10",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:sysvinit_project:sysvinit:3.10",
+      "queriedVersion": "3.10",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/kernel",
+      "package": "kernel",
+      "pinnedVersion": "6.12.20",
+      "effectiveVersion": null,
+      "queriedVersion": null,
+      "cpe": null,
+      "disposition": "excluded",
+      "reason": {
+        "code": "manifest-exclusion",
+        "detail": "NVD kernel CVE ingestion is incomplete; kernel CVEs flow via Renovate + kernel.org releases (documented limitation)"
+      }
+    },
+    {
+      "id": "/nix/binary_version",
+      "package": "nix",
+      "pinnedVersion": "2.24.10",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:nixos:nix:2.24.10",
+      "queriedVersion": "2.24.10",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/toolchain/binutils",
+      "package": "binutils",
+      "pinnedVersion": "2.43.1",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:binutils:2.43.1",
+      "queriedVersion": "2.43.1",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/toolchain/gcc",
+      "package": "gcc",
+      "pinnedVersion": "14.2.0",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:gcc:14.2.0",
+      "queriedVersion": "14.2.0",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/toolchain/gcc_prereqs/gmp",
+      "package": "gmp",
+      "pinnedVersion": "6.3.0",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gmplib:gmp:6.3.0",
+      "queriedVersion": "6.3.0",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/toolchain/gcc_prereqs/isl",
+      "package": "isl",
+      "pinnedVersion": "0.27",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:isl_project:isl:0.27",
+      "queriedVersion": "0.27",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/toolchain/gcc_prereqs/mpc",
+      "package": "mpc",
+      "pinnedVersion": "1.3.1",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:mpc:1.3.1",
+      "queriedVersion": "1.3.1",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/toolchain/gcc_prereqs/mpfr",
+      "package": "mpfr",
+      "pinnedVersion": "4.2.1",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:mpfr:mpfr:4.2.1",
+      "queriedVersion": "4.2.1",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/toolchain/glibc",
+      "package": "glibc",
+      "pinnedVersion": "2.40",
+      "effectiveVersion": null,
+      "cpe": "cpe:2.3:a:gnu:glibc:2.40",
+      "queriedVersion": "2.40",
+      "disposition": "queried",
+      "reason": null
+    },
+    {
+      "id": "/toolchain/linux_headers",
+      "package": "linux_headers",
+      "pinnedVersion": "6.12.20",
+      "effectiveVersion": null,
+      "queriedVersion": null,
+      "cpe": null,
+      "disposition": "excluded",
+      "reason": {
+        "code": "manifest-exclusion",
+        "detail": "headers-only package with no runtime exposure"
+      }
+    }
+  ],
+  "findings": [
+    {
+      "cveId": "CVE-2026-10001",
+      "package": "openssh",
+      "version": "9.9:p1",
+      "score": 7,
+      "severity": "HIGH",
+      "url": "https://nvd.nist.gov/vuln/detail/CVE-2026-10001",
+      "sources": [
+        {
+          "type": "manifest",
+          "manifestId": "/base_packages/openssh",
+          "path": null
+        },
+        {
+          "type": "nix",
+          "manifestId": null,
+          "path": "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1"
+        }
+      ],
+      "roots": [
+        "desktopProfile",
+        "initramfsBusybox",
+        "installerBuildTools",
+        "installerProfile",
+        "minimalProfile"
+      ],
+      "paths": [
+        "/nix/store/00000000000000000000000000000005-synthetic-openssh-9.9p1"
+      ]
+    }
+  ],
+  "coverage": {
+    "complete": true,
+    "perRoot": [
+      {
+        "id": "desktopProfile",
+        "counts": {
+          "inventory": 4,
+          "identified": 3,
+          "queried": 3,
+          "wrappers": 1,
+          "unknown": 0,
+          "unmapped": 0,
+          "skipped": 0,
+          "unqueried": 0
+        }
+      },
+      {
+        "id": "initramfsBusybox",
+        "counts": {
+          "inventory": 2,
+          "identified": 2,
+          "queried": 2,
+          "wrappers": 0,
+          "unknown": 0,
+          "unmapped": 0,
+          "skipped": 0,
+          "unqueried": 0
+        }
+      },
+      {
+        "id": "installerBuildTools",
+        "counts": {
+          "inventory": 4,
+          "identified": 3,
+          "queried": 3,
+          "wrappers": 1,
+          "unknown": 0,
+          "unmapped": 0,
+          "skipped": 0,
+          "unqueried": 0
+        }
+      },
+      {
+        "id": "installerProfile",
+        "counts": {
+          "inventory": 4,
+          "identified": 3,
+          "queried": 3,
+          "wrappers": 1,
+          "unknown": 0,
+          "unmapped": 0,
+          "skipped": 0,
+          "unqueried": 0
+        }
+      },
+      {
+        "id": "minimalProfile",
+        "counts": {
+          "inventory": 4,
+          "identified": 3,
+          "queried": 3,
+          "wrappers": 1,
+          "unknown": 0,
+          "unmapped": 0,
+          "skipped": 0,
+          "unqueried": 0
+        }
+      }
+    ],
+    "global": {
+      "inventory": 8,
+      "identified": 4,
+      "queried": 4,
+      "wrappers": 4,
+      "unknown": 0,
+      "unmapped": 0,
+      "skipped": 0,
+      "unqueried": 0
+    },
+    "manifest": {
+      "expected": 48,
+      "queried": 46,
+      "skipped": 0,
+      "excluded": 2
+    },
+    "limitations": [
+      {
+        "code": "manifest-exclusion",
+        "root": null,
+        "path": null,
+        "manifestId": "/kernel",
+        "detail": "NVD kernel CVE ingestion is incomplete; kernel CVEs flow via Renovate + kernel.org releases (documented limitation)"
+      },
+      {
+        "code": "manifest-exclusion",
+        "root": null,
+        "path": null,
+        "manifestId": "/toolchain/linux_headers",
+        "detail": "headers-only package with no runtime exposure"
+      },
+      {
+        "code": "manifest-exclusion",
+        "root": null,
+        "path": null,
+        "manifestId": "/kernel",
+        "detail": "NVD kernel CVE ingestion is incomplete; kernel CVEs flow via Renovate + kernel.org releases (documented limitation)"
+      }
+    ],
+    "unscored": [
+      {
+        "cpe": "cpe:2.3:a:gnu:bash:5.2.32",
+        "cveId": "CVE-2026-10002"
+      }
+    ],
+    "unscoredCveCount": 1
+  }
+}
